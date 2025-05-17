@@ -98,7 +98,7 @@ npm start
 
 ## Contributing
 
-1. Create feature branches from `develop` .
+1. Create feature branches from `develop` 
 2. Write tests for new features
 3. Run ALL tests locally before submitting PRs
 4. Submit PRs to the `develop` branch
