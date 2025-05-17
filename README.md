@@ -48,7 +48,7 @@ This repository uses Git LFS (Large File Storage) to handle large files. To work
 autotrader-marketplace/
 ├── backend/
 │   └── autotrader-backend/   # Spring Boot Java backend
-└── frontend/                 # Frontend (coming soon)
+└── frontend/                 # Frontend 
 ```
 
 ## Backend
@@ -77,7 +77,7 @@ Detailed API documentation is available in [backend/autotrader-backend/API_DOCUM
 
 - Java 21
 - Gradle
-- Node.js (for frontend, coming soon)
+- Node.js (for frontend)
 - PostgreSQL (for production)
 
 ### Running the Application
@@ -89,7 +89,7 @@ cd backend/autotrader-backend
 ./gradlew bootRun
 ```
 
-#### Frontend (coming soon)
+#### Frontend
 
 ```bash
 cd frontend
