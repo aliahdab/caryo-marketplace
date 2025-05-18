@@ -153,6 +153,25 @@ jobs:
         
         echo "Using custom Gradle home: $GRADLE_USER_HOME"
         
+        # Check for application.properties/yml and ensure database config is correct
+        echo "Checking application configuration..."
+        if [ -f "src/main/resources/application-dev.yml" ]; then
+          echo "Found application-dev.yml:"
+          cat src/main/resources/application-dev.yml | grep -A 10 datasource || echo "No datasource configuration found"
+        elif [ -f "src/main/resources/application-dev.properties" ]; then
+          echo "Found application-dev.properties:"
+          cat src/main/resources/application-dev.properties | grep datasource || echo "No datasource configuration found"
+        else
+          echo "No application-dev config found, checking main application config..."
+          if [ -f "src/main/resources/application.yml" ]; then
+            cat src/main/resources/application.yml | grep -A 10 datasource || echo "No datasource configuration found"
+          elif [ -f "src/main/resources/application.properties" ]; then
+            cat src/main/resources/application.properties | grep datasource || echo "No datasource configuration found"
+          else
+            echo "WARNING: No application configuration files found!"
+          fi
+        fi
+        
         # Try with no daemon mode first
         ./gradlew build -x test --no-daemon || {
           echo "First build attempt failed, trying with more diagnostics..."
@@ -167,43 +186,73 @@ jobs:
           ./gradlew build -x test --no-daemon --stacktrace --info
         }
         
-        # Start the application in the background with dev profile
-        nohup ./gradlew bootRun --no-daemon --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
+        # Start the application in the background with dev profile and additional properties
+        echo "Starting Spring Boot with enhanced debugging..."
+        nohup ./gradlew bootRun --no-daemon \
+          --args='--spring.profiles.active=dev --debug --logging.level.root=DEBUG --logging.level.org.springframework=DEBUG' \
+          > spring-boot.log 2>&1 &
         
         # Store the PID for later cleanup
         echo "SPRING_PID=$!" >> $GITHUB_ENV
         
         echo "Spring Boot application started with PID: $!"
         
-        # Wait for Spring Boot to become ready
+        # Show initial log output to help with debugging
+        sleep 5
+        echo "Initial Spring Boot startup log (first 20 lines):"
+        head -n 20 spring-boot.log || true
+        
+        # Wait for Spring Boot to become ready with enhanced diagnostics
         echo "Waiting for Spring Boot application to become ready..."
-        MAX_RETRIES=30
+        MAX_RETRIES=45  # Increased from 30 to give more time
         RETRY_COUNT=0
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
           echo "Checking Spring Boot health (attempt $((RETRY_COUNT+1))/$MAX_RETRIES)..."
           
-          # Try different health endpoints
-          if curl -s http://localhost:8080/actuator/health 2>/dev/null | grep -q "UP"; then
+          # Check process is still running
+          if ! ps -p $SPRING_PID > /dev/null; then
+            echo "ERROR: Spring Boot process is not running anymore! Checking logs..."
+            cat spring-boot.log
+            echo "Attempting to restart the application..."
+            nohup ./gradlew bootRun --no-daemon --args='--spring.profiles.active=dev --debug' > spring-boot.log 2>&1 &
+            echo "SPRING_PID=$!" >> $GITHUB_ENV
+            echo "New process started with PID: $!"
+            sleep 10
+            continue
+          fi
+          
+          # Try different health endpoints with verbose output
+          HEALTH_CHECK=$(curl -v http://localhost:8080/actuator/health 2>&1)
+          if echo "$HEALTH_CHECK" | grep -q "UP"; then
             echo "Spring Boot application is ready! (via actuator)"
             break
-          elif curl -s http://localhost:8080/health 2>/dev/null | grep -q "UP"; then
-            echo "Spring Boot application is ready! (via health)"
-            break
-          elif curl -s http://localhost:8080/status 2>/dev/null | grep -q "UP"; then
-            echo "Spring Boot application is ready! (via status)"
-            break
-          elif curl -s -I -o /dev/null -w "%{http_code}" http://localhost:8080/ 2>/dev/null | grep -q "200\|302"; then
+          fi
+          
+          echo "Actuator health check response:"
+          echo "$HEALTH_CHECK" | tail -n 10
+          
+          OTHER_CHECK=$(curl -v http://localhost:8080/ 2>&1)
+          if echo "$OTHER_CHECK" | grep -q "HTTP/1.1 200\|HTTP/1.1 302"; then
             echo "Spring Boot application is ready! (via root path)"
             break
-          else
-            RETRY_COUNT=$((RETRY_COUNT+1))
-            if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-              echo "Spring Boot application failed to become ready in time. Showing logs..."
-              cat spring-boot.log
-              # Don't exit here, try to run the tests anyway
-            fi
-            sleep 10
           fi
+          
+          # Show current log state periodically
+          if [ $((RETRY_COUNT % 5)) -eq 0 ]; then
+            echo "Current Spring Boot log tail:"
+            tail -n 20 spring-boot.log
+            echo "Checking if server is listening on port 8080..."
+            netstat -tulpn 2>/dev/null | grep 8080 || echo "No process listening on port 8080"
+          fi
+          
+          RETRY_COUNT=$((RETRY_COUNT+1))
+          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "Spring Boot application failed to become ready in time."
+            echo "Full application log:"
+            cat spring-boot.log
+            echo "Continuing anyway to see if the tests can connect..."
+          fi
+          sleep 10
         done
 
     - name: Install Newman
