@@ -1,11 +1,17 @@
 name: CI/CD Pipeline
 
 on:
+  # For direct pushes to main (e.g. merges), only run the deployment steps
   push:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  # For PRs, run the full test suite
   pull_request:
     branches: [ main ]
-    # Add paths-ignore to prevent duplicate runs when only documentation or non-code files change
+    types: [opened, synchronize, reopened] # Be specific about which PR events trigger the workflow
     paths-ignore:
       - '**.md'
       - 'docs/**'
@@ -14,6 +20,8 @@ on:
 jobs:
   backend-build-and-test:
     runs-on: ubuntu-latest
+    # Only run this job for pull_request events to avoid duplication
+    if: github.event_name == 'pull_request'
 
     steps:
     - uses: actions/checkout@v4
@@ -67,6 +75,8 @@ jobs:
   postman-tests:
     runs-on: ubuntu-latest
     needs: [backend-build-and-test]
+    # Only run this job for pull_request events to avoid duplication
+    if: github.event_name == 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
@@ -152,6 +162,8 @@ jobs:
 
   frontend-build-and-test:
     runs-on: ubuntu-latest
+    # Only run this job for pull_request events to avoid duplication
+    if: github.event_name == 'pull_request'
     steps:
     - uses: actions/checkout@v4
       with:
@@ -166,8 +178,10 @@ jobs:
         # Default values for commands and report paths are used from the action itself
 
   docker-build:
-    runs-on: ubuntu-latest # Corrected typo: ubuntu-lates -> ubuntu-latest
-    needs: [backend-build-and-test, frontend-build-and-test, postman-tests] # Added postman-tests dependency
+    runs-on: ubuntu-latest
+    # When triggered by push to main, this job should run after backend/frontend tests
+    # when those are available. But for direct pushes to main (e.g., from merges),
+    # those jobs won't run, so we don't want any dependencies.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
@@ -201,8 +215,8 @@ jobs:
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/caryo-frontend:latest,${{ secrets.DOCKERHUB_USERNAME }}/caryo-frontend:${{ github.sha }}
 
   deploy:
-    runs-on: ubuntu-latest # Corrected typo: ubuntu-lates -> ubuntu-latest
-    needs: [docker-build]
+    runs-on: ubuntu-latest
+    needs: [docker-build]  # This is fine because docker-build will run for push events
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
