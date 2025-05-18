@@ -20,28 +20,27 @@ jobs:
         lfs: true # Explicitly enable LFS file download
 
     # Verify and fix Gradle wrapper if needed (for backend builds)
-    - name: Set permissions for Gradle directories
+    - name: Set up Gradle environment
       run: |
-        echo "Setting proper permissions for Gradle wrapper cache directories..."
-        # Create all necessary directories with proper permissions
-        sudo mkdir -p /home/runner/.gradle/wrapper/dists
-        sudo mkdir -p /home/runner/.gradle/caches
-        sudo mkdir -p /home/runner/.gradle/daemon
+        echo "Setting up Gradle environment with proper permissions..."
         
-        # Set permissions for all Gradle directories
-        sudo chmod -R 777 /home/runner/.gradle
+        # Create a custom Gradle home directory in the workspace instead of /home/runner/.gradle
+        mkdir -p $GITHUB_WORKSPACE/gradle-home
+        echo "GRADLE_USER_HOME=$GITHUB_WORKSPACE/gradle-home" >> $GITHUB_ENV
         
-        # Ensure the runner user owns these directories
-        sudo chown -R $(whoami) /home/runner/.gradle
+        # Create necessary subdirectories
+        mkdir -p $GITHUB_WORKSPACE/gradle-home/wrapper/dists
+        mkdir -p $GITHUB_WORKSPACE/gradle-home/caches
+        mkdir -p $GITHUB_WORKSPACE/gradle-home/daemon
         
-        # List directory contents to verify permissions
-        echo "Checking permissions for Gradle directories:"
-        ls -la /home/runner/.gradle/
-        ls -la /home/runner/.gradle/wrapper/ || echo "wrapper directory not yet created"
+        # Set full permissions on the custom Gradle home
+        chmod -R 777 $GITHUB_WORKSPACE/gradle-home
         
-        # Check if we can write to the directory
-        echo "Testing write permissions..."
-        touch /home/runner/.gradle/test_write_permission && echo "Write permission test succeeded" || echo "Write permission test failed"
+        # List directory contents to verify setup
+        echo "Checking custom Gradle home setup:"
+        ls -la $GITHUB_WORKSPACE/gradle-home/
+        
+        echo "Custom Gradle home directory is ready at $GITHUB_WORKSPACE/gradle-home"
 
     - name: Verify Gradle Wrapper (if backend build is needed)
       working-directory: ./backend/autotrader-backend
@@ -148,27 +147,28 @@ jobs:
         echo "Setting permissions for project Gradle files..."
         chmod -R u+rwX,go+rX ./gradle
         
-        # Double-check Gradle home directory permissions right before building
-        sudo chmod -R 777 /home/runner/.gradle
+        # Create a gradle.properties file to enforce the custom Gradle home
+        echo "org.gradle.daemon=false" > gradle.properties
+        echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" >> gradle.properties
         
-        # Add debug info for potential troubleshooting
-        echo "Current Gradle distribution directory contents:"
-        ls -la /home/runner/.gradle/wrapper/dists/ || echo "No distributions downloaded yet"
+        echo "Using custom Gradle home: $GRADLE_USER_HOME"
         
-        # Build the application with debug output if it fails
-        ./gradlew build -x test --debug || {
-          echo "Gradle build failed, collecting debug information..."
-          echo "Gradle wrapper version:"
-          ./gradlew --version || true
-          echo "Checking Gradle distribution directory permissions again:"
-          sudo ls -la /home/runner/.gradle/wrapper/dists/ || echo "Cannot access distribution directory"
-          echo "Retrying with explicit permissions fix and debug flag..."
-          sudo chmod -R 777 /home/runner/.gradle
-          ./gradlew build -x test --debug --stacktrace
+        # Try with no daemon mode first
+        ./gradlew build -x test --no-daemon || {
+          echo "First build attempt failed, trying with more diagnostics..."
+          
+          # Check if Gradle home is accessible and writable
+          echo "Verifying Gradle home directory:"
+          ls -la $GRADLE_USER_HOME
+          touch $GRADLE_USER_HOME/test_write && echo "Write test passed" || echo "Write test failed"
+          
+          # Try with specific properties for troubleshooting
+          echo "Retrying with debug flags..."
+          ./gradlew build -x test --no-daemon --stacktrace --info
         }
         
         # Start the application in the background with dev profile
-        nohup ./gradlew bootRun --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
+        nohup ./gradlew bootRun --no-daemon --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
         
         # Store the PID for later cleanup
         echo "SPRING_PID=$!" >> $GITHUB_ENV
