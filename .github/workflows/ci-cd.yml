@@ -66,13 +66,38 @@ jobs:
 
   postman-tests:
     runs-on: ubuntu-latest
-    needs: [backend-build-and-test] # Ensure backend is built and potentially running if tests need a live service
+    needs: [backend-build-and-test]
 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch all history for all tags and branches
+          fetch-depth: 0 
           lfs: true
+
+      # Setup Docker Services (similar to integration-tests and postman-tests.yml)
+      - name: Setup Docker Services
+        uses: ./.github/actions/docker-services-setup
+        with:
+          docker-compose-file: "./backend/autotrader-backend/docker-compose.dev.yml"
+          services: "db minio createbuckets redis"
+          wait-time: '60'
+          db-container-name: "autotrader-backend-db-1" # From integration-tests.yml
+          db-user: "autotrader"
+          minio-container-name: "autotrader-backend-minio-1" # From integration-tests.yml
+          createbuckets-container-name: "autotrader-backend-createbuckets-1" # From integration-tests.yml
+          post-minio-ready-wait-seconds: '5' # Default from docker-services-setup
+
+      # Start Spring Boot application (similar to postman-tests.yml)
+      - name: Start Spring Boot Application
+        id: spring-boot # id is needed for cleanup
+        uses: ./.github/actions/spring-boot-setup
+        with:
+          working-directory: "./backend/autotrader-backend"
+          spring-profiles: "dev"
+          # debug-mode: 'true' # Optional: enable if needed for debugging CI runs
+          wait-retries: '45'
+          wait-time: '10'
+          health-check-path: "/actuator/health"
 
       - name: Run Postman Tests
         uses: ./.github/actions/postman-tests
@@ -90,6 +115,40 @@ jobs:
           name: postman-test-results
           path: newman/ # Assuming newman reports are saved here by the composite action
           if-no-files-found: ignore
+
+      # Cleanup (similar to postman-tests.yml)
+      - name: Cleanup test environment
+        if: always()
+        shell: bash
+        run: |
+          echo "Cleaning up test environment in CI/CD Postman job..."
+          
+          # Kill the Spring Boot process if it was started
+          SPRING_PID="${{ steps.spring-boot.outputs.pid }}"
+          if [ ! -z "$SPRING_PID" ]; then
+            echo "Stopping Spring Boot application (PID: $SPRING_PID)..."
+            kill $SPRING_PID || true
+            echo "Spring Boot logs (last 50 lines from CI/CD Postman job):"
+            LOG_FILE="./backend/autotrader-backend/spring-boot.log"
+            if [ -f "$LOG_FILE" ]; then
+              tail -n 50 "$LOG_FILE"
+            else
+              echo "Spring Boot log file not found at $LOG_FILE"
+            fi
+          else
+            echo "Spring Boot PID not found, skipping kill."
+          fi
+          
+          # Stop Docker services
+          DOCKER_COMPOSE_FILE="./backend/autotrader-backend/docker-compose.dev.yml"
+          if [ -f "$DOCKER_COMPOSE_FILE" ]; then
+            echo "Stopping Docker services using $DOCKER_COMPOSE_FILE..."
+            docker compose -f "$DOCKER_COMPOSE_FILE" down --volumes || echo "Docker compose down failed, continuing cleanup..."
+          else
+            echo "Docker compose file not found at $DOCKER_COMPOSE_FILE, skipping docker down."
+          fi
+          
+          echo "Cleanup complete for CI/CD Postman job."
 
   frontend-build-and-test:
     runs-on: ubuntu-latest
