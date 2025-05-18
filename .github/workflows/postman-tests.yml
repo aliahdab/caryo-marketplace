@@ -116,7 +116,21 @@ jobs:
     - name: Run Postman Collection
       run: |
         echo "Running Postman collection tests..."
-        newman run ./postman/Caryo_Marketplace_API_Tests.json \
+        # Determine which collection file to use
+        if [ -f "./postman/Caryo_Marketplace_API_Tests.json" ]; then
+          COLLECTION_PATH="./postman/Caryo_Marketplace_API_Tests.json"
+          echo "Using Caryo_Marketplace_API_Tests.json collection file"
+        elif [ -f "./backend/autotrader-backend/src/test/resources/postman/autotrader-api-collection.json" ]; then
+          COLLECTION_PATH="./backend/autotrader-backend/src/test/resources/postman/autotrader-api-collection.json"
+          echo "Using autotrader-api-collection.json collection file"
+        else
+          echo "ERROR: Postman collection file not found"
+          echo "Searching for collection files in project..."
+          find . -name "*.json" | grep -i -E "collection|postman|api[-_]test"
+          exit 1
+        fi
+        
+        newman run "$COLLECTION_PATH" \
           --environment ./postman/test_environment.json \
           --reporters cli,junit,htmlextra \
           --reporter-junit-export results/junit-report.xml \
