@@ -11,7 +11,7 @@ on:
       - '.github/actions/docker-services-setup/**'
       - '.github/actions/gradle-setup/**'
       - '.github/actions/spring-boot-setup/**'
-    branches: [ 'main', 'develop' ]
+    branches: [ 'develop' ]  # Only run on PRs to develop branch
 
 jobs:
   integration-tests:
