@@ -118,7 +118,7 @@ jobs:
       run: |
         echo "Running Postman collection tests..."
         newman run ./postman/Caryo_Marketplace_API_Tests.json \
-          --environment ./postman/test_environment.json \
+          --environment ./src/test/resources/postman/environment.json \
           --reporters cli,junit,htmlextra \
           --reporter-junit-export results/junit-report.xml \
           --reporter-htmlextra-export results/html-report.html
