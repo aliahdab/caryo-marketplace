@@ -4,16 +4,8 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - develop # Run on PRs targeting develop branch
-      - main # Also run on PRs targeting main branch
-    paths:
-      - 'backend/autotrader-backend/**'
-      - '.github/workflows/postman-tests.yml'
-      - '.github/actions/docker-services-setup/**'
-      - '.github/actions/gradle-setup/**'
-      - '.github/actions/spring-boot-setup/**'
-      - '.github/actions/postman-tests/**'
-      - 'postman/**'
+      - develop
+      - main
   schedule:
     - cron: '0 0 * * 1'  # Run weekly on Mondays at midnight
 
@@ -37,6 +29,7 @@ jobs:
         gradle-version: "8.5"
         cache: true
         
+    # Ensure Gradle Wrapper exists as in original file
     # Ensure Gradle Wrapper exists
     - name: Ensure Gradle Wrapper
       working-directory: ./backend/autotrader-backend
@@ -58,38 +51,12 @@ jobs:
             cp ../gradlew.bat ./
             chmod +x ./gradlew
           else
-            # Additional fallback - try to find wrapper elsewhere in the repo
-            echo "Searching for Gradle wrapper elsewhere in the repository..."
-            WRAPPER_JAR=$(find $(pwd) -name "gradle-wrapper.jar" | head -n 1)
-            if [ ! -z "$WRAPPER_JAR" ]; then
-              echo "Found Gradle wrapper at $WRAPPER_JAR"
-              WRAPPER_DIR=$(dirname "$WRAPPER_JAR")
-              mkdir -p ./gradle/wrapper/
-              cp "$WRAPPER_JAR" ./gradle/wrapper/
-              cp "$WRAPPER_DIR/gradle-wrapper.properties" ./gradle/wrapper/ || echo "No properties file found, may need manual configuration"
-              
-              # Look for gradlew script in the same directory
-              GRADLEW_DIR=$(dirname $(dirname "$WRAPPER_DIR"))
-              if [ -f "$GRADLEW_DIR/gradlew" ]; then
-                cp "$GRADLEW_DIR/gradlew" ./
-                cp "$GRADLEW_DIR/gradlew.bat" ./ || echo "No gradlew.bat found"
-                chmod +x ./gradlew
-              else
-                # Create a basic gradlew script as last resort
-                echo "Creating a basic gradlew script..."
-                echo '#!/bin/sh
-CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
-exec java -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"' > ./gradlew
-                chmod +x ./gradlew
-              fi
-            else
-              echo "ERROR: Could not generate or find Gradle wrapper!"
-              echo "Current directory structure:"
-              ls -la ./
-              echo "Parent directory structure:"
-              ls -la ../
-              exit 1
-            fi
+            echo "ERROR: Could not generate or find Gradle wrapper!"
+            echo "Current directory structure:"
+            ls -la ./
+            echo "Parent directory structure:"
+            ls -la ../
+            exit 1
           fi
         fi
         
@@ -102,7 +69,7 @@ exec java -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"' > .
           echo "ERROR: gradlew still not found after attempt to generate/copy!"
           exit 1
         fi
-        
+
     # Setup Docker Services
     - name: Setup Docker Services
       uses: ./.github/actions/docker-services-setup
@@ -122,31 +89,13 @@ exec java -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"' > .
         minio-root-user: "newuser"  # Custom MinIO user
         minio-root-password: "newpassword"  # Custom MinIO password
 
-    # Verify Docker services are running correctly
-    - name: Verify Docker Services
-      run: |
-        echo "Verifying Docker services are running correctly..."
-        docker ps
-        
-        echo "Checking database connection..."
-        docker exec autotrader-backend-db-1 pg_isready -U autotrader || echo "Database connection issues detected"
-        
-        echo "Checking MinIO service..."
-        curl -s -I http://localhost:9000 || echo "MinIO service not responding"
-        
-        echo "Checking Redis service..."
-        docker exec autotrader-backend-redis-1 redis-cli ping || echo "Redis service not responding"
-        
-        echo "Checking environment variables..."
-        env | grep -E 'MINIO|POSTGRES|REDIS|SPRING' || echo "No matching environment variables found"
-
     # Create application configuration override for CI environment
     - name: Create application-dev.yml for CI
       working-directory: ./backend/autotrader-backend
       run: |
         echo "Creating application-dev.yml configuration for CI environment..."
         mkdir -p src/main/resources
-        cat > src/main/resources/application-dev.yml <<EOL
+        cat > src/main/resources/application-dev.yml << EOF
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/autotrader
@@ -182,9 +131,7 @@ logging:
     org.hibernate: INFO
 server:
   port: 8080
-EOL
-        echo "Created application-dev.yml:"
-        cat src/main/resources/application-dev.yml
+EOF
 
     # Use the composite action for Spring Boot startup
     - name: Start Spring Boot Application
@@ -225,24 +172,17 @@ EOL
         results-directory: 'results'
         auto-detect-collection: 'false'
         
-    # Upload test results
-    - name: Upload test results
+    # Upload test results and logs
+    - name: Upload test results and logs
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: postman-test-results
-        path: results/**
-        
-    # Upload Spring Boot logs separately
-    - name: Upload Spring Boot logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: spring-boot-logs
+        name: test-artifacts
         path: |
+          results/**
           ./backend/autotrader-backend/spring-boot*.log
           ./backend/autotrader-backend/build/reports/**/*
-          
+
     # Generate diagnostic summary
     - name: Generate Diagnostic Summary
       if: always()
