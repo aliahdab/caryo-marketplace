@@ -11,24 +11,7 @@ on:
     branches: [ 'main', 'develop' ]
 
 jobs:
-  setup-docker-services:
-    uses: ./.github/workflows/reusable/docker-services-setup.yml
-    with:
-      docker-compose-file: "./backend/autotrader-backend/docker-compose.dev.yml"
-      services: "db minio createbuckets redis"
-      wait-time: 60
-      db-container-name: "db"
-      db-user: "autotrader"
-
-  setup-gradle:
-    uses: ./.github/workflows/reusable/gradle-setup.yml
-    with:
-      working-directory: "./backend/autotrader-backend"
-      java-version: "17"
-      cache: true
-      
   integration-tests:
-    needs: [setup-docker-services, setup-gradle]
     runs-on: ubuntu-latest
     timeout-minutes: 20  # Prevent hanging builds
 
@@ -36,6 +19,24 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Fetch all history for better change detection
+        
+    # Use the Gradle setup composite action
+    - name: Setup Gradle Environment
+      uses: ./.github/actions/gradle-setup
+      with:
+        working-directory: "./backend/autotrader-backend"
+        java-version: "17"
+        cache: true
+        
+    # Use the Docker services setup composite action
+    - name: Setup Docker Services
+      uses: ./.github/actions/docker-services-setup
+      with:
+        docker-compose-file: "./backend/autotrader-backend/docker-compose.dev.yml"
+        services: "db minio createbuckets redis"
+        wait-time: '60'
+        db-container-name: "db"
+        db-user: "autotrader"
 
     # Run the actual integration tests
     - name: Run Integration Tests

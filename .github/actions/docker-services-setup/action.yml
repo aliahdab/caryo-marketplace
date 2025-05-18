@@ -1,0 +1,111 @@
+name: "Docker Services Setup Action"
+description: "Sets up Docker services required for testing"
+
+inputs:
+  docker-compose-file:
+    description: "Path to the docker-compose file to use"
+    required: false
+    default: './backend/autotrader-backend/docker-compose.dev.yml'
+  down-flags:
+    description: "Flags to pass to docker-compose down"
+    required: false
+    default: "--volumes"
+  services:
+    description: "Space-separated list of services to start"
+    required: false
+    default: "db minio createbuckets redis"
+  wait-time:
+    description: "Time in seconds to wait for services to initialize"
+    required: false
+    default: '60'
+  db-container-name:
+    description: "Name of the database container"
+    required: false
+    default: "db"
+  db-user:
+    description: "Database user"
+    required: false
+    default: "autotrader"
+  minio-health-check:
+    description: "Whether to check MinIO health"
+    required: false
+    default: 'true'
+  minio-health-url:
+    description: "URL to check MinIO health"
+    required: false
+    default: "http://localhost:9000/minio/health/live"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Docker Compose
+      shell: bash
+      run: |
+        # Ensure Docker and Docker Compose are installed and available
+        docker --version
+        docker compose version
+        
+        # Clean up any existing containers
+        echo "Cleaning up any existing containers from previous runs..."
+        if [ -f "${{ inputs.docker-compose-file }}" ]; then
+          docker compose -f ${{ inputs.docker-compose-file }} down ${{ inputs.down-flags }} || true
+        fi
+
+    - name: Start required Docker services
+      shell: bash
+      run: |
+        echo "Starting required Docker services: ${{ inputs.services }}"
+        docker compose -f ${{ inputs.docker-compose-file }} up -d ${{ inputs.services }}
+        
+        # Give services time to initialize
+        echo "Waiting for services to initialize (${{ inputs.wait-time }} seconds)..."
+        sleep ${{ inputs.wait-time }}
+
+    - name: Check database health
+      shell: bash
+      run: |
+        echo "Checking PostgreSQL database health..."
+        max_retries=10
+        retries=0
+        
+        until docker exec ${{ inputs.db-container-name }} pg_isready -U ${{ inputs.db-user }} || [ $retries -eq $max_retries ]
+        do
+          echo "Waiting for PostgreSQL to be ready... ($retries/$max_retries)"
+          sleep 5
+          retries=$((retries+1))
+        done
+        
+        if [ $retries -eq $max_retries ]; then
+          echo "PostgreSQL database failed to start in time!"
+          docker logs ${{ inputs.db-container-name }}
+          exit 1
+        else
+          echo "PostgreSQL database is ready!"
+        fi
+        
+        # Show running containers
+        echo "Running Docker containers:"
+        docker ps
+
+    - name: Verify MinIO status
+      if: inputs.minio-health-check == 'true'
+      shell: bash
+      run: |
+        echo "Checking MinIO health status..."
+        max_retries=10
+        retries=0
+        
+        until curl -s ${{ inputs.minio-health-url }} | grep -q "healthy" || [ $retries -eq $max_retries ]
+        do
+          echo "Waiting for MinIO to be ready... ($retries/$max_retries)"
+          sleep 5
+          retries=$((retries+1))
+        done
+        
+        if [ $retries -eq $max_retries ]; then
+          echo "MinIO failed to start in time!"
+          docker logs minio
+          exit 1
+        else
+          echo "MinIO is ready!"
+        fi

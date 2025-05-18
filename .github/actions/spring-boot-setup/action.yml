@@ -1,0 +1,112 @@
+name: "Spring Boot Setup Action"
+description: "Builds and starts a Spring Boot application"
+
+inputs:
+  working-directory:
+    description: "Path to the Spring Boot application directory"
+    required: true
+  build-args:
+    description: "Gradle build arguments"
+    required: false
+    default: "build -x test"
+  spring-profiles:
+    description: "Spring profiles to activate"
+    required: false
+    default: "dev"
+  debug-mode:
+    description: "Whether to enable debug logging"
+    required: false
+    default: 'true'
+  wait-retries:
+    description: "Number of retries for health check"
+    required: false
+    default: '45'
+  wait-time:
+    description: "Time in seconds between retries"
+    required: false
+    default: '10'
+  health-check-path:
+    description: "Path for health check"
+    required: false
+    default: "/actuator/health"
+  skip-build:
+    description: "Whether to skip build step"
+    required: false
+    default: 'false'
+  server-port:
+    description: "Port for the Spring Boot server"
+    required: false
+    default: '8080'
+
+outputs:
+  pid:
+    description: "Process ID of the Spring Boot application"
+    value: ${{ steps.start-app.outputs.pid }}
+  log-file:
+    description: "Path to the log file"
+    value: ${{ inputs.working-directory }}/spring-boot.log
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build Spring Boot Application
+      if: inputs.skip-build != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "Building Spring Boot application..."
+        ./gradlew ${{ inputs.build-args }}
+
+    - name: Start Spring Boot Application
+      id: start-app
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "Starting Spring Boot application with profiles: ${{ inputs.spring-profiles }}"
+        
+        # Set debug mode if enabled
+        DEBUG_ARGS=""
+        if [ "${{ inputs.debug-mode }}" == "true" ]; then
+          DEBUG_ARGS="--debug"
+        fi
+        
+        # Start the application and send logs to a file
+        nohup ./gradlew bootRun \
+          -Pargs=--spring.profiles.active=${{ inputs.spring-profiles }} \
+          ${DEBUG_ARGS} > spring-boot.log 2>&1 &
+        
+        # Store the PID
+        APP_PID=$!
+        echo "Spring Boot app started with PID: ${APP_PID}"
+        echo "pid=${APP_PID}" >> $GITHUB_OUTPUT
+        
+        # Wait for application to start up
+        echo "Waiting for Spring Boot application to start up..."
+        for i in $(seq 1 ${{ inputs.wait-retries }}); do
+          echo "Health check attempt $i/${{ inputs.wait-retries }}..."
+          if curl -s http://localhost:${{ inputs.server-port }}${{ inputs.health-check-path }} | grep -q "UP"; then
+            echo "✅ Spring Boot application is up and running!"
+            break
+          fi
+          
+          # Check if the process is still running
+          if ! ps -p ${APP_PID} > /dev/null; then
+            echo "❌ Spring Boot application failed to start! Check logs:"
+            tail -n 50 spring-boot.log
+            exit 1
+          fi
+          
+          sleep ${{ inputs.wait-time }}
+          
+          # If we've reached the last retry, show the logs and fail
+          if [ "$i" -eq "${{ inputs.wait-retries }}" ]; then
+            echo "❌ Spring Boot application health check failed after ${{ inputs.wait-retries }} attempts!"
+            echo "Last 50 lines of application log:"
+            tail -n 50 spring-boot.log
+            exit 1
+          fi
+        done
+        
+        # Display server info
+        echo "Server running on port: ${{ inputs.server-port }}"
+        echo "Health check URL: http://localhost:${{ inputs.server-port }}${{ inputs.health-check-path }}"
