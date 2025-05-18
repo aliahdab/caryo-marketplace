@@ -99,25 +99,24 @@ runs:
       if: inputs.minio-health-check == 'true'
       shell: bash
       run: |
-        echo "Checking MinIO health status at ${{ inputs.minio-health-url }}..."
+        echo "Checking MinIO health status using mc ready command..."
         max_retries=12 
         retries=0
-        http_status=""
-        until [ "$http_status" == "200" ] || [ $retries -eq $max_retries ]
+        until docker exec ${{ inputs.minio-container-name }} mc ready localhost:9000 --quiet || [ $retries -eq $max_retries ]
         do
-          http_status=$(curl -f -s -o /dev/null -w \'\'%{http_code}\'\' ${{ inputs.minio-health-url }})
-          echo "Waiting for MinIO to be ready... ($retries/$max_retries). Status: $http_status"
+          echo "Waiting for MinIO to be ready... ($retries/$max_retries)."
+          docker logs ${{ inputs.minio-container-name }} --tail 20 # Show recent logs for debugging
           sleep 5
           retries=$((retries+1))
         done
         
-        if [ "$http_status" != "200" ]; then
-          echo "MinIO failed to start in time! Last HTTP status: $http_status"
+        if ! docker exec ${{ inputs.minio-container-name }} mc ready localhost:9000 --quiet; then
+          echo "MinIO failed to start in time!"
           echo "Attempting to get logs for MinIO container: ${{ inputs.minio-container-name }}"
           docker logs ${{ inputs.minio-container-name }}
           exit 1
         else
-          echo "MinIO is ready! HTTP status: 200"
+          echo "MinIO is ready!"
         fi
 
     - name: Check createbuckets service completion
