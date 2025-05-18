@@ -177,11 +177,43 @@ jobs:
         cache-dependency-path: './frontend/package.json'
         # Default values for commands and report paths are used from the action itself
 
+  # This job runs quick tests before building/deploying for pushes to main
+  main-quick-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        lfs: true
+    
+    # Setup Gradle for Backend
+    - name: Setup Gradle Environment
+      uses: ./.github/actions/gradle-setup
+      with:
+        working-directory: "./backend/autotrader-backend"
+        java-version: "17"
+        cache: true
+    
+    # Run basic backend sanity check
+    - name: Quick Backend Test
+      working-directory: ./backend/autotrader-backend
+      run: |
+        echo "Running quick sanity check for the backend code..."
+        ./gradlew assemble --info
+    
+    # Run basic frontend sanity check
+    - name: Quick Frontend Test
+      uses: ./.github/actions/frontend-setup
+      with:
+        working-directory: './frontend'
+        node-version: '18'
+        cache-dependency-path: './frontend/package.json'
+        run-tests: 'false'  # Skip tests, just build to ensure code compiles
+        
   docker-build:
     runs-on: ubuntu-latest
-    # When triggered by push to main, this job should run after backend/frontend tests
-    # when those are available. But for direct pushes to main (e.g., from merges),
-    # those jobs won't run, so we don't want any dependencies.
+    needs: [main-quick-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:

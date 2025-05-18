@@ -150,7 +150,7 @@ runs:
         
         # Wait for the container to stop, with a timeout (e.g., 2 minutes)
         # First, check if container exists
-        if ! docker ps -a --format \'\'{{.Names}}\'\' | grep -q "^${{ inputs.createbuckets-container-name }}$"; then
+        if ! docker ps -a --format '{{.Names}}' | grep -q "^${{ inputs.createbuckets-container-name }}$"; then
           echo "Warning: createbuckets container ${{ inputs.createbuckets-container-name }} not found. Skipping check."
           exit 0
         fi
@@ -161,7 +161,7 @@ runs:
         exit_code=""
 
         while [ $elapsed_seconds -lt $timeout_seconds ]; do
-          container_state=$(docker inspect --format=\'\'{{.State.Status}}\'\' ${{ inputs.createbuckets-container-name }} 2>/dev/null || echo "notfound")
+          container_state=$(docker inspect --format='{{.State.Status}}' ${{ inputs.createbuckets-container-name }} 2>/dev/null || echo "notfound")
           if [ "$container_state" == "exited" ]; then
             exit_code=$(docker inspect --format=\'\'{{.State.ExitCode}}\'\' ${{ inputs.createbuckets-container-name }})
             break
@@ -176,7 +176,7 @@ runs:
 
         if [ -z "$exit_code" ]; then # Container still running or state unknown
             echo "createbuckets container (${{ inputs.createbuckets-container-name }}) did not complete within $timeout_seconds seconds."
-            echo "Current state: $(docker inspect --format=\'\'{{.State.Status}}\'\' ${{ inputs.createbuckets-container-name }} 2>/dev/null)"
+            echo "Current state: $(docker inspect --format='{{.State.Status}}' ${{ inputs.createbuckets-container-name }} 2>/dev/null)"
             echo "Attempting to get logs for createbuckets container: ${{ inputs.createbuckets-container-name }}"
             docker logs ${{ inputs.createbuckets-container-name }}
             exit 1
