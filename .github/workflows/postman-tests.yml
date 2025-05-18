@@ -20,6 +20,12 @@ jobs:
         lfs: true # Explicitly enable LFS file download
 
     # Verify and fix Gradle wrapper if needed (for backend builds)
+    - name: Set permissions for Gradle directory
+      run: |
+        echo "Setting proper permissions for Gradle wrapper cache directory..."
+        sudo mkdir -p /home/runner/.gradle
+        sudo chmod -R 777 /home/runner/.gradle
+
     - name: Verify Gradle Wrapper (if backend build is needed)
       working-directory: ./backend/autotrader-backend
       run: |
@@ -216,12 +222,6 @@ jobs:
         fi
         
         # Stop Docker services if they were started
-        if [ -f "./backend/autotrader-backend/docker-compose.dev.yml" ]; then
-          echo "Stopping Docker services..."
-          cd ./backend/autotrader-backend
-          docker compose -f docker-compose.dev.yml down -v
-          cd -
-        fi
         if [ -f "./backend/autotrader-backend/docker-compose.dev.yml" ]; then
           echo "Stopping Docker services..."
           cd ./backend/autotrader-backend
