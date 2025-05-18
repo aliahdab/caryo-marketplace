@@ -15,7 +15,7 @@ jobs:
       with:
         fetch-depth: 0
         lfs: true # Explicitly enable LFS file download
-
+        
     - name: Initial Check of Gradle Wrapper files (Post-Checkout)
       working-directory: ./backend/autotrader-backend
       run: |

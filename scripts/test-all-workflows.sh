@@ -15,7 +15,7 @@ PROJECT_ROOT="$(dirname "$SCRIPTS_DIR")"
 chmod +x "$SCRIPTS_DIR"/*.sh
 
 echo -e "${YELLOW}====================================================${NC}"
-echo -e "${YELLOW}  Testing GitHub Actions Reusable Workflows Locally  ${NC}"
+echo -e "${YELLOW}  Testing GitHub Actions Composite Actions Locally  ${NC}"
 echo -e "${YELLOW}====================================================${NC}"
 
 # Prepare for testing
@@ -174,7 +174,6 @@ fi
 
 echo -e "${GREEN}Test completed.${NC}"
 echo -e "${YELLOW}====================================================${NC}"
-echo "After successful testing, you can rename the updated workflow files to replace the originals:"
-echo "  - mv .github/workflows/integration-tests-updated.yml .github/workflows/integration-tests.yml"
-echo "  - mv .github/workflows/postman-tests-updated.yml .github/workflows/postman-tests.yml"
+echo "Composite actions have been updated and are ready to use in your workflows."
+echo "Your GitHub Actions workflows are now using these composite actions for better maintainability and reusability."
 echo -e "${YELLOW}====================================================${NC}"

@@ -49,7 +49,6 @@ runs:
         distribution: ${{ inputs.distribution }}
         java-version: ${{ inputs.java-version }}
         cache: 'gradle'
-        cache-dependency-path: ${{ inputs.working-directory }}/gradle/dependency-locks/**
 
     - name: Verify Gradle wrapper
       shell: bash
