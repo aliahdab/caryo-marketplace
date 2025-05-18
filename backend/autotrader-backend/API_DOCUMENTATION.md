@@ -477,10 +477,190 @@ To run all API tests automatically:
 ./src/test/scripts/run_postman_tests.sh
 ```
 
-## Future Endpoints (Coming Soon)
+## Core Endpoints
 
 - `GET /api/listings` - Get all approved car listings (public)
 - `GET /api/listings/{id}` - Get details of a specific car listing (public)
 - `PUT /api/listings/{id}` - Update a listing (authenticated owner only)
 - `DELETE /api/listings/{id}` - Delete a listing (authenticated owner only)
 - `POST /api/admin/listings/{id}/approve` - Approve a listing (admin only)
+- `PUT /api/listings/{id}/pause` - Pause a listing (authenticated owner only)
+- `PUT /api/listings/{id}/resume` - Resume a listing (authenticated owner only)
+- `POST /api/listings/{id}/mark-sold` - Mark a listing as sold (authenticated owner only)
+- `POST /api/listings/{id}/archive` - Archive a listing (authenticated owner only)
+- `POST /api/listings/{id}/unarchive` - Unarchive a listing (authenticated owner only)
+
+### Listing Management (Admin)
+
+- **POST** `/api/admin/listings/{id}/unarchive`
+  - Description: Unarchive any listing.
+- **DELETE** /api/listings/admin/{id}
+  - Description: Delete any listing.
+
+### Listing Endpoints (Detailed)
+
+#### Create Listing (No Image)
+- **Endpoint**: `POST /api/listings` (consumes application/json)
+- **Access**: Authenticated users
+- **Description**: Creates a new car listing without an image
+- **Authentication**: Required (JWT token)
+- **Request Body**: JSON representation of listing details
+- **Response**: Created listing with status 201
+
+#### Create Listing With Image
+- **Endpoint**: `POST /api/listings/with-image` (consumes multipart/form-data)
+- **Access**: Authenticated users
+- **Description**: Creates a new car listing with an initial image
+- **Authentication**: Required (JWT token)
+- **Request Parts**: 
+  - `listing`: JSON representation of listing details
+  - `image`: Image file (JPEG, PNG, etc.)
+- **Response**: Created listing with media and status 201
+
+#### Upload Image for Listing
+- **Endpoint**: `POST /api/listings/{listingId}/upload-image` (consumes multipart/form-data)
+- **Access**: Authenticated owner of the listing
+- **Description**: Uploads an image for an existing listing
+- **Authentication**: Required (JWT token)
+- **Parameters**:
+  - `listingId`: ID of the listing
+  - `file`: Image file to upload
+- **Response**: Success message with image key
+
+#### Filter Listings (GET)
+- **Endpoint**: `GET /api/listings/filter`
+- **Access**: Public
+- **Description**: Returns filtered listings using query parameters
+- **Parameters**: brand, model, minYear, maxYear, location, locationId, minPrice, maxPrice, minMileage, maxMileage, isSold, isArchived
+- **Response**: Paginated list of listings
+
+#### Filter Listings (POST)
+- **Endpoint**: `POST /api/listings/filter`
+- **Access**: Public
+- **Description**: Returns filtered listings using request body
+- **Request Body**: JSON with filter criteria
+- **Response**: Paginated list of listings
+
+## Pause & Resume Functionality
+
+### Pause a Listing
+
+- **Endpoint**: `PUT /api/listings/{id}/pause`
+- **Access**: Authenticated owner of the listing
+- **Description**: Temporarily hides a listing from public view while preserving all its data
+- **Authentication**: Required (JWT token)
+- **Parameters**:
+  - `id` (path parameter): ID of the car listing to pause
+- **Response (200 OK)**:
+  ```json
+  {
+    "id": 123,
+    "title": "2019 Toyota Camry",
+    "brand": "Toyota",
+    "model": "Camry",
+    "isUserActive": false,
+    "approved": true,
+    // ... other listing fields
+  }
+  ```
+- **Response (401 Unauthorized)**:
+  ```json
+  {
+    "message": "Unauthorized"
+  }
+  ```
+- **Response (403 Forbidden)**:
+  ```json
+  {
+    "message": "You are not authorized to pause this listing"
+  }
+  ```
+- **Response (404 Not Found)**:
+  ```json
+  {
+    "message": "Listing not found"
+  }
+  ```
+- **Response (409 Conflict)**:
+  ```json
+  {
+    "message": "Listing is already paused or cannot be paused in its current state"
+  }
+  ```
+
+### Resume a Listing
+
+- **Endpoint**: `PUT /api/listings/{id}/resume`
+- **Access**: Authenticated owner of the listing
+- **Description**: Makes a previously paused listing visible again in public listings
+- **Authentication**: Required (JWT token)
+- **Parameters**:
+  - `id` (path parameter): ID of the car listing to resume
+- **Response (200 OK)**:
+  ```json
+  {
+    "id": 123,
+    "title": "2019 Toyota Camry",
+    "brand": "Toyota",
+    "model": "Camry",
+    "isUserActive": true,
+    "approved": true,
+    // ... other listing fields
+  }
+  ```
+- **Response (401 Unauthorized)**:
+  ```json
+  {
+    "message": "Unauthorized"
+  }
+  ```
+- **Response (403 Forbidden)**:
+  ```json
+  {
+    "message": "You are not authorized to resume this listing"
+  }
+  ```
+- **Response (404 Not Found)**:
+  ```json
+  {
+    "message": "Listing not found"
+  }
+  ```
+- **Response (409 Conflict)**:
+  ```json
+  {
+    "message": "Listing is already active or cannot be resumed in its current state"
+  }
+  ```
+
+### Reference Data Endpoints
+
+#### Car Conditions
+- **Endpoint**: `GET /api/car-conditions`
+- **Access**: Public
+- **Description**: Returns all car condition options
+- **Response**: List of car conditions
+
+#### Drive Types
+- **Endpoint**: `GET /api/drive-types`
+- **Access**: Public
+- **Description**: Returns all drive type options
+- **Response**: List of drive types
+
+#### Body Styles
+- **Endpoint**: `GET /api/body-styles`
+- **Access**: Public
+- **Description**: Returns all body style options
+- **Response**: List of body styles
+
+#### Transmissions
+- **Endpoint**: `GET /api/transmissions`
+- **Access**: Public
+- **Description**: Returns all transmission options
+- **Response**: List of transmissions
+
+#### Commonly Used Values
+
+- **Car Brands**: Toyota, Ford, Honda, BMW, Tesla
+- **Car Models**: Camry, Mustang, Civic, 3 Series, Model S
+- **Locations**: New York, NY; Los Angeles, CA; Chicago, IL; Houston, TX; Phoenix, AZ
