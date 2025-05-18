@@ -8,8 +8,8 @@ on:
 
 jobs:
   backend-build-and-test:
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-lates
+
     steps:
     - uses: actions/checkout@v4
       with:
@@ -68,7 +68,7 @@ jobs:
         echo "=== Check After setup-java & Validation Action ==="
         echo "Gradle wrapper validation action outcome: ${{ steps.wrapper-validation.outcome }}"
         echo "Checking for gradle-wrapper.jar and gradle-wrapper.properties in $(pwd)..."
-        
+
         if [ ! -f ./gradle/wrapper/gradle-wrapper.jar ]; then
           echo "ERROR: ./gradle/wrapper/gradle-wrapper.jar is MISSING!"
           echo "Listing ./gradle/wrapper/ contents:"
@@ -79,7 +79,7 @@ jobs:
           JAR_SIZE=$(stat -c%s ./gradle/wrapper/gradle-wrapper.jar)
           echo "Size: $JAR_SIZE bytes"
           echo "SHA256: $(sha256sum ./gradle/wrapper/gradle-wrapper.jar | awk '{print $1}')"
-          if [ "$JAR_SIZE" -lt 1024 ]; then # If it's small, cat its content
+          if [ "$JAR_SIZE" -lt 1024 ]; then # If it's small, cat its conten
             echo "Content of small gradle-wrapper.jar:"
             cat ./gradle/wrapper/gradle-wrapper.jar
             echo "--- End of small gradle-wrapper.jar content ---"
@@ -113,7 +113,7 @@ jobs:
         MISSING_JAR=false
         INVALID_JAR=false
         JAR_SIZE=0
-        
+
         # Check if JAR exists
         if [ ! -f ./gradle/wrapper/gradle-wrapper.jar ]; then
           echo "ERROR: gradle-wrapper.jar is missing."
@@ -122,7 +122,7 @@ jobs:
           # Check JAR size
           JAR_SIZE=$(stat -c%s ./gradle/wrapper/gradle-wrapper.jar)
           echo "Current gradle-wrapper.jar size: $JAR_SIZE bytes"
-          
+
           # Check for suspiciously small size (LFS pointer is ~130 bytes)
           if [ "$JAR_SIZE" -lt 10000 ]; then
             echo "WARNING: gradle-wrapper.jar is suspiciously small ($JAR_SIZE bytes). It might be an LFS pointer."
@@ -130,18 +130,18 @@ jobs:
             cat ./gradle/wrapper/gradle-wrapper.jar
             INVALID_JAR=true
           fi
-          
+
           # Try to verify JAR validity by checking ZIP header
           if ! file ./gradle/wrapper/gradle-wrapper.jar | grep -q "Zip archive"; then
             echo "WARNING: gradle-wrapper.jar does not appear to be a valid ZIP archive"
             INVALID_JAR=true
           fi
         fi
-        
+
         # Fix wrapper if issues detected
         if [ "$MISSING_JAR" = true ] || [ "$INVALID_JAR" = true ]; then
           echo "Issues detected with gradle-wrapper.jar. Generating a new wrapper..."
-          
+
           # Backup existing wrapper files
           mkdir -p ./gradle/wrapper-backup
           if [ -f ./gradle/wrapper/gradle-wrapper.jar ]; then
@@ -150,7 +150,7 @@ jobs:
           if [ -f ./gradle/wrapper/gradle-wrapper.properties ]; then
             cp ./gradle/wrapper/gradle-wrapper.properties ./gradle/wrapper-backup/gradle-wrapper.properties.bak
           fi
-          
+
           # Try to use local gradle to generate wrapper
           if command -v gradle &> /dev/null; then
             echo "Generating wrapper using local gradle installation..."
@@ -160,14 +160,14 @@ jobs:
             echo "Local gradle not found. Downloading Gradle 8.5..."
             GRADLE_ZIP=gradle-8.5-bin.zip
             GRADLE_URL=https://services.gradle.org/distributions/gradle-8.5-bin.zip
-            
+
             curl -L -o $GRADLE_ZIP $GRADLE_URL
             unzip -q -d . $GRADLE_ZIP
             chmod +x ./gradle-8.5/bin/gradle
             ./gradle-8.5/bin/gradle wrapper --gradle-version 8.5 --distribution-type bin
             rm -rf gradle-8.5 $GRADLE_ZIP
           fi
-          
+
           # Verify new wrapper
           if [ -f ./gradle/wrapper/gradle-wrapper.jar ]; then
             NEW_SIZE=$(stat -c%s ./gradle/wrapper/gradle-wrapper.jar)
@@ -183,7 +183,7 @@ jobs:
         else
           echo "gradle-wrapper.jar appears valid. Size: $JAR_SIZE bytes."
         fi
-        
+
         # Final verification
         echo "Final verification of gradle-wrapper.jar:"
         ls -la ./gradle/wrapper/gradle-wrapper.jar
@@ -199,7 +199,7 @@ jobs:
         if [ -f ./gradle/wrapper/gradle-wrapper.jar ]; then
           JAR_SIZE_BUILD=$(stat -c%s ./gradle/wrapper/gradle-wrapper.jar)
           echo "DEBUG: ./gradle/wrapper/gradle-wrapper.jar EXISTS. Size: $JAR_SIZE_BUILD bytes."
-          if [ "$JAR_SIZE_BUILD" -lt 1024 ]; then # If it's small, cat its content
+          if [ "$JAR_SIZE_BUILD" -lt 1024 ]; then # If it's small, cat its conten
             echo "DEBUG: Content of small gradle-wrapper.jar before build:"
             cat ./gradle/wrapper/gradle-wrapper.jar
             echo "--- End of small gradle-wrapper.jar content ---"
@@ -212,7 +212,7 @@ jobs:
           echo "DEBUG: Listing . (current directory):"
           ls -la .
         fi
-        ./gradlew build -x test
+        ./gradlew build -x tes
 
     - name: Run Unit Tests (excluding integration tests)
       working-directory: ./backend/autotrader-backend
@@ -220,7 +220,7 @@ jobs:
         # Check if integrationTest task exists
         if ./gradlew tasks | grep -q "integrationTest"; then
           echo "integrationTest task found, excluding it from test run"
-          ./gradlew test --tests "com.autotrader.autotraderbackend.*Test" --exclude-task integrationTest
+          ./gradlew test --tests "com.autotrader.autotraderbackend.*Test" --exclude-task integrationTes
         else
           echo "integrationTest task not found, running regular tests"
           ./gradlew test --tests "com.autotrader.autotraderbackend.*Test"
@@ -234,8 +234,8 @@ jobs:
         path: backend/autotrader-backend/build/reports/tests/
 
   frontend-build-and-test:
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-lates
+
     steps:
     - uses: actions/checkout@v4
       with:
@@ -252,7 +252,7 @@ jobs:
       working-directory: ./frontend
       run: npm ci
 
-    - name: Run ESLint
+    - name: Run ESLin
       working-directory: ./frontend
       run: |
         echo "Running ESLint check to identify code issues..."
@@ -265,13 +265,13 @@ jobs:
 
     - name: Run Jest tests
       working-directory: ./frontend
-      run: npm test
+      run: npm tes
 
-    - name: Upload ESLint report
+    - name: Upload ESLint repor
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: eslint-report
+        name: eslint-repor
         path: frontend/.eslintcache
         if-no-files-found: ignore
 
@@ -283,10 +283,10 @@ jobs:
         path: frontend/coverage/
 
   docker-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-lates
     needs: [backend-build-and-test, frontend-build-and-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+
     steps:
     - uses: actions/checkout@v4
       with:
@@ -318,10 +318,10 @@ jobs:
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/caryo-frontend:latest,${{ secrets.DOCKERHUB_USERNAME }}/caryo-frontend:${{ github.sha }}
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-lates
     needs: [docker-build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+
     steps:
     - uses: actions/checkout@v4
       with:
@@ -338,14 +338,14 @@ jobs:
         # - Pull the new Docker images
         # - Update docker-compose.yml with new image tags
         # - Restart services
-        
+
         # Example SSH deployment (you'll need to set up SSH_PRIVATE_KEY in secrets)
         # install SSH key
         # mkdir -p ~/.ssh
         # echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         # chmod 600 ~/.ssh/id_rsa
-        
+
         # ssh commands
-        # ssh user@your-server "cd /path/to/app && \
-        #   docker-compose pull && \
+        # ssh user@your-server "cd /path/to/app &&
+        #   docker-compose pull &&
         #   docker-compose up -d"

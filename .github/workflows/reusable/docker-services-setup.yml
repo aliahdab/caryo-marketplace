@@ -1,0 +1,107 @@
+name: Reusable Docker Services Setup
+
+on:
+  workflow_call:
+    inputs:
+      docker-compose-file:
+        required: false
+        type: string
+        default: './backend/autotrader-backend/docker-compose.dev.yml'
+        description: "Path to the docker-compose file to use"
+      down-flags:
+        required: false
+        type: string
+        default: "--volumes"
+        description: "Flags to pass to docker-compose down"
+      services:
+        required: false
+        type: string
+        default: "db minio createbuckets redis"
+        description: "Space-separated list of services to start"
+      wait-time:
+        required: false
+        type: number
+        default: 60
+        description: "Time in seconds to wait for services to initialize"
+      db-container-name:
+        required: false
+        type: string
+        default: "db"
+        description: "Name of the database container"
+      db-user:
+        required: false
+        type: string
+        default: "autotrader"
+        description: "Database user"
+      minio-health-check:
+        required: false
+        type: boolean
+        default: true
+        description: "Whether to check MinIO health"
+      minio-health-url:
+        required: false
+        type: string
+        default: "http://localhost:9000/minio/health/live"
+        description: "URL to check MinIO health"
+
+jobs:
+  docker-services-setup:
+    runs-on: ubuntu-lates
+    steps:
+      - name: Set up Docker Compose
+        uses: isbang/compose-action@v1.5.1
+        with:
+          compose-file: ${{ inputs.docker-compose-file }}
+          down-flags: ${{ inputs.down-flags }}
+          services: ${{ inputs.services }}
+
+      # Check if services are healthy
+      - name: Wait for services to be ready
+        run: |
+          echo "Listing all running Docker containers for debugging..."
+          docker ps
+
+          # Give services extra time to start - longer initialization period
+          echo "Sleeping for ${{ inputs.wait-time }} seconds to ensure containers are fully initialized..."
+          sleep ${{ inputs.wait-time }}
+
+          # Check PostgreSQL readiness if db service exists
+          if docker ps | grep -q "${{ inputs.db-container-name }}"; then
+            echo "Waiting for PostgreSQL to be ready..."
+            # Try multiple times with increasing sleep periods
+            MAX_RETRIES=15
+            RETRY_COUNT=0
+
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if docker exec $(docker ps -q -f name=${{ inputs.db-container-name }}) pg_isready -U ${{ inputs.db-user }} -t 15; then
+                echo "PostgreSQL is ready!"
+                break
+              else
+                RETRY_COUNT=$((RETRY_COUNT+1))
+                echo "PostgreSQL not ready yet. Attempt $RETRY_COUNT of $MAX_RETRIES"
+
+                if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+                  echo "PostgreSQL failed to become ready. Showing container logs:"
+                  docker logs $(docker ps -q -f name=${{ inputs.db-container-name }})
+                  exit 1
+                fi
+
+                # Exponential backoff - wait longer as retry count increases
+                sleep $((RETRY_COUNT * 5))
+              fi
+            done
+          else
+            echo "Database container ${{ inputs.db-container-name }} not found."
+          fi
+
+          # Check MinIO health if enabled
+          if [ "${{ inputs.minio-health-check }}" == "true" ]; then
+            echo "Checking MinIO health..."
+            curl --retry 15 --retry-delay 10 --connect-timeout 15 -f ${{ inputs.minio-health-url }} || {
+              echo "MinIO health check failed. Showing container logs:"
+              docker logs $(docker ps -q -f name=minio)
+              exit 1
+            }
+          fi
+
+          echo "All services are ready!"
