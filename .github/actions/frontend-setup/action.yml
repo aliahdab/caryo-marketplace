@@ -1,4 +1,3 @@
-\
 name: 'Frontend Setup and Test Action'
 description: 'Sets up Node.js, installs dependencies, lints, builds, tests, and uploads reports for a frontend project.'
 
