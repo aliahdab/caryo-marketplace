@@ -26,56 +26,52 @@ jobs:
       db-container-name: "db"
       db-user: "autotrader"
       
-  api-tests:
+  spring-boot-setup:
+    uses: ./.github/workflows/reusable/spring-boot-setup.yml
     needs: [setup-gradle, setup-docker-services]
+    with:
+      working-directory: "./backend/autotrader-backend"
+      spring-profiles: "dev"
+      debug-mode: true
+      wait-retries: 45
+      wait-time: 10
+      health-check-path: "/actuator/health"
+      
+  postman-tests:
+    uses: ./.github/workflows/reusable/postman-tests.yml
+    needs: [spring-boot-setup]
+    with:
+      environment-file: './postman/test_environment.json'
+      results-directory: 'results'
+      auto-detect-collection: true
+
+  api-tests:
+    needs: [postman-tests]
     runs-on: ubuntu-latest
-    timeout-minutes: 20  # Prevent hanging builds
+    timeout-minutes: 5  # Short timeout since it just wraps other jobs
 
     steps:
+    - name: Get Results
+      run: echo "Postman API tests completed"
+
+  # This job will always run after the tests are done, regardless of success or failure
+  cleanup:
+    if: always()
+    needs: [api-tests]
+    runs-on: ubuntu-latest
+    
+    steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        lfs: true # Explicitly enable LFS file download
-
-    # Use the reusable Spring Boot build and start workflow
-    - name: Build and Start Spring Boo
-      uses: ./.github/workflows/reusable/spring-boot-setup.yml
-      with:
-        working-directory: "./backend/autotrader-backend"
-        spring-profiles: "dev"
-        debug-mode: true
-        wait-retries: 45
-        wait-time: 10
-
-    # Use the reusable Postman tests workflow
-    - name: Run Postman Tests
-      uses: ./.github/workflows/reusable/postman-tests.yml
-      with:
-        environment-file: './postman/test_environment.json'
-        results-directory: 'results'
-        auto-detect-collection: true
-
-    # Cleanup test environment if needed
-    - name: Cleanup
-      if: always()
+    
+    - name: Cleanup test environment
       run: |
         echo "Cleaning up test environment"
-
-        # Stop Spring Boot application if it was started
-        if [ ! -z "$SPRING_PID" ]; then
-          echo "Stopping Spring Boot application (PID: $SPRING_PID)..."
-          kill $SPRING_PID || true
-          echo "Spring Boot logs (last 50 lines):"
-          if [ -f "./backend/autotrader-backend/spring-boot.log" ]; then
-            tail -n 50 ./backend/autotrader-backend/spring-boot.log
-          fi
-        fi
-
+        
         # Stop Docker services if they were started
         if [ -f "./backend/autotrader-backend/docker-compose.dev.yml" ]; then
           echo "Stopping Docker services..."
           cd ./backend/autotrader-backend
           docker compose -f docker-compose.dev.yml down -v
-          cd -
         fi
+        
         echo "Cleanup complete"

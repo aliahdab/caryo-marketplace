@@ -1,4 +1,4 @@
-name: Reusable Spring Boot Build and Star
+name: Reusable Spring Boot Build and Start
 
 on:
   workflow_call:
