@@ -99,24 +99,38 @@ runs:
       if: inputs.minio-health-check == 'true'
       shell: bash
       run: |
-        echo "Checking MinIO health status using mc ready command..."
-        max_retries=12 
+        echo "Verifying MinIO readiness..."
+        max_retries=15 # Increased retries
         retries=0
-        until docker exec ${{ inputs.minio-container-name }} mc ready localhost:9000 --quiet || [ $retries -eq $max_retries ]
-        do
-          echo "Waiting for MinIO to be ready... ($retries/$max_retries)."
-          docker logs ${{ inputs.minio-container-name }} --tail 20 # Show recent logs for debugging
-          sleep 5
-          retries=$((retries+1))
+        is_ready=false
+
+        # Attempt to set an alias for mc to ensure it uses the correct server if needed, though localhost should work.
+        # The --quiet flag is removed from the loop to get more verbose output during attempts.
+        # The actual check for readiness will use --quiet.
+
+        until [ "$is_ready" == true ] || [ $retries -eq $max_retries ]
+        do        
+          echo "Attempting MinIO readiness check ($((retries+1))/$max_retries)..."
+          # First, try to list buckets as a simple check, this sometimes initializes the client
+          docker exec ${{ inputs.minio-container-name }} mc ls localhost:9000/ || echo "mc ls command failed, continuing..."
+          
+          # Then, check readiness
+          if docker exec ${{ inputs.minio-container-name }} mc ready localhost:9000; then
+            echo "MinIO is ready."
+            is_ready=true
+          else
+            echo "MinIO not yet ready. Current MinIO logs (last 20 lines):"
+            docker logs ${{ inputs.minio-container-name }} --tail 20
+            sleep 6 # Increased sleep time slightly
+            retries=$((retries+1))
+          fi
         done
         
-        if ! docker exec ${{ inputs.minio-container-name }} mc ready localhost:9000 --quiet; then
-          echo "MinIO failed to start in time!"
-          echo "Attempting to get logs for MinIO container: ${{ inputs.minio-container-name }}"
+        if [ "$is_ready" != true ]; then
+          echo "MinIO failed to become ready after $max_retries attempts."
+          echo "Final MinIO logs:"
           docker logs ${{ inputs.minio-container-name }}
           exit 1
-        else
-          echo "MinIO is ready!"
         fi
 
     - name: Check createbuckets service completion

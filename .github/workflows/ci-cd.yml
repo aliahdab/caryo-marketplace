@@ -78,9 +78,10 @@ jobs:
         uses: ./.github/actions/postman-tests
         with:
           collection-path: "backend/autotrader-backend/src/test/resources/postman/autotrader-api-collection.json"
-          environment-path: "postman/test_environment.json"
-          working-directory: "./" # Assuming newman is run from the root or the action handles pathing
-          # Add any other inputs your postman-tests action requires, e.g., specific container names if it starts services
+          environment-file: "postman/test_environment.json" # Ensured this is environment-file
+          working-directory: "./"
+          results-directory: "newman" # Explicitly set results directory for consistency with upload path
+          # Add any other inputs your postman-tests action requires
 
       - name: Upload Postman Test Results
         if: always()
