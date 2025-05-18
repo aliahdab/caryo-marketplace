@@ -1,10 +1,11 @@
-name: Postman API Tests
+name: Postman API Tests (Standalone) (Standalone)
 
 on:
   workflow_dispatch:
   pull_request:
     branches:
-      - develop # Changed from main to develop
+      - feature/* # Only run for PRs from feature branches to other branches
+      - hotfix/* # Include hotfix branches
     paths:
       - 'backend/autotrader-backend/**'
       - '.github/workflows/postman-tests.yml'
