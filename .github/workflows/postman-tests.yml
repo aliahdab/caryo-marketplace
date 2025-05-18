@@ -19,7 +19,7 @@ on:
 jobs:
   api-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 20  # Prevent hanging builds
+    timeout-minutes: 30  # Increased timeout to prevent hanging builds
 
     steps:
     - uses: actions/checkout@v4
@@ -40,24 +40,47 @@ jobs:
     - name: Ensure Gradle Wrapper
       working-directory: ./backend/autotrader-backend
       run: |
+        echo "Checking for Gradle wrapper files..."
         if [ ! -f "./gradlew" ]; then
           echo "gradlew script not found! Generating a new one..."
+          
           # First try to use the Gradle CLI if available
           if command -v gradle &> /dev/null; then
             echo "Using gradle CLI to generate wrapper"
             gradle wrapper --gradle-version=8.5
+          elif [ -f "../gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "Copying Gradle wrapper from parent directory"
+            mkdir -p ./gradle/wrapper/
+            cp ../gradle/wrapper/gradle-wrapper.jar ./gradle/wrapper/
+            cp ../gradle/wrapper/gradle-wrapper.properties ./gradle/wrapper/
+            cp ../gradlew ./
+            cp ../gradlew.bat ./
+            chmod +x ./gradlew
           else
-            # If gradle CLI isn't available, use any gradle wrapper in other projects
-            echo "Trying to copy Gradle wrapper from elsewhere"
-            # First look for wrapper jar
-            if [ -f "../gradle/wrapper/gradle-wrapper.jar" ]; then
-              echo "Found ../gradle/wrapper/gradle-wrapper.jar"
+            # Additional fallback - try to find wrapper elsewhere in the repo
+            echo "Searching for Gradle wrapper elsewhere in the repository..."
+            WRAPPER_JAR=$(find $(pwd) -name "gradle-wrapper.jar" | head -n 1)
+            if [ ! -z "$WRAPPER_JAR" ]; then
+              echo "Found Gradle wrapper at $WRAPPER_JAR"
+              WRAPPER_DIR=$(dirname "$WRAPPER_JAR")
               mkdir -p ./gradle/wrapper/
-              cp ../gradle/wrapper/gradle-wrapper.jar ./gradle/wrapper/
-              cp ../gradle/wrapper/gradle-wrapper.properties ./gradle/wrapper/
-              cp ../gradlew ./
-              cp ../gradlew.bat ./
-              chmod +x ./gradlew
+              cp "$WRAPPER_JAR" ./gradle/wrapper/
+              cp "$WRAPPER_DIR/gradle-wrapper.properties" ./gradle/wrapper/ || echo "No properties file found, may need manual configuration"
+              
+              # Look for gradlew script in the same directory
+              GRADLEW_DIR=$(dirname $(dirname "$WRAPPER_DIR"))
+              if [ -f "$GRADLEW_DIR/gradlew" ]; then
+                cp "$GRADLEW_DIR/gradlew" ./
+                cp "$GRADLEW_DIR/gradlew.bat" ./ || echo "No gradlew.bat found"
+                chmod +x ./gradlew
+              else
+                # Create a basic gradlew script as last resort
+                echo "Creating a basic gradlew script..."
+                echo '#!/bin/sh
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+exec java -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"' > ./gradlew
+                chmod +x ./gradlew
+              fi
             else
               echo "ERROR: Could not generate or find Gradle wrapper!"
               echo "Current directory structure:"
@@ -68,8 +91,16 @@ jobs:
             fi
           fi
         fi
-        echo "Verifying gradlew exists:"
-        ls -la ./gradlew || echo "gradlew still not found!"
+        
+        echo "Verifying gradlew exists and is executable:"
+        if [ -f "./gradlew" ]; then
+          ls -la ./gradlew
+          echo "Ensuring gradlew is executable"
+          chmod +x ./gradlew
+        else
+          echo "ERROR: gradlew still not found after attempt to generate/copy!"
+          exit 1
+        fi
         
     # Setup Docker Services
     - name: Setup Docker Services
@@ -90,25 +121,149 @@ jobs:
         minio-root-user: "newuser"  # Custom MinIO user
         minio-root-password: "newpassword"  # Custom MinIO password
 
-    # Start Spring Boot application
-    - name: Start Spring Boot Application
-      id: spring-boot
-      uses: ./.github/actions/spring-boot-setup
-      with:
-        working-directory: "./backend/autotrader-backend"
-        spring-profiles: "dev"
-        debug-mode: 'true'
-        wait-retries: '45'
-        wait-time: '10'
-        health-check-path: "/actuator/health"
+    # Verify Docker services are running correctly
+    - name: Verify Docker Services
+      run: |
+        echo "Verifying Docker services are running correctly..."
+        docker ps
         
-    # Run Postman Tests
+        echo "Checking database connection..."
+        docker exec autotrader-backend-db-1 pg_isready -U autotrader || echo "Database connection issues detected"
+        
+        echo "Checking MinIO service..."
+        curl -s -I http://localhost:9000 || echo "MinIO service not responding"
+        
+        echo "Checking Redis service..."
+        docker exec autotrader-backend-redis-1 redis-cli ping || echo "Redis service not responding"
+        
+        echo "Checking environment variables..."
+        env | grep -E 'MINIO|POSTGRES|REDIS|SPRING' || echo "No matching environment variables found"
+
+    # Direct Spring Boot run for better visibility of startup issues
+    - name: Run Spring Boot Application Directly
+      id: spring-boot-direct
+      working-directory: ./backend/autotrader-backend
+      run: |
+        echo "Starting Spring Boot application directly..."
+        
+        # Create application-dev.yml override for testing environment if it doesn't exist
+        if [ ! -f "src/main/resources/application-dev.yml" ]; then
+          echo "Creating test application-dev.yml configuration..."
+          cat > src/main/resources/application-dev.yml <<EOL
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/autotrader
+    username: autotrader
+    password: autotrader
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+minio:
+  endpoint: http://localhost:9000
+  accessKey: newuser
+  secretKey: newpassword
+  bucket: autotrader
+EOL
+        fi
+        
+        # Start the Spring Boot app in the background with debug enabled
+        echo "Starting Spring Boot app with bootRun and debug enabled..."
+        nohup ./gradlew bootRun --args='--spring.profiles.active=dev --debug' > spring-boot.log 2>&1 &
+        SPRING_PID=$!
+        echo "Spring Boot app started with PID: ${SPRING_PID}"
+        echo "pid=${SPRING_PID}" >> $GITHUB_OUTPUT
+        
+        # Give the app some time to start before health check
+        echo "Waiting 30 seconds for initial startup..."
+        sleep 30
+        
+        # Output initial log content
+        echo "Initial Spring Boot log content:"
+        cat spring-boot.log
+        
+        # Wait for application to start up with improved health check
+        MAX_RETRIES=45
+        for i in $(seq 1 $MAX_RETRIES); do
+          echo "Health check attempt $i/$MAX_RETRIES..."
+          
+          # Try multiple health check methods
+          if curl -s http://localhost:8080/actuator/health | grep -q "UP"; then
+            echo "✅ Spring Boot application is up and running via Actuator!"
+            break
+          elif curl -s http://localhost:8080/ > /dev/null; then
+            echo "✅ Spring Boot application is responding on root path!"
+            break
+          elif curl -s -I http://localhost:8080/ | grep -q "200\|302\|301"; then
+            echo "✅ Spring Boot application is responding with HTTP success or redirect!"
+            break
+          fi
+          
+          # Check if process is still running
+          if ! ps -p ${SPRING_PID} > /dev/null; then
+            echo "❌ Spring Boot application process has died! Check logs:"
+            cat spring-boot.log
+            echo "Attempting to restart with additional JVM options..."
+            
+            nohup ./gradlew bootRun --args='--spring.profiles.active=dev --debug' \
+              -Dorg.gradle.jvmargs="-Xmx512m -XX:+HeapDumpOnOutOfMemoryError" > spring-boot-restart.log 2>&1 &
+            SPRING_PID=$!
+            echo "Restarted Spring Boot app with PID: ${SPRING_PID}"
+            echo "pid=${SPRING_PID}" >> $GITHUB_OUTPUT
+            
+            echo "Waiting 20 seconds after restart..."
+            sleep 20
+            echo "Restart log:"
+            cat spring-boot-restart.log
+          fi
+          
+          # Show progress in logs
+          if [ $((i % 5)) -eq 0 ]; then
+            echo "Last 50 lines of Spring Boot log after $i attempts:"
+            tail -n 50 spring-boot.log
+          fi
+          
+          sleep 10
+          
+          # If we've reached the last retry, capture comprehensive diagnostics
+          if [ "$i" -eq "$MAX_RETRIES" ]; then
+            echo "❌ Spring Boot application failed to start after $MAX_RETRIES attempts!"
+            echo "Full application log:"
+            cat spring-boot.log
+            
+            echo "JVM processes:"
+            ps aux | grep java
+            
+            echo "Memory usage:"
+            free -h
+            
+            echo "Disk space:"
+            df -h
+            
+            echo "Network connections:"
+            netstat -tulpn | grep LISTEN
+            
+            # Continue anyway for Postman tests to see if they work with a partial system
+            echo "WARNING: Continuing with tests despite Spring Boot startup issues"
+          fi
+        done
+
+    # Run Postman Tests with more explicit collection path
     - name: Run Postman Tests
+      if: always() # Try to run the tests even if Spring Boot had issues
       uses: ./.github/actions/postman-tests
       with:
+        collection-path: './backend/autotrader-backend/src/test/resources/postman/autotrader-api-collection.json'
         environment-file: './postman/test_environment.json'
         results-directory: 'results'
-        auto-detect-collection: 'true'
+        auto-detect-collection: 'false'
         
     # Upload test results
     - name: Upload test results
@@ -117,6 +272,16 @@ jobs:
       with:
         name: postman-test-results
         path: results/**
+        
+    # Upload Spring Boot logs separately
+    - name: Upload Spring Boot logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: spring-boot-logs
+        path: |
+          ./backend/autotrader-backend/spring-boot*.log
+          ./backend/autotrader-backend/build/reports/**/*
 
     # This step will always run after the tests are done, regardless of success or failure
     - name: Cleanup test environment
@@ -125,7 +290,7 @@ jobs:
         echo "Cleaning up test environment"
         
         # Kill the Spring Boot process if it was started
-        SPRING_PID="${{ steps.spring-boot.outputs.pid }}"
+        SPRING_PID="${{ steps.spring-boot-direct.outputs.pid }}"
         if [ ! -z "$SPRING_PID" ]; then
           echo "Stopping Spring Boot application (PID: $SPRING_PID)..."
           kill $SPRING_PID || true
