@@ -42,6 +42,10 @@ inputs:
     description: "Name of the createbuckets container to check"
     required: false
     default: "createbuckets" # Will likely need to be overridden by the caller
+  post-minio-ready-wait-seconds:
+    description: "Seconds to wait after MinIO is ready before proceeding (e.g., to check createbuckets)"
+    required: false
+    default: '5'
 
 runs:
   using: "composite"
@@ -132,6 +136,9 @@ runs:
           docker logs ${{ inputs.minio-container-name }}
           exit 1
         fi
+        
+        echo "MinIO is confirmed ready. Waiting an additional ${{ inputs.post-minio-ready-wait-seconds }} seconds before proceeding..."
+        sleep ${{ inputs.post-minio-ready-wait-seconds }}
 
     - name: Check createbuckets service completion
       # This step assumes createbuckets is a short-lived container that should run to completion.
