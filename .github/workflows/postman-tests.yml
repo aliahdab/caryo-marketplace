@@ -20,11 +20,28 @@ jobs:
         lfs: true # Explicitly enable LFS file download
 
     # Verify and fix Gradle wrapper if needed (for backend builds)
-    - name: Set permissions for Gradle directory
+    - name: Set permissions for Gradle directories
       run: |
-        echo "Setting proper permissions for Gradle wrapper cache directory..."
-        sudo mkdir -p /home/runner/.gradle
+        echo "Setting proper permissions for Gradle wrapper cache directories..."
+        # Create all necessary directories with proper permissions
+        sudo mkdir -p /home/runner/.gradle/wrapper/dists
+        sudo mkdir -p /home/runner/.gradle/caches
+        sudo mkdir -p /home/runner/.gradle/daemon
+        
+        # Set permissions for all Gradle directories
         sudo chmod -R 777 /home/runner/.gradle
+        
+        # Ensure the runner user owns these directories
+        sudo chown -R $(whoami) /home/runner/.gradle
+        
+        # List directory contents to verify permissions
+        echo "Checking permissions for Gradle directories:"
+        ls -la /home/runner/.gradle/
+        ls -la /home/runner/.gradle/wrapper/ || echo "wrapper directory not yet created"
+        
+        # Check if we can write to the directory
+        echo "Testing write permissions..."
+        touch /home/runner/.gradle/test_write_permission && echo "Write permission test succeeded" || echo "Write permission test failed"
 
     - name: Verify Gradle Wrapper (if backend build is needed)
       working-directory: ./backend/autotrader-backend
@@ -127,8 +144,28 @@ jobs:
         # Grant execute permission to gradlew
         chmod +x ./gradlew
         
-        # Build the application (but don't start it yet)
-        ./gradlew build -x test
+        # Ensure proper permissions for project Gradle files
+        echo "Setting permissions for project Gradle files..."
+        chmod -R u+rwX,go+rX ./gradle
+        
+        # Double-check Gradle home directory permissions right before building
+        sudo chmod -R 777 /home/runner/.gradle
+        
+        # Add debug info for potential troubleshooting
+        echo "Current Gradle distribution directory contents:"
+        ls -la /home/runner/.gradle/wrapper/dists/ || echo "No distributions downloaded yet"
+        
+        # Build the application with debug output if it fails
+        ./gradlew build -x test --debug || {
+          echo "Gradle build failed, collecting debug information..."
+          echo "Gradle wrapper version:"
+          ./gradlew --version || true
+          echo "Checking Gradle distribution directory permissions again:"
+          sudo ls -la /home/runner/.gradle/wrapper/dists/ || echo "Cannot access distribution directory"
+          echo "Retrying with explicit permissions fix and debug flag..."
+          sudo chmod -R 777 /home/runner/.gradle
+          ./gradlew build -x test --debug --stacktrace
+        }
         
         # Start the application in the background with dev profile
         nohup ./gradlew bootRun --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
