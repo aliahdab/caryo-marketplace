@@ -1,63 +1,58 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { act } from 'react'; // Import act from react instead of react-dom/test-utils
+import { act } from 'react';
 import { signIn } from 'next-auth/react';
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
-import userEvent from '@testing-library/user-event'; 
-import React from 'react'; // Import React for JSX
+import userEvent from '@testing-library/user-event';
+import React from 'react';
 
-// Mock next-auth/react
+// Mock dependencies
 jest.mock('next-auth/react', () => ({
   signIn: jest.fn(),
 }));
 
-// Mock next/navigation
-const mockRouterPush = jest.fn();
-const mockRouterReplace = jest.fn();
-const mockRouterRefresh = jest.fn(); 
-const mockRouterBack = jest.fn();
-const mockRouterForward = jest.fn();
-const mockRouterPrefetch = jest.fn();
-const mockSearchParamsGet = jest.fn();
-const mockSearchParamsHas = jest.fn();
-const mockSearchParamsForEach = jest.fn();
+// Mock router functions
+const mockRouter = {
+  push: jest.fn(),
+  replace: jest.fn(),
+  refresh: jest.fn(),
+  back: jest.fn(),
+  forward: jest.fn(),
+  prefetch: jest.fn(),
+};
+
+// Mock search params functions
+const mockSearchParams = {
+  get: jest.fn(),
+  has: jest.fn(),
+  forEach: jest.fn(),
+};
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: mockRouterPush,
-    replace: mockRouterReplace,
-    refresh: mockRouterRefresh, 
-    back: mockRouterBack,
-    forward: mockRouterForward,
-    prefetch: mockRouterPrefetch,
-  }),
-  useSearchParams: () => ({
-    get: mockSearchParamsGet,
-    has: mockSearchParamsHas,
-    forEach: mockSearchParamsForEach,
-  }),
-  usePathname: jest.fn(() => '/auth/signin'), 
+  useRouter: () => mockRouter,
+  useSearchParams: () => mockSearchParams,
+  usePathname: jest.fn(() => '/auth/signin'),
 }));
 
 // Mock react-icons
 jest.mock('react-icons/fc', () => ({
-  FcGoogle: () => <div data-testid="google-icon">Google Icon</div>
+  FcGoogle: () => <div data-testid="google-icon">Google Icon</div>,
 }));
 
 // Mock i18n
+const mockTranslations: Record<string, string> = {
+  'auth.continueWithGoogle': 'Continue with Google',
+  'auth.username': 'Username',
+  'auth.password': 'Password',
+  'auth.signin': 'Sign In',
+};
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: { defaultValue?: string } | string) => {
-      const defaultValue = typeof options === 'string' 
-        ? options 
+      const defaultValue = typeof options === 'string'
+        ? options
         : (typeof options === 'object' && options !== null ? options.defaultValue : undefined);
-      // Provide some basic translations or return the key
-      const translations: Record<string, string> = {
-        'auth.continueWithGoogle': 'Continue with Google',
-        'auth.username': 'Username',
-        'auth.password': 'Password',
-        'auth.signin': 'Sign In',
-      };
-      return translations[key] || defaultValue || key;
+      return mockTranslations[key] || defaultValue || key;
     },
     i18n: {
       changeLanguage: jest.fn().mockResolvedValue(undefined),
@@ -69,50 +64,62 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-
 describe('GoogleSignInButton', () => {
+  // Set up the user event
   const user = userEvent.setup();
   
+  // Store the original console.error
+  const originalConsoleError = console.error;
+  
   beforeEach(() => {
-    // Reset mocks
+    // Reset all mocks
     jest.clearAllMocks();
     
-    // Reset router mocks
-    mockRouterPush.mockClear();
-    mockRouterReplace.mockClear();
-    mockRouterRefresh.mockClear();
-    mockRouterBack.mockClear();
-    mockRouterForward.mockClear();
-    mockRouterPrefetch.mockClear();
-
-    // Reset searchParams mocks
-    mockSearchParamsGet.mockClear();
-    mockSearchParamsHas.mockClear();
-    mockSearchParamsForEach.mockClear();
+    // Mock console.error to suppress specific messages during tests
+    console.error = jest.fn((...args) => {
+      // Don't log "Google sign in error" messages to keep test output clean
+      if (args[0] === "Google sign in error") return;
+      // Log all other errors normally
+      originalConsoleError(...args);
+    });
 
     // Mock signIn to resolve successfully by default
     (signIn as jest.Mock).mockResolvedValue({ ok: true, error: null, url: '/' });
   });
 
-  test('should call signIn with google provider when Google button is clicked', async () => {
+  afterEach(() => {
+    // Restore original console.error after tests
+    console.error = originalConsoleError;
+  });
+
+  test('should render Google sign-in button with correct text and icon', () => {
+    render(<GoogleSignInButton />);
+    
+    // Verify button content
+    const googleButton = screen.getByRole('button', { name: /continue with google/i });
+    expect(googleButton).toBeInTheDocument();
+    expect(screen.getByTestId('google-icon')).toBeInTheDocument();
+  });
+
+  test('should call signIn with google provider when button is clicked', async () => {
     render(<GoogleSignInButton />);
     
     const googleButton = screen.getByRole('button', { name: /continue with google/i });
-    expect(googleButton).toBeInTheDocument();
     
-    // Use act to wrap the state updates
+    // Click the button
     await act(async () => {
       await user.click(googleButton);
     });
     
+    // Verify signIn was called with correct parameters
     expect(signIn).toHaveBeenCalledWith('google', { 
       callbackUrl: '/dashboard', 
       redirect: true 
     });
   });
 
-  test('should show loading state and handle successful Google sign-in', async () => {
-    // Create a promise that we can resolve later
+  test('should show loading state and handle successful sign-in', async () => {
+    // Create a controlled promise for signIn
     let resolveSignInPromise: (value: { ok: boolean; error?: string | null; url?: string }) => void;
     const signInPromise = new Promise<{ ok: boolean; error?: string | null; url?: string }>(resolve => {
       resolveSignInPromise = resolve;
@@ -121,50 +128,105 @@ describe('GoogleSignInButton', () => {
     (signIn as jest.Mock).mockReturnValue(signInPromise);
     
     render(<GoogleSignInButton />);
-    
     const googleButton = screen.getByRole('button', { name: /continue with google/i });
     
-    // Use act to wrap the state updates
+    // Click button and verify loading state
     await act(async () => {
       await user.click(googleButton);
     });
     
-    // Button should be in loading state
+    // Verify button is disabled during loading
     expect(googleButton).toBeDisabled();
+    expect(googleButton).toHaveClass('opacity-70');
+    expect(googleButton).toHaveClass('cursor-not-allowed');
     
-    // Simulate successful sign-in
+    // Verify loading spinner is shown
+    const spinner = screen.getByRole('img', { hidden: true }) || screen.getByTestId('loading-spinner');
+    expect(spinner).toHaveClass('animate-spin');
+    
+    // Resolve the sign-in promise
     await act(async () => {
-      resolveSignInPromise!({ ok: true });
+      resolveSignInPromise!({ ok: true, url: '/dashboard' });
     });
     
-    // Wait for loading state to be cleared
+    // Verify loading state is cleared
     await waitFor(() => {
       expect(googleButton).not.toBeDisabled();
+      expect(googleButton).not.toHaveClass('opacity-70');
     });
   });
 
-  test('should handle errors during Google sign-in', async () => {
+  test('should handle rejected promise during Google sign-in', async () => {
     // Mock signIn to reject with an error
     (signIn as jest.Mock).mockRejectedValue(new Error('Google authentication failed'));
     
     render(<GoogleSignInButton />);
-    
     const googleButton = screen.getByRole('button', { name: /continue with google/i });
     
-    // Use act to wrap the state updates
+    // Click button
     await act(async () => {
       await user.click(googleButton);
     });
     
-    // Wait for the error message to appear
+    // Wait for error message to appear
     await waitFor(() => {
-      // Find the error div that contains the error text
       const errorElement = screen.getByText(/Google authentication failed/i);
       expect(errorElement).toBeInTheDocument();
       expect(errorElement.closest('div')).toHaveClass('text-red-600');
     });
     
-    // Button should no longer be disabled
+    // Verify button is enabled again
     expect(googleButton).not.toBeDisabled();
+  });
+
+  test('should handle error in response object during Google sign-in', async () => {
+    // Mock signIn to return a response with error (covers line 35 in component)
+    (signIn as jest.Mock).mockResolvedValue({ 
+      ok: false, 
+      error: 'Access denied', 
+      url: null 
+    });
+    
+    render(<GoogleSignInButton />);
+    const googleButton = screen.getByRole('button', { name: /continue with google/i });
+    
+    // Click button
+    await act(async () => {
+      await user.click(googleButton);
+    });
+    
+    // Wait for error message to appear
+    await waitFor(() => {
+      const errorElement = screen.getByText('Access denied');
+      expect(errorElement).toBeInTheDocument();
+      expect(errorElement.closest('div')).toHaveClass('text-red-600');
+    });
+    
+    // Verify button is enabled again
+    expect(googleButton).not.toBeDisabled();
+  });
+  
+  test('should handle custom callback URL', async () => {
+    render(<GoogleSignInButton callbackUrl="/custom-page" />);
+    
+    const googleButton = screen.getByRole('button', { name: /continue with google/i });
+    
+    // Click button
+    await act(async () => {
+      await user.click(googleButton);
+    });
+    
+    // Verify signIn was called with custom callbackUrl
+    expect(signIn).toHaveBeenCalledWith('google', {
+      callbackUrl: '/custom-page',
+      redirect: true
+    });
+  });
+  
+  test('should apply custom CSS class', () => {
+    render(<GoogleSignInButton className="custom-class" />);
+    
+    const googleButton = screen.getByRole('button', { name: /continue with google/i });
+    expect(googleButton).toHaveClass('custom-class');
   });
 });
