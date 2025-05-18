@@ -1,11 +1,10 @@
 name: Postman API Tests
 
 on:
-  workflow_dispatch:  # Manual trigger
-  pull_request: # Add this line to trigger on pull requests
+  workflow_dispatch:  
+  pull_request:
     branches:
-      - main  # Or your primary branch, e.g., master, develop
-      # Add other branches if needed, e.g., - develop
+      - main 
   schedule:
     - cron: '0 0 * * 1'  # Run weekly on Mondays at midnight
 
@@ -118,7 +117,7 @@ jobs:
       run: |
         echo "Running Postman collection tests..."
         newman run ./postman/Caryo_Marketplace_API_Tests.json \
-          --environment ./src/test/resources/postman/environment.json \
+          --environment ./postman/test_environment.json \
           --reporters cli,junit,htmlextra \
           --reporter-junit-export results/junit-report.xml \
           --reporter-htmlextra-export results/html-report.html
