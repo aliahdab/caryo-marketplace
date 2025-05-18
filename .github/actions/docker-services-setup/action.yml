@@ -38,6 +38,14 @@ inputs:
     description: "Name of the MinIO container for logging"
     required: false
     default: "minio"
+  minio-root-user:
+    description: "MinIO root user for authentication"
+    required: false
+    default: "minioadmin"
+  minio-root-password:
+    description: "MinIO root password for authentication"
+    required: false
+    default: "minioadmin"
   createbuckets-container-name: # New input
     description: "Name of the createbuckets container to check"
     required: false
@@ -67,6 +75,11 @@ runs:
       shell: bash
       run: |
         echo "Starting required Docker services: ${{ inputs.services }}"
+        # Set MinIO credentials as environment variables for Docker Compose
+        export MINIO_ROOT_USER="${{ inputs.minio-root-user }}"
+        export MINIO_ROOT_PASSWORD="${{ inputs.minio-root-password }}"
+        echo "Using MinIO credentials: User=$MINIO_ROOT_USER"
+        
         docker compose -f ${{ inputs.docker-compose-file }} up -d ${{ inputs.services }}
         
         # Give services time to initialize
@@ -104,28 +117,36 @@ runs:
       shell: bash
       run: |
         echo "Verifying MinIO readiness..."
-        max_retries=15 # Increased retries
+        max_retries=20 # Further increased retries
         retries=0
         is_ready=false
 
-        # Attempt to set an alias for mc to ensure it uses the correct server if needed, though localhost should work.
-        # The --quiet flag is removed from the loop to get more verbose output during attempts.
-        # The actual check for readiness will use --quiet.
-
+        # Configure MinIO client with our custom credentials
+        echo "Configuring MinIO client with credentials..."
+        docker exec ${{ inputs.minio-container-name }} mc config host rm local || echo "No local host config to remove"
+        
+        # Configure the client with our credentials
+        # Adding || true to prevent failing if this doesn't succeed immediately (it will be retried)
+        docker exec ${{ inputs.minio-container-name }} mc config host add local http://localhost:9000 ${{ inputs.minio-root-user }} ${{ inputs.minio-root-password }} || echo "Initial mc config failed, will retry"
+        
         until [ "$is_ready" == true ] || [ $retries -eq $max_retries ]
         do        
           echo "Attempting MinIO readiness check ($((retries+1))/$max_retries)..."
-          # First, try to list buckets as a simple check, this sometimes initializes the client
-          docker exec ${{ inputs.minio-container-name }} mc ls localhost:9000/ || echo "mc ls command failed, continuing..."
+          
+          # Configure client with our credentials again (in case MinIO restarted)
+          docker exec ${{ inputs.minio-container-name }} mc config host add local http://localhost:9000 ${{ inputs.minio-root-user }} ${{ inputs.minio-root-password }} || echo "mc config failed, continuing..."
+          
+          # First, try to list buckets as a simple check
+          docker exec ${{ inputs.minio-container-name }} mc ls local/ || echo "mc ls command failed, continuing..."
           
           # Then, check readiness
-          if docker exec ${{ inputs.minio-container-name }} mc ready localhost:9000; then
+          if docker exec ${{ inputs.minio-container-name }} mc ready local; then
             echo "MinIO is ready."
             is_ready=true
           else
             echo "MinIO not yet ready. Current MinIO logs (last 20 lines):"
             docker logs ${{ inputs.minio-container-name }} --tail 20
-            sleep 6 # Increased sleep time slightly
+            sleep 8 # Further increased sleep time 
             retries=$((retries+1))
           fi
         done
