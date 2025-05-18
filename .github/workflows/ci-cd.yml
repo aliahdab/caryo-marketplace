@@ -212,7 +212,7 @@ jobs:
           echo "DEBUG: Listing . (current directory):"
           ls -la .
         fi
-        ./gradlew build -x tes
+        ./gradlew build -x test
 
     - name: Run Unit Tests (excluding integration tests)
       working-directory: ./backend/autotrader-backend
