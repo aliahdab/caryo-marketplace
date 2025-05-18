@@ -2,6 +2,10 @@ name: Postman API Tests
 
 on:
   workflow_dispatch:  # Manual trigger
+  pull_request: # Add this line to trigger on pull requests
+    branches:
+      - main  # Or your primary branch, e.g., master, develop
+      # Add other branches if needed, e.g., - develop
   schedule:
     - cron: '0 0 * * 1'  # Run weekly on Mondays at midnight
 
