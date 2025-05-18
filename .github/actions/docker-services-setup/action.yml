@@ -80,7 +80,20 @@ runs:
         export MINIO_ROOT_PASSWORD="${{ inputs.minio-root-password }}"
         echo "Using MinIO credentials: User=$MINIO_ROOT_USER"
         
+        # Create a .env file to pass environment variables to docker-compose
+        echo "MINIO_ROOT_USER=$MINIO_ROOT_USER" > "$(dirname "${{ inputs.docker-compose-file }}")/.env"
+        echo "MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD" >> "$(dirname "${{ inputs.docker-compose-file }}")/.env"
+        
+        # Show the generated .env file
+        echo "Created Docker Compose .env file:"
+        cat "$(dirname "${{ inputs.docker-compose-file }}")/.env"
+        
+        # Start the services with environment variables
         docker compose -f ${{ inputs.docker-compose-file }} up -d ${{ inputs.services }}
+        
+        # Verify that MinIO container has the environment variables set
+        echo "Checking if MinIO container has environment variables set:"
+        docker inspect ${{ inputs.minio-container-name }} -f '{{range .Config.Env}}{{println .}}{{end}}' | grep MINIO_ROOT || echo "WARNING: MINIO_ROOT environment variables not found in container"
         
         # Give services time to initialize
         echo "Waiting for services to initialize (${{ inputs.wait-time }} seconds)..."
@@ -121,34 +134,54 @@ runs:
         retries=0
         is_ready=false
 
-        # Configure MinIO client with our custom credentials
-        echo "Configuring MinIO client with credentials..."
-        docker exec ${{ inputs.minio-container-name }} mc config host rm local || echo "No local host config to remove"
+        # Pull MinIO logs to check what credentials it's using
+        echo "Checking MinIO logs to determine active credentials:"
+        docker logs ${{ inputs.minio-container-name }} 2>&1 | grep -i "MINIO_ROOT" || true
         
-        # Configure the client with our credentials
-        # Adding || true to prevent failing if this doesn't succeed immediately (it will be retried)
-        docker exec ${{ inputs.minio-container-name }} mc config host add local http://localhost:9000 ${{ inputs.minio-root-user }} ${{ inputs.minio-root-password }} || echo "Initial mc config failed, will retry"
+        # First try to remove any existing hosts
+        echo "Configuring MinIO client..."
+        docker exec ${{ inputs.minio-container-name }} mc config host rm local &>/dev/null || echo "No local host config to remove"
+        docker exec ${{ inputs.minio-container-name }} mc config host rm localhost &>/dev/null || echo "No localhost host config to remove"
+        
+        # Try both provided and default credentials in case Docker Compose didn't pick up our env vars
+        echo "Attempting to configure MinIO client with provided credentials..."
+        docker exec ${{ inputs.minio-container-name }} mc config host add local http://localhost:9000 ${{ inputs.minio-root-user }} ${{ inputs.minio-root-password }} &>/dev/null || echo "Config with provided credentials failed, will try defaults"
+        
+        echo "Attempting to configure MinIO client with default credentials (just in case)..."
+        docker exec ${{ inputs.minio-container-name }} mc config host add localhost http://localhost:9000 minioadmin minioadmin &>/dev/null || echo "Config with default credentials failed too"
         
         until [ "$is_ready" == true ] || [ $retries -eq $max_retries ]
         do        
           echo "Attempting MinIO readiness check ($((retries+1))/$max_retries)..."
           
-          # Configure client with our credentials again (in case MinIO restarted)
-          docker exec ${{ inputs.minio-container-name }} mc config host add local http://localhost:9000 ${{ inputs.minio-root-user }} ${{ inputs.minio-root-password }} || echo "mc config failed, continuing..."
-          
-          # First, try to list buckets as a simple check
-          docker exec ${{ inputs.minio-container-name }} mc ls local/ || echo "mc ls command failed, continuing..."
-          
-          # Then, check readiness
-          if docker exec ${{ inputs.minio-container-name }} mc ready local; then
-            echo "MinIO is ready."
+          # Try with provided credentials first
+          echo "Trying with provided credentials..."
+          if docker exec ${{ inputs.minio-container-name }} mc ready local &>/dev/null; then
+            echo "MinIO is ready with provided credentials!"
             is_ready=true
-          else
-            echo "MinIO not yet ready. Current MinIO logs (last 20 lines):"
-            docker logs ${{ inputs.minio-container-name }} --tail 20
-            sleep 8 # Further increased sleep time 
-            retries=$((retries+1))
+            break
           fi
+          
+          # Try with default credentials as fallback
+          echo "Trying with default credentials..."
+          if docker exec ${{ inputs.minio-container-name }} mc ready localhost &>/dev/null; then
+            echo "MinIO is ready with default credentials!"
+            echo "WARNING: Using default credentials. Custom credentials were not applied."
+            is_ready=true
+            break
+          fi
+          
+          echo "MinIO not yet ready. Current MinIO logs (last 20 lines):"
+          docker logs ${{ inputs.minio-container-name }} --tail 20
+          
+          # Reconfigure both sets of credentials just to be sure
+          docker exec ${{ inputs.minio-container-name }} mc config host rm local &>/dev/null || true
+          docker exec ${{ inputs.minio-container-name }} mc config host add local http://localhost:9000 ${{ inputs.minio-root-user }} ${{ inputs.minio-root-password }} &>/dev/null || true
+          docker exec ${{ inputs.minio-container-name }} mc config host rm localhost &>/dev/null || true
+          docker exec ${{ inputs.minio-container-name }} mc config host add localhost http://localhost:9000 minioadmin minioadmin &>/dev/null || true
+          
+          sleep 8 # Further increased sleep time 
+          retries=$((retries+1))
         done
         
         if [ "$is_ready" != true ]; then

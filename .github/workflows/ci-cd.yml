@@ -157,6 +157,10 @@ jobs:
       # Setup Docker Services (similar to integration-tests and postman-tests.yml)
       - name: Setup Docker Services
         uses: ./.github/actions/docker-services-setup
+        env:
+          # Set env vars at job level so they're available to docker-compose directly
+          MINIO_ROOT_USER: "newuser"
+          MINIO_ROOT_PASSWORD: "newpassword"
         with:
           docker-compose-file: "./backend/autotrader-backend/docker-compose.dev.yml"
           services: "db minio createbuckets redis"
