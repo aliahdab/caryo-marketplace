@@ -34,6 +34,10 @@ inputs:
     description: "URL to check MinIO health"
     required: false
     default: "http://localhost:9000/minio/health/live"
+  minio-container-name:
+    description: "Name of the MinIO container for logging"
+    required: false
+    default: "minio"
 
 runs:
   using: "composite"
@@ -95,7 +99,7 @@ runs:
         max_retries=10
         retries=0
         
-        until curl -s ${{ inputs.minio-health-url }} | grep -q "healthy" || [ $retries -eq $max_retries ]
+        until curl -sf ${{ inputs.minio-health-url }} | grep -q "healthy" || [ $retries -eq $max_retries ]
         do
           echo "Waiting for MinIO to be ready... ($retries/$max_retries)"
           sleep 5
@@ -104,7 +108,8 @@ runs:
         
         if [ $retries -eq $max_retries ]; then
           echo "MinIO failed to start in time!"
-          docker logs minio
+          echo "Attempting to get logs for MinIO container: ${{ inputs.minio-container-name }}"
+          docker logs ${{ inputs.minio-container-name }}
           exit 1
         else
           echo "MinIO is ready!"

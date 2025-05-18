@@ -38,6 +38,7 @@ jobs:
         wait-time: '60'
         db-container-name: "autotrader-backend-db-1"  # Corrected container name
         db-user: "autotrader"
+        minio-container-name: "autotrader-backend-minio-1" # Added MinIO container name
 
     # Run the actual integration tests
     - name: Run Integration Tests
