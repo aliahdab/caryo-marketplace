@@ -43,6 +43,7 @@ jobs:
         db-user: "autotrader"
         minio-container-name: "autotrader-backend-minio-1" # Added MinIO container name
         createbuckets-container-name: "autotrader-backend-createbuckets-1" # Added createbuckets container name
+        post-minio-ready-wait-seconds: '10' # Added to allow more time after MinIO is ready
 
     # Run the actual integration tests
     - name: Run Integration Tests
