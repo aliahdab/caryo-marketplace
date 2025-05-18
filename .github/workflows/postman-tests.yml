@@ -6,11 +6,11 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 0 * * 1'  # Run weekly on Mondays at midnigh
+    - cron: '0 0 * * 1'  # Run weekly on Mondays at midnight
 
 jobs:
   api-tests:
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     timeout-minutes: 20  # Prevent hanging builds
 
     steps:
@@ -20,7 +20,7 @@ jobs:
         lfs: true # Explicitly enable LFS file download
 
     # Use the reusable Gradle setup workflow
-    - name: Setup Gradle Environmen
+    - name: Setup Gradle Environment
       uses: ./.github/workflows/reusable/gradle-setup.yml
       with:
         working-directory: "./backend/autotrader-backend"

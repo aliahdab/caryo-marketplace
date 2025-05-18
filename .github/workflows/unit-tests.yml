@@ -10,7 +10,7 @@ on:
 
 jobs:
   unit-tests:
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
@@ -20,7 +20,7 @@ jobs:
         lfs: true
 
     # Use the reusable Gradle setup workflow
-    - name: Setup Gradle Environmen
+    - name: Setup Gradle Environment
       uses: ./.github/workflows/reusable/gradle-setup.yml
       with:
         working-directory: "./backend/autotrader-backend"
@@ -36,16 +36,16 @@ jobs:
         # Check if integrationTest task exists
         if ./gradlew tasks --all | grep -q "integrationTest"; then
           echo "integrationTest task found, excluding it from test run"
-          ./gradlew test --exclude-task integrationTes
+          ./gradlew test --exclude-task integrationTest
         else
           echo "integrationTest task not found, running regular tests"
-          ./gradlew tes
+          ./gradlew test
         fi
 
         # Generate JaCoCo reports if available
         if ./gradlew tasks --all | grep -q "jacocoTestReport"; then
           echo "Generating JaCoCo test report..."
-          ./gradlew jacocoTestRepor
+          ./gradlew jacocoTestReport
         fi
 
     # Upload test results and coverage
