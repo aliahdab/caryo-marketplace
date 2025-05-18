@@ -41,6 +41,7 @@ jest.mock('react-icons/fc', () => ({
 // Mock i18n
 const mockTranslations: Record<string, string> = {
   'auth.continueWithGoogle': 'Continue with Google',
+  'auth.signingIn': 'Signing in...',
   'auth.username': 'Username',
   'auth.password': 'Password',
   'auth.signin': 'Sign In',
@@ -170,9 +171,10 @@ describe('GoogleSignInButton', () => {
     
     // Wait for error message to appear
     await waitFor(() => {
-      const errorElement = screen.getByText(/Google authentication failed/i);
+      const errorElement = screen.getByRole('alert');
       expect(errorElement).toBeInTheDocument();
-      expect(errorElement.closest('div')).toHaveClass('text-red-600');
+      expect(errorElement).toHaveTextContent(/Google authentication failed/i);
+      expect(errorElement).toHaveClass('text-red-600');
     });
     
     // Verify button is enabled again
@@ -197,9 +199,10 @@ describe('GoogleSignInButton', () => {
     
     // Wait for error message to appear
     await waitFor(() => {
-      const errorElement = screen.getByText('Access denied');
+      const errorElement = screen.getByRole('alert');
       expect(errorElement).toBeInTheDocument();
-      expect(errorElement.closest('div')).toHaveClass('text-red-600');
+      expect(errorElement).toHaveTextContent('Access denied');
+      expect(errorElement).toHaveClass('text-red-600');
     });
     
     // Verify button is enabled again
@@ -228,5 +231,47 @@ describe('GoogleSignInButton', () => {
     
     const googleButton = screen.getByRole('button', { name: /continue with google/i });
     expect(googleButton).toHaveClass('custom-class');
+  });
+  
+  test('should call onSuccess callback when provided and redirect is false', async () => {
+    const mockOnSuccess = jest.fn();
+    const successResponse = { ok: true, error: null, url: '/dashboard' };
+    
+    // Mock signIn to return a success response
+    (signIn as jest.Mock).mockResolvedValue(successResponse);
+    
+    render(<GoogleSignInButton redirect={false} onSuccess={mockOnSuccess} />);
+    const googleButton = screen.getByRole('button', { name: /continue with google/i });
+    
+    // Click button
+    await act(async () => {
+      await user.click(googleButton);
+    });
+    
+    // Verify onSuccess was called with the response
+    await waitFor(() => {
+      expect(mockOnSuccess).toHaveBeenCalledWith(successResponse);
+    });
+  });
+
+  test('should call onError callback when sign-in fails', async () => {
+    const mockOnError = jest.fn();
+    const error = new Error('Authentication error');
+    
+    // Mock signIn to reject
+    (signIn as jest.Mock).mockRejectedValue(error);
+    
+    render(<GoogleSignInButton onError={mockOnError} />);
+    const googleButton = screen.getByRole('button', { name: /continue with google/i });
+    
+    // Click button
+    await act(async () => {
+      await user.click(googleButton);
+    });
+    
+    // Verify onError was called with the error
+    await waitFor(() => {
+      expect(mockOnError).toHaveBeenCalledWith(error);
+    });
   });
 });
