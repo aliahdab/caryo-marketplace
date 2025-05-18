@@ -32,7 +32,7 @@ jobs:
           exit 1
         else
           echo "./gradle/wrapper/gradle-wrapper.jar found post-checkout."
-          JAR_SIZE=$(stat -c%s ./gradle/wrapper/gradle-wrapper.jar)
+          JAR_SIZE=$(stat --format=%s ./gradle/wrapper/gradle-wrapper.jar)
           echo "Size: $JAR_SIZE bytes"
           echo "SHA256: $(sha256sum ./gradle/wrapper/gradle-wrapper.jar | awk '{print $1}')"
           if [ "$JAR_SIZE" -lt 1024 ]; then
@@ -199,7 +199,7 @@ jobs:
         if [ -f ./gradle/wrapper/gradle-wrapper.jar ]; then
           JAR_SIZE_BUILD=$(stat -c%s ./gradle/wrapper/gradle-wrapper.jar)
           echo "DEBUG: ./gradle/wrapper/gradle-wrapper.jar EXISTS. Size: $JAR_SIZE_BUILD bytes."
-          if [ "$JAR_SIZE_BUILD" -lt 1024 ]; then # If it's small, cat its conten
+          if [ "$JAR_SIZE_BUILD" -lt 1024 ]; then # If it's small, cat its content
             echo "DEBUG: Content of small gradle-wrapper.jar before build:"
             cat ./gradle/wrapper/gradle-wrapper.jar
             echo "--- End of small gradle-wrapper.jar content ---"
