@@ -133,10 +133,11 @@ jobs:
           ./gradlew build -x test --no-daemon --stacktrace --info
         }
         
-        # Start the application in the background with the specified profile
+        # Start the application in the background with the specified profile and JVM options
         echo "Starting Spring Boot with enhanced debugging..."
         nohup ./gradlew bootRun --no-daemon \
-          --args='--spring.profiles.active=${{ inputs.spring-profile }} --debug' \
+          -Dorg.gradle.jvmargs="-Xmx1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" \
+          --args='--spring.profiles.active=${{ inputs.spring-profile }} --debug --spring.main.banner-mode=log' \
           > spring-boot.log 2>&1 &
         
         # Store the PID for later cleanup
@@ -153,6 +154,8 @@ jobs:
         echo "Waiting for Spring Boot application to become ready..."
         MAX_RETRIES=${{ inputs.wait-timeout }}
         RETRY_COUNT=0
+        RESTART_COUNT=0
+        RESTART_COUNT=0  # Initialize restart counter
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
           echo "Checking Spring Boot health (attempt $((RETRY_COUNT+1))/$MAX_RETRIES)..."
           
@@ -160,12 +163,29 @@ jobs:
           if ! ps -p $SPRING_PID > /dev/null; then
             echo "ERROR: Spring Boot process is not running anymore! Checking logs..."
             cat spring-boot.log
-            echo "Attempting to restart the application..."
-            nohup ./gradlew bootRun --no-daemon --args='--spring.profiles.active=${{ inputs.spring-profile }} --debug' > spring-boot.log 2>&1 &
+            
+            # Track number of restart attempts
+            RESTART_COUNT=$((RESTART_COUNT+1))
+            if [ ${RESTART_COUNT:-0} -ge 3 ]; then
+              echo "ERROR: Spring Boot has crashed ${RESTART_COUNT} times. Not attempting further restarts."
+              echo "Last 50 lines of the log:"
+              tail -n 50 spring-boot.log
+              echo "Checking JVM crash dumps..."
+              find . -name "hs_err_*.log" -type f -exec cat {} \; || echo "No JVM crash dumps found."
+              echo "Checking system resources..."
+              free -m || echo "free command not available"
+              df -h || echo "df command not available"
+              break
+            fi
+            
+            echo "Attempting restart #${RESTART_COUNT} of the application with extra debug flags..."
+            nohup ./gradlew bootRun --no-daemon \
+              --args='--spring.profiles.active=${{ inputs.spring-profile }} --debug --logging.level.root=DEBUG --trace' \
+              > spring-boot.log 2>&1 &
             SPRING_PID=$!
             echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
             echo "New process started with PID: $SPRING_PID"
-            sleep 10
+            sleep 20  # Give it more time to stabilize
             continue
           fi
           
