@@ -39,6 +39,7 @@ jobs:
         db-container-name: "autotrader-backend-db-1"  # Corrected container name
         db-user: "autotrader"
         minio-container-name: "autotrader-backend-minio-1" # Added MinIO container name
+        createbuckets-container-name: "autotrader-backend-createbuckets-1" # Added createbuckets container name
 
     # Run the actual integration tests
     - name: Run Integration Tests

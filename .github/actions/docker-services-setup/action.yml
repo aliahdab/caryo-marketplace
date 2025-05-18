@@ -38,6 +38,10 @@ inputs:
     description: "Name of the MinIO container for logging"
     required: false
     default: "minio"
+  createbuckets-container-name: # New input
+    description: "Name of the createbuckets container to check"
+    required: false
+    default: "createbuckets" # Will likely need to be overridden by the caller
 
 runs:
   using: "composite"
@@ -96,21 +100,71 @@ runs:
       shell: bash
       run: |
         echo "Checking MinIO health status at ${{ inputs.minio-health-url }}..."
-        max_retries=12 # Increased retries slightly
+        max_retries=12 
         retries=0
-        
-        until [ "$(curl -f -s -o /dev/null -w ''%{http_code}'' ${{ inputs.minio-health-url }})" == "200" ] || [ $retries -eq $max_retries ]
+        http_status=""
+        until [ "$http_status" == "200" ] || [ $retries -eq $max_retries ]
         do
-          echo "Waiting for MinIO to be ready... ($retries/$max_retries). Status: $(curl -f -s -o /dev/null -w ''%{http_code}'' ${{ inputs.minio-health-url }})"
+          http_status=$(curl -f -s -o /dev/null -w \'\'%{http_code}\'\' ${{ inputs.minio-health-url }})
+          echo "Waiting for MinIO to be ready... ($retries/$max_retries). Status: $http_status"
           sleep 5
           retries=$((retries+1))
         done
         
-        if [ $retries -eq $max_retries ]; then
-          echo "MinIO failed to start in time! Last HTTP status: $(curl -f -s -o /dev/null -w ''%{http_code}'' ${{ inputs.minio-health-url }})"
+        if [ "$http_status" != "200" ]; then
+          echo "MinIO failed to start in time! Last HTTP status: $http_status"
           echo "Attempting to get logs for MinIO container: ${{ inputs.minio-container-name }}"
           docker logs ${{ inputs.minio-container-name }}
           exit 1
         else
           echo "MinIO is ready! HTTP status: 200"
+        fi
+
+    - name: Check createbuckets service completion
+      # This step assumes createbuckets is a short-lived container that should run to completion.
+      # It runs after MinIO is confirmed to be ready.
+      if: inputs.createbuckets-container-name != \'\' && inputs.createbuckets-container-name != \'none\' # Allow skipping if not provided
+      shell: bash
+      run: |
+        echo "Waiting for createbuckets container (${{ inputs.createbuckets-container-name }}) to complete..."
+        
+        # Wait for the container to stop, with a timeout (e.g., 2 minutes)
+        # First, check if container exists
+        if ! docker ps -a --format \'\'{{.Names}}\'\' | grep -q "^${{ inputs.createbuckets-container-name }}$"; then
+          echo "Warning: createbuckets container ${{ inputs.createbuckets-container-name }} not found. Skipping check."
+          exit 0
+        fi
+
+        # Wait for container to exit, timeout after 120 seconds
+        timeout_seconds=120
+        elapsed_seconds=0
+        exit_code=""
+
+        while [ $elapsed_seconds -lt $timeout_seconds ]; do
+          container_state=$(docker inspect --format=\'\'{{.State.Status}}\'\' ${{ inputs.createbuckets-container-name }} 2>/dev/null || echo "notfound")
+          if [ "$container_state" == "exited" ]; then
+            exit_code=$(docker inspect --format=\'\'{{.State.ExitCode}}\'\' ${{ inputs.createbuckets-container-name }})
+            break
+          elif [ "$container_state" == "notfound" ]; then
+             echo "Error: createbuckets container ${{ inputs.createbuckets-container-name }} disappeared."
+             exit 1 # Or handle as a warning
+          fi
+          sleep 5
+          elapsed_seconds=$((elapsed_seconds + 5))
+          echo "Waiting for ${{ inputs.createbuckets-container-name }} to exit... ($elapsed_seconds/$timeout_seconds s)"
+        done
+
+        if [ -z "$exit_code" ]; then # Container still running or state unknown
+            echo "createbuckets container (${{ inputs.createbuckets-container-name }}) did not complete within $timeout_seconds seconds."
+            echo "Current state: $(docker inspect --format=\'\'{{.State.Status}}\'\' ${{ inputs.createbuckets-container-name }} 2>/dev/null)"
+            echo "Attempting to get logs for createbuckets container: ${{ inputs.createbuckets-container-name }}"
+            docker logs ${{ inputs.createbuckets-container-name }}
+            exit 1
+        elif [ "$exit_code" -ne 0 ]; then
+            echo "createbuckets container (${{ inputs.createbuckets-container-name }}) completed with error. Exit code: $exit_code"
+            echo "Attempting to get logs for createbuckets container: ${{ inputs.createbuckets-container-name }}"
+            docker logs ${{ inputs.createbuckets-container-name }}
+            exit 1
+        else
+            echo "createbuckets container (${{ inputs.createbuckets-container-name }}) completed successfully. Exit code: 0"
         fi
