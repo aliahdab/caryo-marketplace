@@ -7,7 +7,7 @@ on:
       - 'backend/autotrader-backend/**'
       - '.github/workflows/unit-tests.yml'
       - '.github/actions/gradle-setup/**'
-    branches: [ 'main', 'develop', 'feature/*' ]
+    branches: [ 'develop', 'feature/*' ]
 
 jobs:
   unit-tests:

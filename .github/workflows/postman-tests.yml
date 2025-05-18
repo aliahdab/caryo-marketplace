@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - main
+      - develop # Changed from main to develop
     paths:
       - 'backend/autotrader-backend/**'
       - '.github/workflows/postman-tests.yml'
@@ -47,7 +47,7 @@ jobs:
         db-user: "autotrader" # Ensure this matches your DB setup
         minio-container-name: "autotrader-backend-minio-1"
         createbuckets-container-name: "autotrader-backend-createbuckets-1"
-        post-minio-ready-wait-seconds: '10' # Increased wait time
+        post-minio-ready-wait-seconds: '10' #
 
     # Start Spring Boot application
     - name: Start Spring Boot Application

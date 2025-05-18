@@ -85,7 +85,7 @@ jobs:
           db-user: "autotrader"
           minio-container-name: "autotrader-backend-minio-1" # From integration-tests.yml
           createbuckets-container-name: "autotrader-backend-createbuckets-1" # From integration-tests.yml
-          post-minio-ready-wait-seconds: '5' # Default from docker-services-setup
+          post-minio-ready-wait-seconds: '10' # Increased from 5 to 10
 
       # Start Spring Boot application (similar to postman-tests.yml)
       - name: Start Spring Boot Application
