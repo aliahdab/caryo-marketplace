@@ -220,7 +220,7 @@ jobs:
         # Check if integrationTest task exists
         if ./gradlew tasks | grep -q "integrationTest"; then
           echo "integrationTest task found, excluding it from test run"
-          ./gradlew test --tests "com.autotrader.autotraderbackend.*Test" --exclude-task integrationTes
+          ./gradlew test --tests "com.autotrader.autotraderbackend.*Test" --exclude-task integrationTest
         else
           echo "integrationTest task not found, running regular tests"
           ./gradlew test --tests "com.autotrader.autotraderbackend.*Test"
@@ -234,7 +234,7 @@ jobs:
         path: backend/autotrader-backend/build/reports/tests/
 
   frontend-build-and-test:
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4

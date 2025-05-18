@@ -9,7 +9,15 @@ on:
     branches: [ 'main', 'develop', 'feature/*' ]
 
 jobs:
+  setup-gradle:
+    uses: ./.github/workflows/reusable/gradle-setup.yml
+    with:
+      working-directory: "./backend/autotrader-backend"
+      java-version: "17"
+      cache: true
+      
   unit-tests:
+    needs: setup-gradle
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -18,14 +26,6 @@ jobs:
       with:
         fetch-depth: 0
         lfs: true
-
-    # Use the reusable Gradle setup workflow
-    - name: Setup Gradle Environment
-      uses: ./.github/workflows/reusable/gradle-setup.yml
-      with:
-        working-directory: "./backend/autotrader-backend"
-        java-version: "17"
-        cache: true
 
     # Run unit tests using Gradle
     - name: Run Unit Tests
