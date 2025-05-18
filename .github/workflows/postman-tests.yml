@@ -242,6 +242,63 @@ EOL
         path: |
           ./backend/autotrader-backend/spring-boot*.log
           ./backend/autotrader-backend/build/reports/**/*
+          
+    # Generate diagnostic summary
+    - name: Generate Diagnostic Summary
+      if: always()
+      run: |
+        echo "=== Postman Tests Diagnostic Summary ==="
+        echo "Date: $(date)"
+        echo ""
+        echo "=== Environment ==="
+        echo "OS: $(uname -a)"
+        echo "Java: $(java -version 2>&1 | head -n 1)"
+        echo "Docker: $(docker --version)"
+        echo "Docker Compose: $(docker compose version)"
+        echo ""
+        echo "=== Service Status ==="
+        echo "Docker Containers:"
+        docker ps -a
+        echo ""
+        echo "=== MinIO Status ==="
+        if docker ps | grep -q minio; then
+          echo "MinIO is running"
+          docker exec autotrader-backend-minio-1 mc ls myminio || echo "Failed to list MinIO buckets"
+        else
+          echo "MinIO is NOT running"
+        fi
+        echo ""
+        echo "=== Database Status ==="
+        if docker ps | grep -q db; then
+          echo "Database is running"
+          docker exec autotrader-backend-db-1 pg_isready -U autotrader || echo "Database connection issues"
+        else
+          echo "Database is NOT running"
+        fi
+        echo ""
+        echo "=== Spring Boot Status ==="
+        if curl -s http://localhost:8080/actuator/health > /dev/null; then
+          echo "Spring Boot is responding on health endpoint"
+          curl -s http://localhost:8080/actuator/health
+        else
+          echo "Spring Boot is NOT responding on health endpoint"
+          SPRING_PID="${{ steps.spring-boot.outputs.pid }}"
+          if [ ! -z "$SPRING_PID" ] && ps -p $SPRING_PID > /dev/null; then
+            echo "Process is still running with PID: $SPRING_PID"
+          else
+            echo "Process is NOT running"
+          fi
+        fi
+        echo ""
+        echo "=== Log File Status ==="
+        if [ -f "./backend/autotrader-backend/spring-boot.log" ]; then
+          LOG_SIZE=$(wc -l < ./backend/autotrader-backend/spring-boot.log)
+          echo "Spring Boot log exists with $LOG_SIZE lines"
+          echo "Last 10 lines of log:"
+          tail -n 10 ./backend/autotrader-backend/spring-boot.log
+        else
+          echo "Spring Boot log file NOT found"
+        fi
 
     # This step will always run after the tests are done, regardless of success or failure
     - name: Cleanup test environment
