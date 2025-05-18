@@ -7,7 +7,7 @@ on:
       - 'backend/autotrader-backend/**'
       - '.github/workflows/unit-tests.yml'
       - '.github/actions/gradle-setup/**'
-    branches: [ 'develop', 'feature/*' ]
+    branches: [ 'main', 'develop' ]  # Run on PRs to both main and develop
 
 jobs:
   unit-tests:

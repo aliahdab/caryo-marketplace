@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - feature/* # Only run for PRs from feature branches to other branches
-      - hotfix/* # Include hotfix branches
+      - develop # Run on PRs targeting develop branch
+      - main # Also run on PRs targeting main branch
     paths:
       - 'backend/autotrader-backend/**'
       - '.github/workflows/postman-tests.yml'
