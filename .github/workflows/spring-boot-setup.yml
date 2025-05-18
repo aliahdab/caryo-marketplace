@@ -154,7 +154,6 @@ jobs:
         echo "Waiting for Spring Boot application to become ready..."
         MAX_RETRIES=${{ inputs.wait-timeout }}
         RETRY_COUNT=0
-        RESTART_COUNT=0
         RESTART_COUNT=0  # Initialize restart counter
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
           echo "Checking Spring Boot health (attempt $((RETRY_COUNT+1))/$MAX_RETRIES)..."
