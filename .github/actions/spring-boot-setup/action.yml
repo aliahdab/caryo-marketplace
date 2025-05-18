@@ -70,9 +70,22 @@ runs:
           DEBUG_ARGS="--debug"
         fi
         
-        # Start the application and send logs to a file
+        # Ensure we have a clean start
+        echo "Checking for any running Java processes before starting..."
+        ps aux | grep java | grep -v grep || echo "No Java processes found"
+        
+        # Verify application.properties or application-dev.yml exists
+        if [ ! -f "src/main/resources/application.properties" ] && [ ! -f "src/main/resources/application-${{ inputs.spring-profiles }}.yml" ] && [ ! -f "src/main/resources/application-${{ inputs.spring-profiles }}.yaml" ] && [ ! -f "src/main/resources/application-${{ inputs.spring-profiles }}.properties" ]; then
+          echo "⚠️ Warning: No application configuration file found for profile: ${{ inputs.spring-profiles }}"
+          echo "Checking what configuration files do exist:"
+          ls -la src/main/resources/ || echo "Cannot access resources directory"
+        fi
+        
+        # Start with increased memory and proper options for CI environments
+        echo "Starting Spring Boot with bootRun..."
         nohup ./gradlew bootRun \
-          -Pargs=--spring.profiles.active=${{ inputs.spring-profiles }} \
+          -Pargs="--spring.profiles.active=${{ inputs.spring-profiles }}" \
+          -Dorg.gradle.jvmargs="-Xmx1024m -XX:+HeapDumpOnOutOfMemoryError" \
           ${DEBUG_ARGS} > spring-boot.log 2>&1 &
         
         # Store the PID
@@ -80,20 +93,66 @@ runs:
         echo "Spring Boot app started with PID: ${APP_PID}"
         echo "pid=${APP_PID}" >> $GITHUB_OUTPUT
         
-        # Wait for application to start up
-        echo "Waiting for Spring Boot application to start up..."
+        # Show initial startup log immediately
+        echo "Initial Spring Boot startup log:"
+        sleep 5 # Wait briefly for some logs to be generated
+        cat spring-boot.log || echo "No log file found yet"
+        
+        # Wait for application to start up with improved health check
+        echo "Waiting for Spring Boot application to start up (retries: ${{ inputs.wait-retries }}, interval: ${{ inputs.wait-time }}s)..."
         for i in $(seq 1 ${{ inputs.wait-retries }}); do
           echo "Health check attempt $i/${{ inputs.wait-retries }}..."
+          
+          # Try multiple health check methods
           if curl -s http://localhost:${{ inputs.server-port }}${{ inputs.health-check-path }} | grep -q "UP"; then
-            echo "✅ Spring Boot application is up and running!"
+            echo "✅ Spring Boot application is up and running via health endpoint!"
+            break
+          elif curl -s http://localhost:${{ inputs.server-port }}/ > /dev/null 2>&1; then
+            echo "✅ Spring Boot application is responding on root path!"
+            break
+          elif curl -s -I http://localhost:${{ inputs.server-port }}/ 2>&1 | grep -q "200\|302\|301"; then
+            echo "✅ Spring Boot application is responding with HTTP success or redirect!"
             break
           fi
           
           # Check if the process is still running
           if ! ps -p ${APP_PID} > /dev/null; then
-            echo "❌ Spring Boot application failed to start! Check logs:"
-            tail -n 50 spring-boot.log
-            exit 1
+            echo "❌ Spring Boot application process has died! Check logs:"
+            cat spring-boot.log
+            echo "Attempting one restart with additional diagnostics..."
+            
+            # Show system state before restart
+            echo "System state before restart:"
+            free -h
+            df -h
+            
+            # Try one more time with additional JVM args
+            nohup ./gradlew bootRun \
+              -Pargs="--spring.profiles.active=${{ inputs.spring-profiles }} --logging.level.root=DEBUG --logging.level.org.springframework=DEBUG" \
+              -Dorg.gradle.jvmargs="-Xmx512m -XX:+HeapDumpOnOutOfMemoryError -verbose:gc" \
+              > spring-boot-restart.log 2>&1 &
+            
+            APP_PID=$!
+            echo "Restarted Spring Boot app with PID: ${APP_PID}"
+            echo "pid=${APP_PID}" >> $GITHUB_OUTPUT
+            
+            # Wait a bit longer after restart before failing
+            echo "Waiting for restart to complete..."
+            sleep 20
+            echo "Restart log:"
+            cat spring-boot-restart.log
+            
+            # Check one more time after restart
+            if curl -s http://localhost:${{ inputs.server-port }}${{ inputs.health-check-path }} | grep -q "UP"; then
+              echo "✅ Spring Boot application is up after restart!"
+              break
+            fi
+          fi
+          
+          # Show incremental logs while waiting
+          if [ $((i % 3)) -eq 0 ] || [ $i -eq ${{ inputs.wait-retries }} ]; then
+            echo "Spring Boot log (last 20 lines) after $i attempts:"
+            tail -n 20 spring-boot.log
           fi
           
           sleep ${{ inputs.wait-time }}

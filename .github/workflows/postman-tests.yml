@@ -1,4 +1,4 @@
-name: Postman API Tests (Standalone) (Standalone)
+name: Postman API Tests (Standalone)
 
 on:
   workflow_dispatch:
@@ -140,17 +140,13 @@ exec java -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"' > .
         echo "Checking environment variables..."
         env | grep -E 'MINIO|POSTGRES|REDIS|SPRING' || echo "No matching environment variables found"
 
-    # Direct Spring Boot run for better visibility of startup issues
-    - name: Run Spring Boot Application Directly
-      id: spring-boot-direct
+    # Create application configuration override for CI environment
+    - name: Create application-dev.yml for CI
       working-directory: ./backend/autotrader-backend
       run: |
-        echo "Starting Spring Boot application directly..."
-        
-        # Create application-dev.yml override for testing environment if it doesn't exist
-        if [ ! -f "src/main/resources/application-dev.yml" ]; then
-          echo "Creating test application-dev.yml configuration..."
-          cat > src/main/resources/application-dev.yml <<EOL
+        echo "Creating application-dev.yml configuration for CI environment..."
+        mkdir -p src/main/resources
+        cat > src/main/resources/application-dev.yml <<EOL
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/autotrader
@@ -167,94 +163,57 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        show_sql: true
+  mail:
+    host: localhost
+    port: 1025
+    username: admin
+    password: password
 minio:
   endpoint: http://localhost:9000
   accessKey: newuser
   secretKey: newpassword
-  bucket: autotrader
+  bucket: autotrader-assets
+logging:
+  level:
+    root: INFO
+    com.autotrader: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate: INFO
+server:
+  port: 8080
 EOL
+        echo "Created application-dev.yml:"
+        cat src/main/resources/application-dev.yml
+
+    # Use the composite action for Spring Boot startup
+    - name: Start Spring Boot Application
+      id: spring-boot
+      uses: ./.github/actions/spring-boot-setup
+      with:
+        working-directory: "./backend/autotrader-backend"
+        spring-profiles: "dev"
+        debug-mode: 'true'
+        wait-retries: '60'  # Increased number of retries
+        wait-time: '5'     # Shorter intervals but more attempts
+        health-check-path: "/actuator/health"
+        
+    # Capture initial logs to aid in debugging
+    - name: Capture Initial Spring Boot Logs
+      if: always()
+      run: |
+        echo "Initial Spring Boot logs (if available):"
+        LOG_FILE="./backend/autotrader-backend/spring-boot.log"
+        if [ -f "$LOG_FILE" ]; then
+          cat "$LOG_FILE"
+        else
+          echo "Spring Boot log file not found at $LOG_FILE"
         fi
         
-        # Start the Spring Boot app in the background with debug enabled
-        echo "Starting Spring Boot app with bootRun and debug enabled..."
-        nohup ./gradlew bootRun --args='--spring.profiles.active=dev --debug' > spring-boot.log 2>&1 &
-        SPRING_PID=$!
-        echo "Spring Boot app started with PID: ${SPRING_PID}"
-        echo "pid=${SPRING_PID}" >> $GITHUB_OUTPUT
-        
-        # Give the app some time to start before health check
-        echo "Waiting 30 seconds for initial startup..."
-        sleep 30
-        
-        # Output initial log content
-        echo "Initial Spring Boot log content:"
-        cat spring-boot.log
-        
-        # Wait for application to start up with improved health check
-        MAX_RETRIES=45
-        for i in $(seq 1 $MAX_RETRIES); do
-          echo "Health check attempt $i/$MAX_RETRIES..."
-          
-          # Try multiple health check methods
-          if curl -s http://localhost:8080/actuator/health | grep -q "UP"; then
-            echo "✅ Spring Boot application is up and running via Actuator!"
-            break
-          elif curl -s http://localhost:8080/ > /dev/null; then
-            echo "✅ Spring Boot application is responding on root path!"
-            break
-          elif curl -s -I http://localhost:8080/ | grep -q "200\|302\|301"; then
-            echo "✅ Spring Boot application is responding with HTTP success or redirect!"
-            break
-          fi
-          
-          # Check if process is still running
-          if ! ps -p ${SPRING_PID} > /dev/null; then
-            echo "❌ Spring Boot application process has died! Check logs:"
-            cat spring-boot.log
-            echo "Attempting to restart with additional JVM options..."
-            
-            nohup ./gradlew bootRun --args='--spring.profiles.active=dev --debug' \
-              -Dorg.gradle.jvmargs="-Xmx512m -XX:+HeapDumpOnOutOfMemoryError" > spring-boot-restart.log 2>&1 &
-            SPRING_PID=$!
-            echo "Restarted Spring Boot app with PID: ${SPRING_PID}"
-            echo "pid=${SPRING_PID}" >> $GITHUB_OUTPUT
-            
-            echo "Waiting 20 seconds after restart..."
-            sleep 20
-            echo "Restart log:"
-            cat spring-boot-restart.log
-          fi
-          
-          # Show progress in logs
-          if [ $((i % 5)) -eq 0 ]; then
-            echo "Last 50 lines of Spring Boot log after $i attempts:"
-            tail -n 50 spring-boot.log
-          fi
-          
-          sleep 10
-          
-          # If we've reached the last retry, capture comprehensive diagnostics
-          if [ "$i" -eq "$MAX_RETRIES" ]; then
-            echo "❌ Spring Boot application failed to start after $MAX_RETRIES attempts!"
-            echo "Full application log:"
-            cat spring-boot.log
-            
-            echo "JVM processes:"
-            ps aux | grep java
-            
-            echo "Memory usage:"
-            free -h
-            
-            echo "Disk space:"
-            df -h
-            
-            echo "Network connections:"
-            netstat -tulpn | grep LISTEN
-            
-            # Continue anyway for Postman tests to see if they work with a partial system
-            echo "WARNING: Continuing with tests despite Spring Boot startup issues"
-          fi
-        done
+        echo "Checking application status:"
+        curl -v http://localhost:8080/actuator/health || echo "Health endpoint not responding"
+        echo "Checking application environment:"
+        curl -v http://localhost:8080/actuator/env || true
 
     # Run Postman Tests with more explicit collection path
     - name: Run Postman Tests
@@ -290,22 +249,29 @@ EOL
       run: |
         echo "Cleaning up test environment"
         
-        # Kill the Spring Boot process if it was started
-        SPRING_PID="${{ steps.spring-boot-direct.outputs.pid }}"
+        # Kill the Spring Boot process if it was started using the action
+        SPRING_PID="${{ steps.spring-boot.outputs.pid }}"
         if [ ! -z "$SPRING_PID" ]; then
           echo "Stopping Spring Boot application (PID: $SPRING_PID)..."
           kill $SPRING_PID || true
-          echo "Spring Boot logs (last 50 lines):"
+          echo "Spring Boot logs (full content):"
           if [ -f "./backend/autotrader-backend/spring-boot.log" ]; then
-            tail -n 50 ./backend/autotrader-backend/spring-boot.log
+            cat ./backend/autotrader-backend/spring-boot.log
           fi
+        else
+          echo "No Spring Boot PID found from action output, checking running Java processes..."
+          ps aux | grep "[j]ava.*autotrader" || echo "No matching Java processes found"
         fi
         
         # Stop Docker services if they were started
         if [ -f "./backend/autotrader-backend/docker-compose.dev.yml" ]; then
           echo "Stopping Docker services..."
           cd ./backend/autotrader-backend
+          echo "Docker container status before shutdown:"
+          docker ps -a
           docker compose -f docker-compose.dev.yml down -v
+          echo "Docker container status after shutdown:"
+          docker ps -a
         fi
         
         echo "Cleanup complete"
