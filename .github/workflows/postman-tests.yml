@@ -5,6 +5,14 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'backend/autotrader-backend/**'
+      - '.github/workflows/postman-tests.yml'
+      - '.github/actions/docker-services-setup/**'
+      - '.github/actions/gradle-setup/**'
+      - '.github/actions/spring-boot-setup/**'
+      - '.github/actions/postman-tests/**'
+      - 'postman/**'
   schedule:
     - cron: '0 0 * * 1'  # Run weekly on Mondays at midnight
 
@@ -65,10 +73,6 @@ jobs:
       with:
         name: postman-test-results
         path: results/**
-
-    steps:
-    - name: Get Results
-      run: echo "Postman API tests completed"
 
     # This step will always run after the tests are done, regardless of success or failure
     - name: Cleanup test environment

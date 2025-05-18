@@ -8,6 +8,9 @@ on:
     paths:
       - 'backend/autotrader-backend/**'
       - '.github/workflows/integration-tests.yml'
+      - '.github/actions/docker-services-setup/**'
+      - '.github/actions/gradle-setup/**'
+      - '.github/actions/spring-boot-setup/**'
     branches: [ 'main', 'develop' ]
 
 jobs:

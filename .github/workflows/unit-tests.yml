@@ -6,6 +6,7 @@ on:
     paths:
       - 'backend/autotrader-backend/**'
       - '.github/workflows/unit-tests.yml'
+      - '.github/actions/gradle-setup/**'
     branches: [ 'main', 'develop', 'feature/*' ]
 
 jobs:
