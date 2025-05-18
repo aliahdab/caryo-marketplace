@@ -76,7 +76,7 @@ jobs:
         if [ -f "./backend/autotrader-backend/docker-compose.dev.yml" ]; then
           echo "Starting backend services with Docker Compose..."
           cd ./backend/autotrader-backend
-          docker-compose -f docker-compose.dev.yml up -d
+          docker compose -f docker-compose.dev.yml up -d
           cd -
           
           # Wait for services to be available
@@ -139,7 +139,7 @@ jobs:
         if [ -f "./backend/autotrader-backend/docker-compose.dev.yml" ]; then
           echo "Stopping Docker services..."
           cd ./backend/autotrader-backend
-          docker-compose -f docker-compose.dev.yml down -v
+          docker compose -f docker-compose.dev.yml down -v
           cd -
         fi
         echo "Cleanup complete"
