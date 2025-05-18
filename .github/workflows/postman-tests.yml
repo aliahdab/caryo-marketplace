@@ -145,22 +145,28 @@ EOF
         wait-time: '5'     # Shorter intervals but more attempts
         health-check-path: "/actuator/health"
         
-    # Capture initial logs to aid in debugging
-    - name: Capture Initial Spring Boot Logs
+    # Capture initial logs and run diagnostics
+    - name: Capture Initial Spring Boot Logs and Run Diagnostics
       if: always()
       run: |
         echo "Initial Spring Boot logs (if available):"
         LOG_FILE="./backend/autotrader-backend/spring-boot.log"
         if [ -f "$LOG_FILE" ]; then
-          cat "$LOG_FILE"
+          echo "Log file found. Running diagnostic script..."
+          SPRING_PID="${{ steps.spring-boot.outputs.pid }}"
+          ./scripts/diagnose-spring-boot.sh "$LOG_FILE" "$SPRING_PID"
         else
           echo "Spring Boot log file not found at $LOG_FILE"
         fi
         
         echo "Checking application status:"
         curl -v http://localhost:8080/actuator/health || echo "Health endpoint not responding"
-        echo "Checking application environment:"
-        curl -v http://localhost:8080/actuator/env || true
+        
+        echo "Checking application environment variables:"
+        curl -v http://localhost:8080/actuator/env || echo "Environment endpoint not responding"
+        
+        echo "Checking network ports in use:"
+        netstat -tulpn | grep LISTEN || echo "Could not check network ports"
 
     # Run Postman Tests with more explicit collection path
     - name: Run Postman Tests

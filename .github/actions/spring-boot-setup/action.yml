@@ -81,10 +81,35 @@ runs:
           ls -la src/main/resources/ || echo "Cannot access resources directory"
         fi
         
+        # Check for port conflicts before starting
+        echo "Checking if port ${{ inputs.server-port }} is already in use..."
+        if netstat -tuln | grep -q ":${{ inputs.server-port }} "; then
+          echo "⚠️ WARNING: Port ${{ inputs.server-port }} is already in use! This might cause Spring Boot to fail."
+          netstat -tuln | grep ":${{ inputs.server-port }} "
+        else
+          echo "✅ Port ${{ inputs.server-port }} is available."
+        fi
+        
+        # Verify dependencies are available
+        echo "Checking database connection..."
+        if pg_isready -h localhost -p 5432 -U autotrader > /dev/null 2>&1; then
+          echo "✅ PostgreSQL database is responding on localhost:5432"
+        else
+          echo "⚠️ WARNING: Cannot connect to PostgreSQL database on localhost:5432"
+        fi
+        
+        # Check MinIO
+        echo "Checking MinIO connection..."
+        if curl -s -I http://localhost:9000 > /dev/null; then
+          echo "✅ MinIO is responding on localhost:9000"
+        else
+          echo "⚠️ WARNING: Cannot connect to MinIO on localhost:9000"
+        fi
+
         # Start with increased memory and proper options for CI environments
-        echo "Starting Spring Boot with bootRun..."
+        echo "Starting Spring Boot with bootRun and enhanced logging..."
         nohup ./gradlew bootRun \
-          -Pargs="--spring.profiles.active=${{ inputs.spring-profiles }}" \
+          -Pargs="--spring.profiles.active=${{ inputs.spring-profiles }} --logging.level.org.springframework=DEBUG --logging.level.com.autotrader=DEBUG" \
           -Dorg.gradle.jvmargs="-Xmx1024m -XX:+HeapDumpOnOutOfMemoryError" \
           ${DEBUG_ARGS} > spring-boot.log 2>&1 &
         
@@ -95,8 +120,13 @@ runs:
         
         # Show initial startup log immediately
         echo "Initial Spring Boot startup log:"
-        sleep 5 # Wait briefly for some logs to be generated
-        cat spring-boot.log || echo "No log file found yet"
+        sleep 10 # Wait slightly longer for more log content
+        if [ -f "spring-boot.log" ]; then
+          echo "Log file found with $(wc -l < spring-boot.log) lines"
+          cat spring-boot.log
+        else
+          echo "⚠️ No log file found yet - this might indicate a very early failure"
+        fi
         
         # Wait for application to start up with improved health check
         echo "Waiting for Spring Boot application to start up (retries: ${{ inputs.wait-retries }}, interval: ${{ inputs.wait-time }}s)..."
