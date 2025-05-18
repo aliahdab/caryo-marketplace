@@ -1,4 +1,6 @@
-name: Postman API Tests
+name: Postman API Tests (Current)
+
+# This is the current workflow for running Postman tests using reusable workflows
 
 on:
   workflow_dispatch:  
