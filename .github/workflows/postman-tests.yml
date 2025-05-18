@@ -261,6 +261,49 @@ jobs:
     - name: Create Results Directory
       run: mkdir -p results
 
+    - name: Verify API is Accessible
+      run: |
+        echo "Performing final API verification before running tests..."
+        # Try to connect to the API and display detailed information
+        curl -v http://localhost:8080/ || echo "Failed to connect to root endpoint"
+        
+        # Check if network is properly set up
+        echo "Network configuration:"
+        ip addr show || ifconfig || echo "Network tools not available"
+        
+        echo "Listening ports:"
+        netstat -tulpn || ss -tulwn || echo "Network tools not available"
+        
+        # Ensure Docker containers are running
+        echo "Docker containers status:"
+        docker ps
+        
+        # Check if we can connect to the database from the host
+        echo "Testing database connection from host:"
+        docker exec $(docker ps -q -f name=db) pg_isready -h localhost -U autotrader || echo "Cannot connect to database from host"
+
+    - name: Prepare Environment File
+      run: |
+        echo "Checking and preparing Postman environment file..."
+        if [ -f "./postman/test_environment.json" ]; then
+          # Make a backup of the original file
+          cp ./postman/test_environment.json ./postman/test_environment.json.bak
+          
+          # Update the environment file to ensure localhost URL is correct
+          echo "Ensuring API URL is correctly set to localhost:8080..."
+          cat ./postman/test_environment.json | grep -i url || echo "No URL found in environment file"
+          
+          # Update the file to ensure proper localhost URL
+          sed -i 's|"value": "http://[^/]*|"value": "http://localhost:8080|g' ./postman/test_environment.json
+          
+          echo "Updated environment file:"
+          cat ./postman/test_environment.json | grep -i url
+        else
+          echo "WARNING: test_environment.json not found in ./postman/"
+          echo "Searching for environment files:"
+          find . -name "*environment*.json" -o -name "*env*.json"
+        fi
+
     - name: Run Postman Collection
       run: |
         echo "Running Postman collection tests..."
@@ -278,11 +321,16 @@ jobs:
           exit 1
         fi
         
+        # Run newman with enhanced timeout and verbose logging
+        echo "Running Newman with verbose output..."
         newman run "$COLLECTION_PATH" \
           --environment ./postman/test_environment.json \
+          --timeout-request 60000 \
+          --timeout 120000 \
           --reporters cli,junit,htmlextra \
           --reporter-junit-export results/junit-report.xml \
-          --reporter-htmlextra-export results/html-report.html
+          --reporter-htmlextra-export results/html-report.html \
+          --verbose
 
     - name: Upload test results
       if: always()

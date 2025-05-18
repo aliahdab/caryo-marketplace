@@ -1,0 +1,58 @@
+name: Postman API Tests
+
+on:
+  workflow_dispatch:  
+  pull_request:
+    branches:
+      - main 
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly on Mondays at midnight
+
+jobs:
+  # Set up Docker services
+  docker-services:
+    uses: ./.github/workflows/docker-services-setup.yml
+    with:
+      docker-compose-file: './backend/autotrader-backend/docker-compose.dev.yml'
+      wait-timeout: 60
+
+  # Build and start Spring Boot application
+  spring-boot:
+    needs: docker-services
+    uses: ./.github/workflows/spring-boot-setup.yml
+    with:
+      working-directory: './backend/autotrader-backend'
+      spring-profile: 'dev'
+      gradle-version: '8.5'
+      java-version: '17'
+      wait-timeout: 45
+
+  # Run Postman tests
+  postman-tests:
+    needs: spring-boot
+    uses: ./.github/workflows/postman-tests-reusable.yml
+    with:
+      environment-path: './postman/test_environment.json'
+      api-url: 'http://localhost:8080'
+
+  # Cleanup step
+  cleanup:
+    needs: [docker-services, spring-boot, postman-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Cleanup
+        run: |
+          echo "Cleaning up test environment"
+          
+          # Stop Docker services if they were started
+          if [ -f "./backend/autotrader-backend/docker-compose.dev.yml" ]; then
+            echo "Stopping Docker services..."
+            cd ./backend/autotrader-backend
+            docker compose -f docker-compose.dev.yml down -v
+            cd -
+          fi
+          echo "Cleanup complete"

@@ -1,0 +1,70 @@
+name: Reusable Docker Services Setup
+
+# This is a reusable workflow that handles setting up Docker services
+on:
+  workflow_call:
+    inputs:
+      docker-compose-file:
+        description: 'Path to the docker-compose.yml file'
+        default: './backend/autotrader-backend/docker-compose.dev.yml'
+        required: false
+        type: string
+      wait-timeout:
+        description: 'How many seconds to wait for services to be available'
+        default: 60
+        required: false
+        type: number
+
+jobs:
+  setup-docker-services:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Set up Docker services
+      run: |
+        echo "Setting up Docker services..."
+        
+        # Check if the Docker Compose file exists
+        if [ -f "${{ inputs.docker-compose-file }}" ]; then
+          echo "Starting services with Docker Compose..."
+          # Extract directory path from the file path
+          COMPOSE_DIR=$(dirname "${{ inputs.docker-compose-file }}")
+          cd $COMPOSE_DIR
+          
+          # Start the services
+          docker compose -f $(basename "${{ inputs.docker-compose-file }}") up -d
+          
+          # Wait for services to be available
+          echo "Waiting for services to initialize (${{ inputs.wait-timeout }} seconds)..."
+          sleep ${{ inputs.wait-timeout }}
+          
+          # Check service health
+          echo "Checking service health..."
+          if docker ps | grep -q "db"; then
+            echo "Checking PostgreSQL readiness..."
+            MAX_RETRIES=15
+            RETRY_COUNT=0
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if docker exec $(docker ps -q -f name=db) pg_isready -U autotrader -t 15 2>/dev/null; then
+                echo "PostgreSQL is ready!"
+                break
+              else
+                RETRY_COUNT=$((RETRY_COUNT+1))
+                echo "PostgreSQL not ready yet. Attempt $RETRY_COUNT of $MAX_RETRIES"
+                if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+                  echo "PostgreSQL failed to become ready. Showing logs but continuing..."
+                  docker logs $(docker ps -q -f name=db)
+                fi
+                sleep $((RETRY_COUNT * 5))
+              fi
+            done
+          fi
+          
+          # List running containers
+          echo "Running Docker containers:"
+          docker ps
+          
+        else
+          echo "No Docker Compose file found at ${{ inputs.docker-compose-file }}."
+          echo "Skipping Docker services setup."
+        fi
