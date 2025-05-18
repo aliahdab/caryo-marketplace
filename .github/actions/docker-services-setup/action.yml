@@ -123,7 +123,7 @@ runs:
     - name: Check createbuckets service completion
       # This step assumes createbuckets is a short-lived container that should run to completion.
       # It runs after MinIO is confirmed to be ready.
-      if: inputs.createbuckets-container-name != \'\' && inputs.createbuckets-container-name != \'none\' # Allow skipping if not provided
+      if: inputs.createbuckets-container-name != '' && inputs.createbuckets-container-name != 'none' # Corrected quoting
       shell: bash
       run: |
         echo "Waiting for createbuckets container (${{ inputs.createbuckets-container-name }}) to complete..."
