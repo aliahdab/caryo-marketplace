@@ -93,10 +93,14 @@ This dedicated workflow handles integration tests that require the full Docker e
 - Can be triggered manually via workflow_dispatch
 - Weekly scheduled runs (Sundays at 01:00 UTC)
 
-### 3. Postman API Tests (`postman-tests.yml`)
-This workflow runs comprehensive API tests against a running instance.
+### 3. Postman API Tests (`postman-tests-new.yml`)
+This workflow runs comprehensive API tests against a running instance using reusable workflow components.
 
 **What it does:**
+- Uses modular reusable workflows:
+  - `docker-services-setup.yml` - Sets up required Docker containers
+  - `spring-boot-setup.yml` - Configures and starts the Spring Boot application
+  - `postman-tests-reusable.yml` - Runs the actual Newman tests
 - Uses Newman to run Postman collections
   - Tests all API endpoints for functionality
   - Validates response schemas
