@@ -1,4 +1,4 @@
-name: Reusable Spring Boot Build and Star
+name: Reusable Spring Boot Build and Start
 
 on:
   workflow_call:
@@ -45,7 +45,7 @@ on:
 
 jobs:
   spring-boot-build-start:
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     steps:
       - name: Build Spring Boot Application
         if: ${{ !inputs.skip-build }}

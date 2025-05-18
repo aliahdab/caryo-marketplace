@@ -35,9 +35,9 @@ on:
 
 jobs:
   gradle-setup:
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     steps:
-      - name: Set up custom Gradle environmen
+      - name: Set up custom Gradle environment
         run: |
           echo "Setting up Gradle environment with proper permissions..."
 

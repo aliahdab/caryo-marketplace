@@ -46,7 +46,7 @@ on:
 
 jobs:
   docker-services-setup:
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     steps:
       - name: Set up Docker Compose
         uses: isbang/compose-action@v1.5.1

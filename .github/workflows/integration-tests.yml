@@ -3,7 +3,7 @@ name: Backend Integration Tests
 on:
   workflow_dispatch:  # Manual trigger only
   schedule:
-    - cron: '0 0 * * 0'  # Run weekly on Sundays at midnigh
+    - cron: '0 0 * * 0'  # Run weekly on Sundays at midnight
   pull_request:
     paths:
       - 'backend/autotrader-backend/**'
@@ -12,7 +12,7 @@ on:
 
 jobs:
   integration-tests:
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     timeout-minutes: 20  # Prevent hanging builds
 
     steps:

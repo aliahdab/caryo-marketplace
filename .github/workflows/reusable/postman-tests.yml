@@ -36,7 +36,7 @@ on:
 
 jobs:
   run-postman-tests:
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     steps:
       - name: Install Newman
         run: npm install -g newman newman-reporter-htmlextra
