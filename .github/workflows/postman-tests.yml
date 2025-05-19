@@ -303,16 +303,56 @@ jobs:
           # Create results directory
           mkdir -p ../../results
 
+      - name: Ensure Postman Environment File Exists
+        shell: bash
+        run: |
+          echo "Ensuring Postman environment file is up-to-date..."
+          ENV_FILE_PATH="./postman/test_environment.json" # Relative to workspace root
+          mkdir -p "$(dirname "$ENV_FILE_PATH")"
+          
+          echo "Writing current AUTH_TOKEN to $ENV_FILE_PATH"
+          # AUTH_TOKEN is sourced from GITHUB_ENV
+          cat > "$ENV_FILE_PATH" <<EOF
+          {
+            "id": "test-environment-$(date +%s)",
+            "name": "Test Environment (GitHub Actions)",
+            "values": [
+              {
+                "key": "baseUrl",
+                "value": "http://localhost:8080",
+                "type": "default",
+                "enabled": true
+              },
+              {
+                "key": "authToken",
+                "value": "${AUTH_TOKEN}",
+                "type": "secret",
+                "enabled": true
+              },
+              {
+                "key": "auth_token",
+                "value": "${AUTH_TOKEN}",
+                "type": "secret",
+                "enabled": true
+              }
+            ],
+            "_postman_variable_scope": "environment",
+            "_postman_exported_at": "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")",
+            "_postman_exported_using": "GitHub Actions"
+          }
+EOF
+          echo "Postman environment file $ENV_FILE_PATH updated."
+
       - name: Run Postman Tests with Newman
         id: postman-tests
         uses: ./.github/actions/postman-tests
         with:
           collection-path: "${{ steps.prepare-auth.outputs.COLLECTION_PATH }}"
-          environment-file: './postman/test_environment.json'
-          working-directory: './backend/autotrader-backend'
-          results-directory: './results'
+          environment-file: 'postman/test_environment.json' # Path relative to repo root
+          working-directory: './backend/autotrader-backend' 
+          results-directory: 'results' # Path relative to repo root
           auto-detect-collection: 'true'
-          extra-options: '--bail --export-environment ./results/updated_environment.json'
+          extra-options: '--bail --export-environment results/updated_environment.json' # Path relative to repo root
 
       - name: Run diagnostic scripts if tests fail
         if: steps.postman-tests.outputs.test-status == 'failure'
@@ -324,144 +364,12 @@ jobs:
           echo "Running Postman tests diagnostics..."
           bash ../../scripts/diagnose-postman-tests.sh http://localhost:8080 "${{ steps.prepare-auth.outputs.COLLECTION_PATH }}" "../../postman/test_environment.json"
           
+          echo "Checking for auth errors in the logs..."
+          grep -A 5 -B 5 "401\|403\|Authentication\|Unauthorized" spring-boot.log || echo "No authentication errors found in logs"
+          
           echo "Examining application logs..."
           tail -n 100 spring-boot.log
-        
-      - name: Upload test results and logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-artifacts
-          path: |
-            results/**
-            ./backend/autotrader-backend/spring-boot*.log
-            ./backend/autotrader-backend/build/reports/**/*
-            ./postman/test_environment.json
-            ./results/updated_environment.json
-          retention-days: 7
-
-      - name: Publish Test Summary
-        if: always()
-        run: |
-          echo "## API Test Results Summary" >> $GITHUB_STEP_SUMMARY
           
-          echo "### Spring Boot Application" >> $GITHUB_STEP_SUMMARY
-          echo "- Profile: test (with dev profile imported)" >> $GITHUB_STEP_SUMMARY
-          echo "- PID: ${{ steps.spring-boot-start.outputs.pid }}" >> $GITHUB_STEP_SUMMARY
-          
-          echo "### Test Execution" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.postman-tests.outcome }}" == "success" ]; then
-            echo "- Status: ✅ All tests passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- Status: ❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "### Authentication" >> $GITHUB_STEP_SUMMARY
-          if [ ! -z "$ADMIN_TOKEN" ]; then
-            echo "- Admin token: ✅ Available" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- Admin token: ❌ Not available" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ ! -z "$USER_TOKEN" ]; then
-            echo "- User token: ✅ Available" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- User token: ❌ Not available" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "- Test Results: results/" >> $GITHUB_STEP_SUMMARY
-          echo "- Application Logs: backend/autotrader-backend/spring-boot.log" >> $GITHUB_STEP_SUMMARY
-          
-          echo "For more details, download the test artifacts."
-
-      - name: Cleanup test environment
-        if: always()
-        run: |
-          # Get the Spring Boot PID from the composite action output
-          SPRING_PID="${{ steps.spring-boot-start.outputs.pid }}"
-          echo "Spring Boot PID from setup: $SPRING_PID"
-          
-          # Kill Spring Boot process with a safer approach
-          if [ ! -z "$SPRING_PID" ]; then
-            echo "Gracefully stopping Spring Boot process with PID: $SPRING_PID"
-            kill -15 $SPRING_PID 2>/dev/null || true
-            
-            # Give it a chance to gracefully exit
-            echo "Waiting for process to exit gracefully..."
-            for i in {1..5}; do
-              if ! ps -p $SPRING_PID > /dev/null 2>&1; then
-                echo "✅ Spring Boot process stopped successfully"
-                break
-              fi
-              sleep 1
-            done
-            
-            # Force kill if still running
-            if ps -p $SPRING_PID > /dev/null 2>&1; then
-              echo "Process still running, force killing..."
-              kill -9 $SPRING_PID 2>/dev/null || true
-              sleep 1
-            fi
-          fi
-          
-          # Check for any remaining Java processes (safety net)
-          echo "Checking for any remaining Java processes..."
-          JAVA_PIDS=$(ps aux | grep java | grep -v grep | awk '{print $2}')
-          if [ ! -z "$JAVA_PIDS" ]; then
-            echo "Found Java processes: $JAVA_PIDS"
-            for pid in $JAVA_PIDS; do
-              echo "Force killing Java process $pid"
-              kill -9 $pid 2>/dev/null || true
-            done
-          else
-            echo "✅ No leftover Java processes found"
-          fi
-          
-          # Stop Docker services and clean volumes
-          echo "Stopping Docker services..."
-          cd ./backend/autotrader-backend
-          docker compose -f docker-compose.dev.yml down -v
-          echo "✅ Docker services and volumes cleaned up"
-          
-      - name: Notify on test failures
-        if: failure() && (github.event_name == 'push' || github.event_name == 'schedule')
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            
-            // Create a summary of the failure
-            const workflowName = 'Postman API Tests';
-            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
-            const jobName = 'api-tests';
-            
-            // Get branch/tag name
-            const ref = context.ref.replace('refs/heads/', '').replace('refs/tags/', '');
-            
-            const body = `## ❌ ${workflowName} Failed
-            
-            * **Branch/Tag**: ${ref}
-            * **Workflow Run**: [View details](${runUrl})
-            * **Job**: ${jobName}
-            
-            Please check the logs for more details on the failure.
-            `;
-            
-            // Create an issue for the failure if this is a scheduled run or push to main branches
-            if (context.eventName === 'schedule' || 
-               (context.eventName === 'push' && 
-               (context.ref === 'refs/heads/main' || context.ref === 'refs/heads/develop'))) {
-              
-              await github.rest.issues.create({
-                owner,
-                repo,
-                title: `🔴 ${workflowName} failed on ${ref}`,
-                body: body,
-                labels: ['bug', 'automation', 'test-failure']
-              });
-              
-              console.log('Created issue for test failure');
-            } else {
-              console.log('Skipping issue creation for non-critical branch or event');
-            }
+          echo "Testing non-authenticated endpoints..."
+          echo "Health endpoint: $(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health)"
+          echo "Public endpoint: $(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/public || echo 'not found')"
