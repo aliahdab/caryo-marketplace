@@ -15,17 +15,7 @@ jobs:
     timeout-minutes: 30
     if: |
       github.event_name == 'workflow_dispatch' ||
-      git          # Last resort - use a fallback token if all methods fail
-          if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-              echo "⚠️ All authentication attempts failed. Using fallback token."
-              TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImlhdCI6MTYyNjk1NDU4OCwiZXhwIjoxNjI3MDQwOTg4fQ.test-token-placeholder"
-              
-              # Add security bypass properties without restarting
-              echo "Adding security bypass properties..."
-              curl -X POST http://localhost:8080/actuator/env \
-                -H "Content-Type: application/json" \
-                -d '{"name":"security.testMode","value":"true"}' || true
-          fime == 'schedule' ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
       github.event_name == 'pull_request'
 
@@ -143,15 +133,16 @@ jobs:
       - name: Prepare Configuration
         working-directory: ./backend/autotrader-backend
         run: |
-          # Add debug and initialization properties directly to application-dev.yml
-          echo "Adding data initialization properties to application-dev.yml..."
+          # Create application-test.yml with necessary configs
+          echo "Creating application-test.yml file..."
           mkdir -p src/main/resources
           
-          # Append to the existing application-dev.yml file
-          cat >> src/main/resources/application-dev.yml << EOF
-          
-          # Enable data initialization
+          cat > src/main/resources/application-test.yml << EOF
+          # Test configuration that inherits from dev profile
           spring:
+            config:
+              import: application-dev.yml
+            # Enable data initialization
             jpa:
               defer-datasource-initialization: true
             sql:
@@ -177,9 +168,9 @@ jobs:
               kill -9 $pid || true
             fi
           fi
-          # Start application with just the dev profile
-          echo "Starting Spring Boot with dev profile..."
-          nohup ./gradlew bootRun --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
+          # Start application with test profile (which imports dev)
+          echo "Starting Spring Boot with test profile..."
+          nohup ./gradlew bootRun --args='--spring.profiles.active=test' > spring-boot.log 2>&1 &
           SPRING_PID=$!
           echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
           echo "Spring Boot started with PID: $SPRING_PID"
@@ -212,13 +203,17 @@ jobs:
           echo "Waiting for DataInitializer to complete..."
           sleep 5
           
-          # Verify the application started with the dev profile
+          # Verify the application started with the test profile
           echo "Verifying active profiles..."
           PROFILES_OUTPUT=$(curl -s http://localhost:8080/actuator/env/spring.profiles.active || echo "")
           if [ ! -z "$PROFILES_OUTPUT" ]; then
             echo "Active profiles: $PROFILES_OUTPUT"
-            if echo "$PROFILES_OUTPUT" | grep -q "dev"; then
-              echo "✅ Application started with dev profile!"
+            if echo "$PROFILES_OUTPUT" | grep -q "test"; then
+              echo "✅ Application started with test profile!"
+              # Check if dev profile is also active (imported by test)
+              if echo "$PROFILES_OUTPUT" | grep -q "dev"; then
+                echo "✅ Dev profile is also active (imported by test profile)"
+              fi
             else
               echo "⚠️ Profile verification failed! Continuing anyway..."
             fi
