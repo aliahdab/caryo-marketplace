@@ -52,7 +52,15 @@
       "active": "Active",
       "expired": "Expired",
       "pending": "Pending"
-    },
+    },"carsFeatures":{
+      "convertible": "convertible",
+      "electric": "electric",
+      "sports": "sports",
+      "luxury": "luxury",
+      "suv": "suv",
+      "sedan": "sedan"
+    }
+    ,
     "features": {
       "airConditioning": "Air Conditioning",
       "leatherSeats": "Leather Seats",

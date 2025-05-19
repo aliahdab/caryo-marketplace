@@ -1,6 +1,4 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// The following imports are used in the component despite ESLint warnings
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
@@ -73,12 +71,12 @@ export default function Home() {
 
   // Vehicle categories
   const categories = [
-    { name: "Sedan", icon: "🚗", count: 128 },
-    { name: "SUV", icon: "🚙", count: 96 },
-    { name: "Luxury", icon: "✨", count: 64 },
-    { name: "Sports", icon: "🏎️", count: 42 },
-    { name: "Electric", icon: "⚡", count: 38 },
-    { name: "Convertible", icon: "🚘", count: 27 },
+    { name: t("carsFeatures.sedan"), icon: "🚗", count: 128 },
+    { name: t("carsFeatures.suv"), icon: "🚙", count: 96 },
+    { name: t("carsFeatures.luxury"), icon: "✨", count: 64 },
+    { name: t("carsFeatures.sports"), icon: "🏎️", count: 42 },
+    { name: t("carsFeatures.electric"), icon: "⚡", count: 38 },
+    { name: t("carsFeatures.convertible"), icon: "🚘", count: 27 },
   ];
 
   return (
