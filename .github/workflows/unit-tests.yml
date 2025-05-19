@@ -11,7 +11,7 @@ on:
 
 jobs:
   unit-tests:
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
