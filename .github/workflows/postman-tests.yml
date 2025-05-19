@@ -108,8 +108,8 @@ jobs:
               properties:
                 hibernate:
                   dialect: org.hibernate.dialect.PostgreSQLDialect
-                  format_sql: true
-                  show_sql: true
+                  format_sql: false
+                  show_sql: false
             mail:
               host: localhost
               port: 1025
@@ -123,9 +123,9 @@ jobs:
           logging:
             level:
               root: INFO
-              com.autotrader: DEBUG
-              org.springframework.web: DEBUG
-              org.hibernate: INFO
+              com.autotrader: INFO
+              org.springframework.web: INFO
+              org.hibernate: WARN
           server:
             port: 8080
           EOC
@@ -161,7 +161,7 @@ jobs:
         with:
           working-directory: "./backend/autotrader-backend"
           spring-profiles: "test"
-          debug-mode: "true"
+          debug-mode: "false"
           wait-retries: "30"
           wait-time: "10"
           skip-build: "false"
@@ -172,10 +172,38 @@ jobs:
         run: |
           # Wait to ensure DataInitializer finishes and logs tokens
           echo "Waiting for DataInitializer to complete..."
-          sleep 10
           
-          # Get the log file path from the spring-boot-setup action
+          # Instead of a fixed sleep, poll the logs for a sign that initialization is complete
           LOG_FILE="spring-boot.log"
+          MAX_ATTEMPTS=12
+          ATTEMPT=1
+          INIT_COMPLETE=false
+          
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$INIT_COMPLETE" = "false" ]; do
+            echo "Checking for initialization completion (attempt $ATTEMPT/$MAX_ATTEMPTS)..."
+            
+            # Check if log contains indication that data initialization is complete
+            if grep -q "DataInitializer completed" $LOG_FILE 2>/dev/null || \
+               grep -q "DEVELOPMENT AUTHENTICATION TOKENS" $LOG_FILE 2>/dev/null; then
+              echo "✅ Data initialization appears to be complete!"
+              INIT_COMPLETE=true
+            else
+              echo "Still waiting for initialization to complete..."
+              sleep 5
+              ATTEMPT=$((ATTEMPT+1))
+            fi
+          done
+          
+          # Application health check
+          echo "Performing application health check..."
+          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health)
+          if [ "$HEALTH_STATUS" -eq 200 ]; then
+            echo "✅ Application health check successful (status $HEALTH_STATUS)"
+          else
+            echo "⚠️ Application health check returned status $HEALTH_STATUS"
+            echo "Retrieving health details..."
+            curl -s http://localhost:8080/actuator/health | jq '.' || echo "Could not retrieve health details"
+          fi
           
           # Verify the application is running with correct profiles
           echo "Verifying active profiles..."
@@ -201,22 +229,50 @@ jobs:
             echo "Found authentication tokens section in logs:"
             awk '/====== DEVELOPMENT AUTHENTICATION TOKENS ======/{flag=1; print; next} /==============================================/{flag=0} flag' $LOG_FILE || true
             
-            # Extract admin token explicitly
+            # Extract admin token explicitly with better error handling
             ADMIN_TOKEN=$(grep -A 10 "ADMIN USER TOKEN" $LOG_FILE | grep -v "ADMIN USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
             if [ ! -z "$ADMIN_TOKEN" ]; then
               echo "✅ Successfully extracted admin token!"
-              echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
+              # Validate token format before setting
+              if [[ $ADMIN_TOKEN == eyJ* ]]; then
+                echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
+                echo "Admin token has expected JWT format"
+              else
+                echo "⚠️ Admin token doesn't match expected JWT format, might be invalid"
+                echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
+              fi
             fi
             
-            # Extract regular user token explicitly
+            # Extract regular user token explicitly with better error handling
             USER_TOKEN=$(grep -A 10 "REGULAR USER TOKEN" $LOG_FILE | grep -v "REGULAR USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
             if [ ! -z "$USER_TOKEN" ]; then
               echo "✅ Successfully extracted regular user token!"
-              echo "USER_TOKEN=$USER_TOKEN" >> $GITHUB_ENV
+              # Validate token format before setting
+              if [[ $USER_TOKEN == eyJ* ]]; then
+                echo "USER_TOKEN=$USER_TOKEN" >> $GITHUB_ENV
+                echo "User token has expected JWT format"
+              else
+                echo "⚠️ User token doesn't match expected JWT format, might be invalid"
+                echo "USER_TOKEN=$USER_TOKEN" >> $GITHUB_ENV
+              fi
             fi
           else
-            echo "No tokens found yet, might need more time"
-            tail -n 50 $LOG_FILE
+            echo "No tokens found in logs, dumping recent log entries..."
+            tail -n 100 $LOG_FILE
+            echo "Will attempt direct authentication in next step"
+          fi
+          
+          # Summarize token extraction results
+          if [ ! -z "$ADMIN_TOKEN" ]; then
+            echo "✅ Admin token available for tests"
+          else
+            echo "⚠️ No admin token extracted"
+          fi
+          
+          if [ ! -z "$USER_TOKEN" ]; then
+            echo "✅ User token available for tests"
+          else
+            echo "⚠️ No user token extracted"
           fi
 
       - name: Install Newman
@@ -318,6 +374,7 @@ jobs:
           working-directory: './backend/autotrader-backend'
           results-directory: './results'
           auto-detect-collection: 'true'
+          extra-options: '--bail --export-environment ./results/updated_environment.json'
         
       - name: Upload test results and logs
         if: always()
@@ -328,6 +385,44 @@ jobs:
             results/**
             ./backend/autotrader-backend/spring-boot*.log
             ./backend/autotrader-backend/build/reports/**/*
+            ./postman/test_environment.json
+            ./results/updated_environment.json
+          retention-days: 7
+
+      - name: Publish Test Summary
+        if: always()
+        run: |
+          echo "## API Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Spring Boot Application" >> $GITHUB_STEP_SUMMARY
+          echo "- Profile: test (with dev profile imported)" >> $GITHUB_STEP_SUMMARY
+          echo "- PID: ${{ steps.spring-boot-start.outputs.pid }}" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Test Execution" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.postman-tests.outcome }}" == "success" ]; then
+            echo "- Status: ✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Status: ❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "### Authentication" >> $GITHUB_STEP_SUMMARY
+          if [ ! -z "$ADMIN_TOKEN" ]; then
+            echo "- Admin token: ✅ Available" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Admin token: ❌ Not available" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ ! -z "$USER_TOKEN" ]; then
+            echo "- User token: ✅ Available" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- User token: ❌ Not available" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- Test Results: results/" >> $GITHUB_STEP_SUMMARY
+          echo "- Application Logs: backend/autotrader-backend/spring-boot.log" >> $GITHUB_STEP_SUMMARY
+          
+          echo "For more details, download the test artifacts."
 
       - name: Cleanup test environment
         if: always()
@@ -377,3 +472,45 @@ jobs:
           cd ./backend/autotrader-backend
           docker compose -f docker-compose.dev.yml down -v
           echo "✅ Docker services and volumes cleaned up"
+          
+      - name: Notify on test failures
+        if: failure() && (github.event_name == 'push' || github.event_name == 'schedule')
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            
+            // Create a summary of the failure
+            const workflowName = 'Postman API Tests';
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            const jobName = 'api-tests';
+            
+            // Get branch/tag name
+            const ref = context.ref.replace('refs/heads/', '').replace('refs/tags/', '');
+            
+            const body = `## ❌ ${workflowName} Failed
+            
+            * **Branch/Tag**: ${ref}
+            * **Workflow Run**: [View details](${runUrl})
+            * **Job**: ${jobName}
+            
+            Please check the logs for more details on the failure.
+            `;
+            
+            // Create an issue for the failure if this is a scheduled run or push to main branches
+            if (context.eventName === 'schedule' || 
+               (context.eventName === 'push' && 
+               (context.ref === 'refs/heads/main' || context.ref === 'refs/heads/develop'))) {
+              
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title: `🔴 ${workflowName} failed on ${ref}`,
+                body: body,
+                labels: ['bug', 'automation', 'test-failure']
+              });
+              
+              console.log('Created issue for test failure');
+            } else {
+              console.log('Skipping issue creation for non-critical branch or event');
+            }
