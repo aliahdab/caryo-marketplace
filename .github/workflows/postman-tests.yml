@@ -1,3 +1,4 @@
+name: Postman API Tests
 
 on:
   workflow_dispatch:
