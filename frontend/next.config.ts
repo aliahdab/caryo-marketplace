@@ -1,10 +1,11 @@
 import withBundleAnalyzer from '@next/bundle-analyzer';
+import type { NextConfig } from 'next'; // Import NextConfig
 
 const analyzeBundles = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
-const nextConfig = {
+const nextConfig: NextConfig = { // Add NextConfig type
   /* config options here */
   env: {
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || "AdJ8m5EpqN6qPwEtH7XsKfRzV2yG9LcZ",
