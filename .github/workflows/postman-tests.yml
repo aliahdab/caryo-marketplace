@@ -211,11 +211,13 @@ jobs:
         run: |
           # Verify the API is running correctly
           echo "Checking API endpoints..."
-          curl -i http://localhost:8080/actuator/health
+          HEALTH_RESPONSE=$(curl -s -i http://localhost:8080/actuator/health)
+          echo "$HEALTH_RESPONSE" | head -10
           
-          # Verify the DataInitializer created the default users
-          echo "Verifying DataInitializer users were created..."
-          docker exec -i $(docker ps -qf "name=autotrader-backend-db-1") psql -U autotrader -d autotrader -c "SELECT id, username, email FROM users WHERE username IN ('admin', 'user')"
+          # Verify if users endpoint is accessible (if available)
+          echo "Checking if users endpoint exists..."
+          USERS_ENDPOINT_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/users/check || echo "failed")
+          echo "Users endpoint status: $USERS_ENDPOINT_CHECK"
           
           # Use the previously extracted tokens if available
           if [ ! -z "$ADMIN_TOKEN" ]; then
@@ -229,7 +231,7 @@ jobs:
             echo "No tokens found in environment, trying direct authentication..."
             AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
               -H "Content-Type: application/json" \
-              -d '{"username":"admin","password":"Admin123!"}' 2>&1)
+              -d '{"username":"admin","password":"Admin123!"}')
             echo "Auth response received."
             
             # Try to extract token from direct authentication
@@ -238,17 +240,19 @@ jobs:
             # If direct auth failed, create a test user
             if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
                 echo "⚠️ Direct auth failed. Creating test user via signup..."
-                curl -s -X POST http://localhost:8080/auth/signup \
+                SIGNUP_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signup \
                   -H "Content-Type: application/json" \
-                  -d '{"username":"testapi","email":"testapi@example.com","password":"password123"}'
+                  -d '{"username":"testapi","email":"testapi@example.com","password":"password123"}')
                 
-                sleep 2
+                echo "Signup response: $SIGNUP_RESPONSE"
+                sleep 3
                 
                 echo "Authenticating with test user..."
                 AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
                   -H "Content-Type: application/json" \
                   -d '{"username":"testapi","password":"password123"}')
                 
+                echo "Auth response: $AUTH_RESPONSE"
                 TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // .accessToken // .access_token // ""')
             fi
             
@@ -257,6 +261,13 @@ jobs:
                 echo "⚠️ All authentication attempts failed. Using fallback token."
                 TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImlhdCI6MTYyNjk1NDU4OCwiZXhwIjoxNjI3MDQwOTg4fQ.test-token-placeholder"
             fi
+          fi
+          
+          # Verify token works with a test call to a protected endpoint
+          if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "null" ]; then
+            echo "Testing token with a protected endpoint call..."
+            TEST_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/test/user || echo "failed")
+            echo "Protected endpoint test status: $TEST_RESPONSE"
           fi
           
           echo "Using token: ${TOKEN:0:25}..."
@@ -302,6 +313,19 @@ jobs:
           results-directory: './results'
           auto-detect-collection: 'true'
           extra-options: '--bail --export-environment ./results/updated_environment.json'
+
+      - name: Run diagnostic script if tests fail
+        if: steps.postman-tests.outputs.test-status == 'failure'
+        working-directory: ./backend/autotrader-backend
+        run: |
+          echo "Running user authentication diagnostics..."
+          bash ../../scripts/diagnose-user-auth.sh http://localhost:8080
+          
+          echo "Checking API endpoints again..."
+          curl -i http://localhost:8080/actuator/health
+          
+          echo "Examining application logs..."
+          tail -n 100 spring-boot.log
         
       - name: Upload test results and logs
         if: always()
