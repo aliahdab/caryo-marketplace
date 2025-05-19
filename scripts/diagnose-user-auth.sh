@@ -4,70 +4,136 @@
 # Usage: ./diagnose-user-auth.sh [baseUrl]
 
 BASE_URL=${1:-"http://localhost:8080"}
-echo "Testing authentication at: $BASE_URL"
+echo "=================================================="
+echo "User Authentication Diagnostics ($(date))"
+echo "=================================================="
+echo "Base URL: $BASE_URL"
 
-# Check if application is running
-echo "Checking if application is running..."
-HEALTH_RESPONSE=$(curl -s "$BASE_URL/actuator/health")
-if [[ "$HEALTH_RESPONSE" == *"UP"* ]]; then
-  echo "✅ Application is running!"
+# Check if server is accessible
+echo -e "\n[1] Checking server health..."
+HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/actuator/health)
+if [ "$HEALTH_STATUS" = "200" ]; then
+  echo "✅ Server is healthy ($HEALTH_STATUS)"
+  curl -s $BASE_URL/actuator/health | jq
 else
-  echo "❌ Application does not appear to be running. Health check failed."
-  echo "Response: $HEALTH_RESPONSE"
-  exit 1
+  echo "❌ Server health check failed ($HEALTH_STATUS)"
+  echo "Detailed health response:"
+  curl -s $BASE_URL/actuator/health
 fi
 
-# Try to authenticate with admin user
-echo -e "\nTrying to authenticate with admin user..."
-ADMIN_AUTH=$(curl -s -X POST "$BASE_URL/auth/signin" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"Admin123!"}')
-
-# Extract token if possible
-ADMIN_TOKEN=$(echo "$ADMIN_AUTH" | jq -r '.token // .accessToken // .access_token // ""')
-
-if [ -z "$ADMIN_TOKEN" ] || [ "$ADMIN_TOKEN" == "null" ]; then
-  echo "❌ Admin authentication failed"
-  echo "Response: $ADMIN_AUTH"
+# Check both /auth/* and /api/auth/* endpoints
+echo -e "\n[2] Checking authentication endpoints..."
+echo -e "\n   a) Testing /auth/* endpoints (legacy/incorrect path):"
+SIGNUP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/auth/signup)
+echo "  - /auth/signup: $SIGNUP_STATUS"
+if [ "$SIGNUP_STATUS" = "401" ]; then
+  echo "    ❌ Signup endpoint at /auth/signup requires authentication! Should be public."
+elif [ "$SIGNUP_STATUS" = "404" ]; then
+  echo "    ❌ Signup endpoint at /auth/signup not found (404). This is expected if only /api/auth/* is supported."
 else
-  echo "✅ Admin authentication successful"
-  echo "Token received (truncated): ${ADMIN_TOKEN:0:25}..."
-  
-  # Test a protected endpoint
-  echo -e "\nTesting protected endpoint with admin token..."
-  ADMIN_TEST=$(curl -s -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/api/test/admin")
-  echo "Response: $ADMIN_TEST"
+  echo "    ✅ Signup endpoint at /auth/signup is accessible"
 fi
 
-# Try to create a test user
-echo -e "\nCreating test user..."
-TEST_USER_CREATION=$(curl -s -X POST "$BASE_URL/auth/signup" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"testdiagnose","email":"testdiagnose@example.com","password":"password123"}')
-echo "Response: $TEST_USER_CREATION"
-
-sleep 2
-
-# Try to authenticate with test user
-echo -e "\nTrying to authenticate with test user..."
-TEST_AUTH=$(curl -s -X POST "$BASE_URL/auth/signin" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"testdiagnose","password":"password123"}')
-
-# Extract token if possible
-TEST_TOKEN=$(echo "$TEST_AUTH" | jq -r '.token // .accessToken // .access_token // ""')
-
-if [ -z "$TEST_TOKEN" ] || [ "$TEST_TOKEN" == "null" ]; then
-  echo "❌ Test user authentication failed"
-  echo "Response: $TEST_AUTH"
+SIGNIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/auth/signin)
+echo "  - /auth/signin: $SIGNIN_STATUS"
+if [ "$SIGNIN_STATUS" = "401" ]; then
+  echo "    ❌ Signin endpoint at /auth/signin requires authentication! Should be public."
+elif [ "$SIGNIN_STATUS" = "404" ]; then
+  echo "    ❌ Signin endpoint at /auth/signin not found (404). This is expected if only /api/auth/* is supported."
 else
-  echo "✅ Test user authentication successful"
-  echo "Token received (truncated): ${TEST_TOKEN:0:25}..."
-  
-  # Test a protected endpoint
-  echo -e "\nTesting protected endpoint with test user token..."
-  USER_TEST=$(curl -s -H "Authorization: Bearer $TEST_TOKEN" "$BASE_URL/api/test/user")
-  echo "Response: $USER_TEST"
+  echo "    ✅ Signin endpoint at /auth/signin is accessible"
 fi
 
-echo -e "\nDiagnostic complete!"
+echo -e "\n   b) Testing /api/auth/* endpoints (correct path per SecurityConfig):"
+API_SIGNUP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/api/auth/signup)
+echo "  - /api/auth/signup: $API_SIGNUP_STATUS"
+if [ "$API_SIGNUP_STATUS" = "401" ]; then
+  echo "    ❌ Signup endpoint at /api/auth/signup requires authentication! Should be public."
+elif [ "$API_SIGNUP_STATUS" = "404" ]; then
+  echo "    ❌ Signup endpoint at /api/auth/signup not found (404)."
+else
+  echo "    ✅ Signup endpoint at /api/auth/signup is accessible"
+fi
+
+API_SIGNIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/api/auth/signin)
+echo "  - /api/auth/signin: $API_SIGNIN_STATUS"
+if [ "$API_SIGNIN_STATUS" = "401" ]; then
+  echo "    ❌ Signin endpoint at /api/auth/signin requires authentication! Should be public."
+elif [ "$API_SIGNIN_STATUS" = "404" ]; then
+  echo "    ❌ Signin endpoint at /api/auth/signin not found (404)."
+else
+  echo "    ✅ Signin endpoint at /api/auth/signin is accessible"
+fi
+
+# Test actual signup endpoint with valid payload - try both paths
+echo -e "\n[3] Testing signup with valid payload..."
+echo "   a) Testing /auth/signup: "
+SIGNUP_RESPONSE=$(curl -s -X POST $BASE_URL/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"username":"diagtest","email":"diagtest@example.com","password":"password123"}')
+
+echo "Signup response (/auth/signup):"
+echo "$SIGNUP_RESPONSE"
+
+echo "   b) Testing /api/auth/signup: "
+API_SIGNUP_RESPONSE=$(curl -s -X POST $BASE_URL/api/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"username":"diagtest2","email":"diagtest2@example.com","password":"password123"}')
+
+echo "Signup response (/api/auth/signup):"
+echo "$API_SIGNUP_RESPONSE"
+
+# Test signin with test credentials - try both paths
+echo -e "\n[4] Testing signin with test credentials..."
+echo "   a) Testing /auth/signin: "
+SIGNIN_RESPONSE=$(curl -v -s -X POST $BASE_URL/auth/signin \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"Admin123!"}' 2>&1)
+
+echo "Signin response for /auth/signin (with verbose output):"
+echo "$SIGNIN_RESPONSE"
+
+echo "   b) Testing /api/auth/signin: "
+API_SIGNIN_RESPONSE=$(curl -v -s -X POST $BASE_URL/api/auth/signin \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"Admin123!"}' 2>&1)
+
+echo "Signin response for /api/auth/signin (with verbose output):"
+echo "$API_SIGNIN_RESPONSE"
+
+# Try to extract token from any successful response
+for RESPONSE in "$SIGNIN_RESPONSE" "$API_SIGNIN_RESPONSE"; do
+  TOKEN=$(echo "$RESPONSE" | grep -o '"token":"[^"]*"' | cut -d':' -f2 | tr -d '"' || echo "")
+  if [ ! -z "$TOKEN" ]; then
+    echo "✅ Successfully extracted token: ${TOKEN:0:20}..."
+    
+    # Test a protected endpoint with token
+    echo -e "\n[5] Testing protected endpoint with token..."
+    AUTH_RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" $BASE_URL/api/test/user)
+    echo "Protected endpoint response:"
+    echo "$AUTH_RESPONSE"
+    break
+  fi
+done
+
+if [ -z "$TOKEN" ]; then
+  echo "❌ Failed to extract token from signin responses"
+fi
+
+# Check security configuration from actuator if available
+echo -e "\n[6] Checking security configuration from actuator..."
+echo "a) Auth controller mappings:"
+curl -s $BASE_URL/actuator/mappings | grep -A 10 -B 2 "/auth/" || echo "No /auth/ mappings found"
+echo "----"
+echo "b) API Auth controller mappings:"
+curl -s $BASE_URL/actuator/mappings | grep -A 10 -B 2 "/api/auth/" || echo "No /api/auth/ mappings found"
+echo "----"
+echo "c) Security Filter Chain configuration:"
+curl -s $BASE_URL/actuator/mappings | grep -A 10 -B 2 "securityFilterChain" || echo "No security filter chain info found"
+
+echo -e "\n[7] Testing OPTIONS request to check CORS..."
+curl -v -X OPTIONS $BASE_URL/auth/signup -H "Origin: http://localhost:3000" -H "Access-Control-Request-Method: POST"
+echo -e "\nAlso testing OPTIONS on /api/auth/signup:"
+curl -v -X OPTIONS $BASE_URL/api/auth/signup -H "Origin: http://localhost:3000" -H "Access-Control-Request-Method: POST"
+
+echo -e "\nDiagnostics completed."

@@ -363,6 +363,9 @@ jobs:
           echo "Running user authentication diagnostics..."
           bash ../../scripts/diagnose-user-auth.sh http://localhost:8080
           
+          echo "Testing both auth paths to identify the correct path pattern..."
+          bash ../../scripts/test-auth-paths.sh http://localhost:8080
+          
           echo "Running Postman tests diagnostics..."
           bash ../../scripts/diagnose-postman-tests.sh http://localhost:8080 "${{ steps.prepare-auth.outputs.COLLECTION_PATH }}" "../../postman/test_environment.json"
           

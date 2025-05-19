@@ -28,12 +28,13 @@ log_error() {
 
 API_BASE_URL=${1:-"http://localhost:8080"}
 COLLECTION_PATH=${2:-""}
-ENV_FILE=${3:-"./postman/test_environment.json"}
+ENV_FILE=${3:-""}
 
 log_info "===== Postman Tests Diagnostics ====="
 log_info "Date: $(date)"
 log_info "Base URL: $API_BASE_URL"
-log_info "Environment file: $ENV_FILE"
+log_info "Collection Path: $COLLECTION_PATH"
+log_info "Environment File: $ENV_FILE"
 
 # Check if Spring Boot app is running
 log_info "Checking if Spring Boot application is running..."
@@ -49,6 +50,35 @@ else
   log_error "❌ Spring Boot application is not reachable"
   log_info "Response code: $HEALTH_RESPONSE"
   log_info "Please check if the application is running on $API_BASE_URL"
+fi
+
+# Check if collection file is provided and exists
+if [ -z "$COLLECTION_PATH" ]; then
+  log_warning "⚠️ No collection path provided, searching for collection files..."
+  if [ -f "./postman/Caryo_Marketplace_API_Tests.json" ]; then
+    COLLECTION_PATH="./postman/Caryo_Marketplace_API_Tests.json"
+  elif [ -f "./backend/autotrader-backend/src/test/resources/postman/autotrader-api-collection.json" ]; then
+    COLLECTION_PATH="./backend/autotrader-backend/src/test/resources/postman/autotrader-api-collection.json"
+  else
+    # Try to find collection files
+    COLLECTION_FILES=$(find . -name "*.json" | grep -i -E "collection|postman|api[-_]test" | grep -v "node_modules")
+    if [ ! -z "$COLLECTION_FILES" ]; then
+      log_info "Potential collection files found:"
+      echo "$COLLECTION_FILES"
+      COLLECTION_PATH=$(echo "$COLLECTION_FILES" | head -1)
+      log_info "Using first found collection: $COLLECTION_PATH"
+    else
+      log_error "❌ No collection files found"
+      exit 1
+    fi
+  fi
+else
+  if [ -f "$COLLECTION_PATH" ]; then
+    log_success "✅ Collection file exists: $COLLECTION_PATH"
+  else
+    log_error "❌ Collection file does not exist: $COLLECTION_PATH"
+    exit 1
+  fi
 fi
 
 # Check if environment file exists
@@ -82,28 +112,6 @@ else
   log_error "❌ Environment file does not exist: $ENV_FILE"
   log_info "Searching for environment files..."
   find . -name "*environment*.json" | grep -v "node_modules"
-fi
-
-# Find collection files if not specified
-if [ -z "$COLLECTION_PATH" ]; then
-  log_info "No collection path provided, searching for collection files..."
-  if [ -f "./postman/Caryo_Marketplace_API_Tests.json" ]; then
-    COLLECTION_PATH="./postman/Caryo_Marketplace_API_Tests.json"
-  elif [ -f "./backend/autotrader-backend/src/test/resources/postman/autotrader-api-collection.json" ]; then
-    COLLECTION_PATH="./backend/autotrader-backend/src/test/resources/postman/autotrader-api-collection.json"
-  else
-    # Try to find collection files
-    COLLECTION_FILES=$(find . -name "*.json" | grep -i -E "collection|postman|api[-_]test" | grep -v "node_modules")
-    if [ ! -z "$COLLECTION_FILES" ]; then
-      log_info "Potential collection files found:"
-      echo "$COLLECTION_FILES"
-      COLLECTION_PATH=$(echo "$COLLECTION_FILES" | head -1)
-      log_info "Using first found collection: $COLLECTION_PATH"
-    else
-      log_error "❌ No collection files found"
-      exit 1
-    fi
-  fi
 fi
 
 # Verify collection file
@@ -167,6 +175,27 @@ if [ ! -z "$AUTH_RESPONSE" ]; then
 else
   log_error "❌ Authentication endpoint unreachable"
 fi
+
+# Additional diagnostics
+log_info "===== Additional Diagnostics ====="
+
+# Check security settings
+log_info "[5] Checking API security settings..."
+ENDPOINTS=("/api/public" "/actuator/health" "/auth/signup" "/auth/signin" "/api/test/all" "/api/test/user")
+
+for endpoint in "${ENDPOINTS[@]}"; do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" $API_BASE_URL$endpoint)
+  log_info "  - $endpoint: $STATUS"
+done
+
+# Network connectivity check
+log_info "[6] Network connectivity check..."
+log_info "Testing DNS resolution for localhost..."
+nslookup localhost || echo "nslookup not available"
+
+log_info "Testing connection to API port..."
+nc -zv localhost 8080 || echo "netcat not available, using alternative:"
+timeout 5 bash -c "</dev/tcp/localhost/8080" && echo "Port 8080 is open" || echo "Port 8080 is not accessible"
 
 log_info "===== Diagnostic Complete ====="
 
