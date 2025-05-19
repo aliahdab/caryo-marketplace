@@ -13,6 +13,21 @@ const nextConfig = {
   },
   // App Router handles i18n differently - configuration is done through LanguageProvider
   
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+        pathname: '/**',
+      },
+    ],
+  },
+
   // Using the stable turbopack configuration
   turbopack: {
     // You can add Turbopack-specific options here if needed
