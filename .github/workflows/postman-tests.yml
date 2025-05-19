@@ -222,12 +222,10 @@ jobs:
       - name: Install Newman
         run: npm install -g newman newman-reporter-htmlextra
 
-      - name: Run Postman Tests
+      - name: Prepare Authentication Token
+        id: prepare-auth
         working-directory: ./backend/autotrader-backend
         run: |
-          # Create results directory
-          mkdir -p ../../results
-          
           # Verify the API is running correctly
           echo "Checking API endpoints..."
           curl -i http://localhost:8080/actuator/health
@@ -236,144 +234,67 @@ jobs:
           echo "Verifying DataInitializer users were created..."
           docker exec -i $(docker ps -qf "name=autotrader-backend-db-1") psql -U autotrader -d autotrader -c "SELECT id, username, email FROM users WHERE username IN ('admin', 'user')"
           
-          # Extract token section from logs in a cleaner way
-          echo "Extracting authentication tokens from logs..."
-          awk '/====== DEVELOPMENT AUTHENTICATION TOKENS ======/{flag=1; print; next} /==============================================/{flag=0} flag' spring-boot.log
-
-          # Try to authenticate directly with the default admin user
-          echo "Attempting direct authentication with admin user..."
-          AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
-            -H "Content-Type: application/json" \
-            -d '{"username":"admin","password":"Admin123!"}' 2>&1)
-           echo "Auth response received."
-          
-          # Process authentication in sequence of most reliable to fallback methods
-          
-          # Try to extract token from direct authentication
-          TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // .accessToken // .access_token // ""')
-          
-          # If direct auth failed, extract from logs (most reliable source)
-          if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-              echo "Direct authentication failed. Extracting token from logs..."
-              # First try admin token
-              ADMIN_LOG_TOKEN=$(grep -A 10 "ADMIN USER TOKEN" spring-boot.log | grep -v "ADMIN USER TOKEN" | grep -v "----" | grep -v "^$" | head -1)
-              
-              if [ ! -z "$ADMIN_LOG_TOKEN" ]; then
-                  echo "✅ Found admin token in logs!"
-                  TOKEN=$(echo "$ADMIN_LOG_TOKEN" | tr -d ' ')
-              else
-                  # Try regular user token
-                  echo "No admin token found. Trying regular user token..."
-                  USER_LOG_TOKEN=$(grep -A 10 "REGULAR USER TOKEN" spring-boot.log | grep -v "REGULAR USER TOKEN" | grep -v "----" | grep -v "^$" | head -1)
-                  
-                  if [ ! -z "$USER_LOG_TOKEN" ]; then
-                      echo "✅ Found regular user token in logs!"
-                      TOKEN=$(echo "$USER_LOG_TOKEN" | tr -d ' ')
-                  fi
-              fi
-          fi
-          
-          # If tokens from logs failed, try creating a test user
-          if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-              echo "⚠️ No tokens found. Creating test user via signup..."
-              curl -s -X POST http://localhost:8080/auth/signup \
-                -H "Content-Type: application/json" \
-                -d '{"username":"testapi","email":"testapi@example.com","password":"password123"}'
-              
-              sleep 2
-              
-              echo "Authenticating with test user..."
-              AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
-                -H "Content-Type: application/json" \
-                -d '{"username":"testapi","password":"password123"}')
-              
-              TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // .accessToken // .access_token // ""')
-          fi
-          
-          # Last resort - use a fallback token if all methods fail
-          if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-              echo "⚠️ All authentication attempts failed. Using fallback token."
-              TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImlhdCI6MTYyNjk1NDU4OCwiZXhwIjoxNjI3MDQwOTg4fQ.test-token-placeholder"
-              
-              # Add security bypass properties without restarting
-              echo "Adding security bypass properties..."
-              curl -X POST http://localhost:8080/actuator/env \
-                -H "Content-Type: application/json" \
-                -d '{"name":"security.testMode","value":"true"}' || true
+          # Use the previously extracted tokens if available
+          if [ ! -z "$ADMIN_TOKEN" ]; then
+            echo "✅ Using previously extracted admin token"
+            TOKEN="$ADMIN_TOKEN"
+          elif [ ! -z "$USER_TOKEN" ]; then
+            echo "✅ Using previously extracted user token"
+            TOKEN="$USER_TOKEN"
+          else
+            # Try to authenticate directly with the default admin user
+            echo "No tokens found in environment, trying direct authentication..."
+            AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
+              -H "Content-Type: application/json" \
+              -d '{"username":"admin","password":"Admin123!"}' 2>&1)
+            echo "Auth response received."
+            
+            # Try to extract token from direct authentication
+            TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // .accessToken // .access_token // ""')
+            
+            # If direct auth failed, create a test user
+            if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+                echo "⚠️ Direct auth failed. Creating test user via signup..."
+                curl -s -X POST http://localhost:8080/auth/signup \
+                  -H "Content-Type: application/json" \
+                  -d '{"username":"testapi","email":"testapi@example.com","password":"password123"}'
+                
+                sleep 2
+                
+                echo "Authenticating with test user..."
+                AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
+                  -H "Content-Type: application/json" \
+                  -d '{"username":"testapi","password":"password123"}')
+                
+                TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // .accessToken // .access_token // ""')
+            fi
+            
+            # Last resort - use a fallback token if all methods fail
+            if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+                echo "⚠️ All authentication attempts failed. Using fallback token."
+                TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImlhdCI6MTYyNjk1NDU4OCwiZXhwIjoxNjI3MDQwOTg4fQ.test-token-placeholder"
+            fi
           fi
           
           echo "Using token: ${TOKEN:0:25}..."
+          echo "AUTH_TOKEN=$TOKEN" >> $GITHUB_ENV
           
-          # Find the collection file with better error handling
+          # Find the collection file
           echo "Locating Postman collection file..."
-          COLLECTION_FILES=$(find ./src/test/resources -name "autotrader-api-collection.json" 2>/dev/null)
+          COLLECTION_FILES=$(find ./src/test/resources -name "autotrader-api-collection.json" 2>/dev/null || find ./src/test/resources -name "*.json" -not -path "*/node_modules/*" | head -1)
           
           if [ -z "$COLLECTION_FILES" ]; then
-            echo "Looking for any JSON files that might be Postman collections..."
-            COLLECTION_FILES=$(find ./src/test/resources -name "*.json" -not -path "*/node_modules/*" | head -1)
-            
-            if [ -z "$COLLECTION_FILES" ]; then
-              echo "No JSON files found in test resources!"
-              exit 1
-            fi
+            echo "No JSON files found in test resources!"
+            exit 1
           fi
           
           COLLECTION=$(echo "$COLLECTION_FILES" | head -1)
           echo "Using collection: $COLLECTION"
+          # Store absolute path for later use
+          COLLECTION_ABS_PATH=$(readlink -f "$COLLECTION")
+          echo "COLLECTION_PATH=$COLLECTION_ABS_PATH" >> $GITHUB_OUTPUT
           
-          # Prepare Postman test environment
-          ENV_FILE="../../postman/test_environment.json"
-          TMP_ENV_FILE="../../postman/tmp_test_environment.json"
-          
-          # Create a copy of the environment file
-          if [ -f "$ENV_FILE" ]; then
-            cp "$ENV_FILE" "$TMP_ENV_FILE"
-          else
-            echo "Creating a new environment file as none exists..."
-            echo '{"id":"test-env","name":"Test Environment","values":[]}' > "$TMP_ENV_FILE"
-          fi
-          
-          # Update environment with authentication token
-          jq --arg token "$TOKEN" '.values = (.values | map(if .key == "auth_token" then .value = $token | . else . end) // [])' \
-            "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
-          
-          # Check if auth token was added, if not add it
-          AUTH_TOKEN_COUNT=$(jq '.values | map(select(.key == "auth_token")) | length' "$TMP_ENV_FILE")
-          if [ "$AUTH_TOKEN_COUNT" -eq "0" ]; then
-            jq --arg token "$TOKEN" '.values += [{"key":"auth_token","value":$token,"enabled":true}]' \
-              "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
-          fi
-          
-          # Add additional test variables
-          jq --arg token "$TOKEN" '.values += [
-            {"key": "admin_token", "value": $token, "type": "default", "enabled": true},
-            {"key": "skip_auth", "value": "true", "type": "default", "enabled": true},
-            {"key": "csrf_enabled", "value": "false", "type": "default", "enabled": true},
-            {"key": "test_mode", "value": "true", "type": "default", "enabled": true}
-          ]' "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
-          
-          # Prepare the collection with authorization headers
-          TMP_COLLECTION="./temp_collection.json"
-          cp "$COLLECTION" "$TMP_COLLECTION"
-          
-          # Inject Authorization header to all requests
-          jq '
-          walk(
-            if type == "object" and .request and .request.header then
-              .request.header = [.request.header[] | select(.key != "Authorization")] + [
-                {
-                  "key": "Authorization",
-                  "value": "Bearer {{auth_token}}",
-                  "type": "text"
-                }
-              ] | .
-            else
-              .
-            end
-          )
-          ' "$TMP_COLLECTION" > "$TMP_COLLECTION.tmp" && mv "$TMP_COLLECTION.tmp" "$TMP_COLLECTION"
-          
-          # Verify API access before running tests
+          # Verify API access with token
           echo "Verifying API access with token..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/reference-data)
           echo "Reference data endpoint status: $HTTP_STATUS"
@@ -381,24 +302,22 @@ jobs:
           if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
               echo "✅ Authentication is working correctly!"
           else
-              echo "⚠️ Authentication issue detected. Will try to continue anyway."
-              # Try a quick test to another endpoint to verify the API is functioning
+              echo "⚠️ Authentication issue detected. Trying health endpoint..."
               curl -i -H "Authorization: Bearer $TOKEN" http://localhost:8080/actuator/health
           fi
           
-          # Run Postman tests
-          echo "Running Postman tests with authenticated collection..."
-          newman run "$TMP_COLLECTION" \
-            --environment "$TMP_ENV_FILE" \
-            --reporters cli,htmlextra,junit \
-            --reporter-htmlextra-export ../../results/report.html \
-            --reporter-junit-export ../../results/junit-report.xml \
-            --insecure \
-            --timeout-request 15000 \
-            --timeout 180000 \
-            --global-var "auth_token=$TOKEN" \
-            --global-var "admin_token=$TOKEN" \
-            --global-var "base_url=http://localhost:8080"
+          # Create results directory
+          mkdir -p ../../results
+
+      - name: Run Postman Tests with Newman
+        id: postman-tests
+        uses: ./.github/actions/postman-tests
+        with:
+          collection-path: "${{ steps.prepare-auth.outputs.COLLECTION_PATH }}"
+          environment-file: './postman/test_environment.json'
+          working-directory: './backend/autotrader-backend'
+          results-directory: './results'
+          auto-detect-collection: 'true'
         
       - name: Upload test results and logs
         if: always()
@@ -413,32 +332,48 @@ jobs:
       - name: Cleanup test environment
         if: always()
         run: |
-          # Kill Spring Boot process
+          # Get the Spring Boot PID from the composite action output
           SPRING_PID="${{ steps.spring-boot-start.outputs.pid }}"
+          echo "Spring Boot PID from setup: $SPRING_PID"
+          
+          # Kill Spring Boot process with a safer approach
           if [ ! -z "$SPRING_PID" ]; then
-            echo "Stopping Spring Boot process with PID: $SPRING_PID"
-            kill $SPRING_PID || true
-            sleep 2
-            # Verify process is stopped
+            echo "Gracefully stopping Spring Boot process with PID: $SPRING_PID"
+            kill -15 $SPRING_PID 2>/dev/null || true
+            
+            # Give it a chance to gracefully exit
+            echo "Waiting for process to exit gracefully..."
+            for i in {1..5}; do
+              if ! ps -p $SPRING_PID > /dev/null 2>&1; then
+                echo "✅ Spring Boot process stopped successfully"
+                break
+              fi
+              sleep 1
+            done
+            
+            # Force kill if still running
             if ps -p $SPRING_PID > /dev/null 2>&1; then
               echo "Process still running, force killing..."
-              kill -9 $SPRING_PID || true
-            else
-              echo "✅ Spring Boot process stopped successfully"
-            fi
-          else
-            echo "No Spring Boot PID found, checking for any Java processes..."
-            java_pids=$(ps aux | grep java | grep -v grep | awk '{print $2}')
-            if [ ! -z "$java_pids" ]; then
-              echo "Found Java processes: $java_pids"
-              for pid in $java_pids; do
-                echo "Killing Java process $pid"
-                kill -9 $pid || true
-              done
+              kill -9 $SPRING_PID 2>/dev/null || true
+              sleep 1
             fi
           fi
           
-          # Stop Docker services
+          # Check for any remaining Java processes (safety net)
+          echo "Checking for any remaining Java processes..."
+          JAVA_PIDS=$(ps aux | grep java | grep -v grep | awk '{print $2}')
+          if [ ! -z "$JAVA_PIDS" ]; then
+            echo "Found Java processes: $JAVA_PIDS"
+            for pid in $JAVA_PIDS; do
+              echo "Force killing Java process $pid"
+              kill -9 $pid 2>/dev/null || true
+            done
+          else
+            echo "✅ No leftover Java processes found"
+          fi
+          
+          # Stop Docker services and clean volumes
+          echo "Stopping Docker services..."
           cd ./backend/autotrader-backend
           docker compose -f docker-compose.dev.yml down -v
-          echo "✅ Docker services stopped"
+          echo "✅ Docker services and volumes cleaned up"
