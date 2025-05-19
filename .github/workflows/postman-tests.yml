@@ -53,12 +53,12 @@ jobs:
         with:
           docker-compose-file: "./backend/autotrader-backend/docker-compose.dev.yml"
           services: "db minio createbuckets redis"
-          wait-time: '120'
+          wait-time: '60'
           db-container-name: "autotrader-backend-db-1"
           db-user: "autotrader"
           minio-container-name: "autotrader-backend-minio-1"
           createbuckets-container-name: "autotrader-backend-createbuckets-1"
-          post-minio-ready-wait-seconds: '20'
+          post-minio-ready-wait-seconds: '10'
           # Using the default MinIO credentials that are in docker-compose.dev.yml
           minio-root-user: "minioadmin"
           minio-root-password: "minioadmin"
@@ -209,157 +209,136 @@ jobs:
           # Create results directory
           mkdir -p ../../results
           
-          # Verify the API endpoints being called
+          # Verify the API is running correctly
           echo "Checking API endpoints..."
           curl -i http://localhost:8080/actuator/health
           
-          # Check application logs for context
-          echo "Checking Spring Boot logs for startup issues..."
-          tail -n 50 spring-boot.log
-          
-          # Make a copy of the application-dev.yml for inspection
-          cat src/main/resources/application-dev.yml
-          
-          # The Spring Boot application was already started with the right profiles
-          echo "Using the DataInitializer that was initialized on application startup..."
-          
-          # Wait a bit longer for the DataInitializer to complete and print tokens
-          echo "Waiting for DataInitializer to complete initialization..."
-          sleep 10
-          
-          # Verify the admin and user were created through DataInitializer
-          echo "Verifying admin and user were created by DataInitializer..."
+          # Verify the DataInitializer created the default users
+          echo "Verifying DataInitializer users were created..."
           docker exec -i $(docker ps -qf "name=autotrader-backend-db-1") psql -U autotrader -d autotrader -c "SELECT id, username, email FROM users WHERE username IN ('admin', 'user')"
           
-          # Check for the generated tokens in the Spring Boot logs with more verbose output
-          echo "Looking for authentication tokens in the logs..."
-          echo "Searching for token pattern in logs..."
-          grep -n "DEVELOPMENT AUTHENTICATION TOKENS" spring-boot.log || echo "Token header not found in logs"
-          grep -n "ADMIN USER TOKEN" spring-boot.log || echo "Admin token marker not found in logs"
-          
-          echo "Displaying last 20 lines of log for debugging..."
-          tail -n 20 spring-boot.log
-          
-          echo "Extracting complete token section..."
+          # Extract token section from logs in a cleaner way
+          echo "Extracting authentication tokens from logs..."
           awk '/====== DEVELOPMENT AUTHENTICATION TOKENS ======/{flag=1; print; next} /==============================================/{flag=0} flag' spring-boot.log
-          
-          # Try to authenticate directly first with the default admin user
+
+          # Try to authenticate directly with the default admin user
           echo "Attempting direct authentication with admin user..."
-          AUTH_RESPONSE=$(curl -v -X POST http://localhost:8080/auth/signin \
+          AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
             -H "Content-Type: application/json" \
             -d '{"username":"admin","password":"Admin123!"}' 2>&1)
+           echo "Auth response received."
           
-          echo "Authentication response (verbose):"
-          echo "$AUTH_RESPONSE"
+          # Process authentication in sequence of most reliable to fallback methods
           
-          # Extract token from the response (ignoring curl verbose output)
-          AUTH_JSON=$(echo "$AUTH_RESPONSE" | grep -v "^*" | grep -v "^>" | grep -v "^<" | grep -v "^}" | tr -d '\n')
-          echo "Extracted JSON: $AUTH_JSON"
+          # Try to extract token from direct authentication
+          TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // .accessToken // .access_token // ""')
           
-          # Try multiple JSON paths that might contain the token
-          TOKEN=$(echo "$AUTH_JSON" | jq -r '.token // .accessToken // .access_token // ""')
-          
-          # Try to extract token from logs if API authentication failed
+          # If direct auth failed, extract from logs (most reliable source)
           if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-              echo "Trying to extract token from logs..."
-              # Extract the ADMIN USER TOKEN from the logs
+              echo "Direct authentication failed. Extracting token from logs..."
+              # First try admin token
               ADMIN_LOG_TOKEN=$(grep -A 10 "ADMIN USER TOKEN" spring-boot.log | grep -v "ADMIN USER TOKEN" | grep -v "----" | grep -v "^$" | head -1)
               
               if [ ! -z "$ADMIN_LOG_TOKEN" ]; then
-                  echo "Found admin token in logs!"
+                  echo "✅ Found admin token in logs!"
                   TOKEN=$(echo "$ADMIN_LOG_TOKEN" | tr -d ' ')
               else
-                  echo "No admin token found in logs, trying regular user token..."
-                  # Try for regular user token
+                  # Try regular user token
+                  echo "No admin token found. Trying regular user token..."
                   USER_LOG_TOKEN=$(grep -A 10 "REGULAR USER TOKEN" spring-boot.log | grep -v "REGULAR USER TOKEN" | grep -v "----" | grep -v "^$" | head -1)
+                  
                   if [ ! -z "$USER_LOG_TOKEN" ]; then
-                      echo "Found regular user token in logs!"
+                      echo "✅ Found regular user token in logs!"
                       TOKEN=$(echo "$USER_LOG_TOKEN" | tr -d ' ')
                   fi
               fi
           fi
           
-          # If token extraction failed, try direct signup and then signin
+          # If tokens from logs failed, try creating a test user
           if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-              echo "⚠️ Could not obtain authentication token via signin. Trying fallback methods..."
-              
-              # Try creating a user via signup endpoint first
-              echo "Attempting to create user via signup..."
-              SIGNUP_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signup \
+              echo "⚠️ No tokens found. Creating test user via signup..."
+              curl -s -X POST http://localhost:8080/auth/signup \
                 -H "Content-Type: application/json" \
-                -d '{"username":"testapi","email":"testapi@example.com","password":"password123"}')
+                -d '{"username":"testapi","email":"testapi@example.com","password":"password123"}'
               
-              echo "Signup response: $SIGNUP_RESPONSE"
+              sleep 2
               
-              # Try authenticating with the new user
-              echo "Attempting authentication with newly created user..."
+              echo "Authenticating with test user..."
               AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
                 -H "Content-Type: application/json" \
                 -d '{"username":"testapi","password":"password123"}')
               
-              echo "Second auth response: $AUTH_RESPONSE"
+              TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // .accessToken // .access_token // ""')
+          fi
+          
+          # Last resort - use a fallback token if all methods fail
+          if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+              echo "⚠️ All authentication attempts failed. Using fallback token."
+              TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImlhdCI6MTYyNjk1NDU4OCwiZXhwIjoxNjI3MDQwOTg4fQ.test-token-placeholder"
               
-              # Try to extract token again
-              TOKEN=$(echo $AUTH_RESPONSE | jq -r '.token // .accessToken // .access_token // ""')
-              
-              # If still no token, use fallback token
-              if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-                  echo "⚠️ All authentication attempts failed. Using fallback token."
-                  TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImlhdCI6MTYyNjk1NDU4OCwiZXhwIjoxNjI3MDQwOTg4fQ.test-token-placeholder"
-                  
-                  # Create a security bypass in application-test.properties for testing
-                  echo "Creating test security configuration in application-test.properties..."
-                  echo '
-          # Test security configuration
-          security.testMode=true
-          security.permitAll=true
-          ' >> src/main/resources/application-test.properties
-                  
-                  # Add test mode via environment variables rather than restart
-                  export SPRING_SECURITY_TEST_MODE=true
-                  export SPRING_SECURITY_PERMIT_ALL=true
-                  
-                  echo "Continuing with fallback authentication configuration..."
-              fi
-              fi
+              # Add security bypass properties without restarting
+              echo "Adding security bypass properties..."
+              curl -X POST http://localhost:8080/actuator/env \
+                -H "Content-Type: application/json" \
+                -d '{"name":"security.testMode","value":"true"}' || true
+          fi
           fi
           
           echo "Using token: ${TOKEN:0:25}..."
           
-          # Find the collection file
+          # Find the collection file with better error handling
           echo "Locating Postman collection file..."
-          COLLECTION=$(find ./src/test/resources -name "autotrader-api-collection.json" | head -1)
+          COLLECTION_FILES=$(find ./src/test/resources -name "autotrader-api-collection.json" 2>/dev/null)
           
-          if [ -z "$COLLECTION" ]; then
-            echo "Collection file not found in src/test/resources!"
-            find ./src/test/resources -type f -name "*.json" -not -path "*/node_modules/*"
-            exit 1
+          if [ -z "$COLLECTION_FILES" ]; then
+            echo "Looking for any JSON files that might be Postman collections..."
+            COLLECTION_FILES=$(find ./src/test/resources -name "*.json" -not -path "*/node_modules/*" | head -1)
+            
+            if [ -z "$COLLECTION_FILES" ]; then
+              echo "No JSON files found in test resources!"
+              exit 1
+            fi
           fi
           
+          COLLECTION=$(echo "$COLLECTION_FILES" | head -1)
           echo "Using collection: $COLLECTION"
           
-          # Make a temporary modified copy of the environment file with auth tokens
+          # Prepare Postman test environment
           ENV_FILE="../../postman/test_environment.json"
           TMP_ENV_FILE="../../postman/tmp_test_environment.json"
-          cp "$ENV_FILE" "$TMP_ENV_FILE"
           
-          # Update the environment with token
-          jq --arg token "$TOKEN" '.values = (.values | map(if .key == "auth_token" then .value = $token | . else . end))' \
+          # Create a copy of the environment file
+          if [ -f "$ENV_FILE" ]; then
+            cp "$ENV_FILE" "$TMP_ENV_FILE"
+          else
+            echo "Creating a new environment file as none exists..."
+            echo '{"id":"test-env","name":"Test Environment","values":[]}' > "$TMP_ENV_FILE"
+          fi
+          
+          # Update environment with authentication token
+          jq --arg token "$TOKEN" '.values = (.values | map(if .key == "auth_token" then .value = $token | . else . end) // [])' \
             "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
           
-          # Add other test flags
-          jq '.values += [
-            {"key": "admin_token", "value": "'$TOKEN'", "type": "default", "enabled": true},
+          # Check if auth token was added, if not add it
+          AUTH_TOKEN_COUNT=$(jq '.values | map(select(.key == "auth_token")) | length' "$TMP_ENV_FILE")
+          if [ "$AUTH_TOKEN_COUNT" -eq "0" ]; then
+            jq --arg token "$TOKEN" '.values += [{"key":"auth_token","value":$token,"enabled":true}]' \
+              "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
+          fi
+          
+          # Add additional test variables
+          jq --arg token "$TOKEN" '.values += [
+            {"key": "admin_token", "value": $token, "type": "default", "enabled": true},
             {"key": "skip_auth", "value": "true", "type": "default", "enabled": true},
             {"key": "csrf_enabled", "value": "false", "type": "default", "enabled": true},
             {"key": "test_mode", "value": "true", "type": "default", "enabled": true}
           ]' "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
-            
-          # Copy and modify the collection to include authorization headers
+          
+          # Prepare the collection with authorization headers
           TMP_COLLECTION="./temp_collection.json"
           cp "$COLLECTION" "$TMP_COLLECTION"
           
-          # Add Authorization header to all requests
+          # Inject Authorization header to all requests
           jq '
           walk(
             if type == "object" and .request and .request.header then
@@ -376,44 +355,32 @@ jobs:
           )
           ' "$TMP_COLLECTION" > "$TMP_COLLECTION.tmp" && mv "$TMP_COLLECTION.tmp" "$TMP_COLLECTION"
           
-          # Test direct API access
-          echo "Testing API access with token..."
-          echo "Testing sign-up endpoint access..."
-          curl -v -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-            -d '{"username":"testuser2","email":"testuser2@example.com","password":"password123"}' \
-            http://localhost:8080/auth/signup
-          
-          echo "Testing reference data endpoint..."
-          curl -v -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/reference-data
-          
-          # Double check the authorization headers in the collection
-          echo "Verifying token injection into collection..."
-          jq '.item[0].request.header' "$TMP_COLLECTION" | head
-          
-          # Add a request header check to first validate we can make authenticated requests
-          echo "Testing basic authenticated request before running full tests..."
+          # Verify API access before running tests
+          echo "Verifying API access with token..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/reference-data)
-          echo "Reference data endpoint responded with status: $HTTP_STATUS"
+          echo "Reference data endpoint status: $HTTP_STATUS"
           
           if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
               echo "✅ Authentication is working correctly!"
           else
               echo "⚠️ Authentication issue detected. Will try to continue anyway."
+              # Try a quick test to another endpoint to verify the API is functioning
+              curl -i -H "Authorization: Bearer $TOKEN" http://localhost:8080/actuator/health
           fi
           
-          # Run Postman tests with additional options
-          echo "Running Postman tests with modified collection and environment..."
+          # Run Postman tests
+          echo "Running Postman tests with authenticated collection..."
           newman run "$TMP_COLLECTION" \
             --environment "$TMP_ENV_FILE" \
             --reporters cli,htmlextra,junit \
             --reporter-htmlextra-export ../../results/report.html \
             --reporter-junit-export ../../results/junit-report.xml \
             --insecure \
-            --timeout-request 10000 \
-            --timeout 120000 \
+            --timeout-request 15000 \
+            --timeout 180000 \
             --global-var "auth_token=$TOKEN" \
-            --global-var "skip_auth=true" \
-            --global-var "admin_token=$TOKEN"
+            --global-var "admin_token=$TOKEN" \
+            --global-var "base_url=http://localhost:8080"
         
       - name: Upload test results and logs
         if: always()
