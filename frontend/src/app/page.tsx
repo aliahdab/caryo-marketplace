@@ -1,6 +1,4 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// The following imports are used in the component despite ESLint warnings
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
