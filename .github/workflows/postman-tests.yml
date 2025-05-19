@@ -190,44 +190,79 @@ jobs:
           echo "Checking Spring Boot logs for startup issues..."
           tail -n 50 spring-boot.log
           
-          # Fix collection URL paths
-          echo "Fixing collection URL paths to match Spring Boot controller mappings..."
-          chmod +x ../../postman/fix_collection.sh
-          ../../postman/fix_collection.sh
+          # Extract authentication tokens from Spring Boot logs
+          echo "Extracting authentication tokens from logs..."
+          USER_TOKEN=$(grep -A 4 "REGULAR USER TOKEN" spring-boot.log | grep -A 1 "----" | tail -n 1 | sed 's/^.*\[\s*restartedMain\].*c\.a\.a\.config\.DataInitializer\s*:\s*//')
+          ADMIN_TOKEN=$(grep -A 4 "ADMIN USER TOKEN" spring-boot.log | grep -A 1 "----" | tail -n 1 | sed 's/^.*\[\s*restartedMain\].*c\.a\.a\.config\.DataInitializer\s*:\s*//')
           
-          # Ensure the collection path is correct
-          COLLECTION="./src/test/resources/postman/autotrader-api-collection.json"
-          if [ ! -f "$COLLECTION" ]; then
-            echo "Collection file not found at $COLLECTION"
-            find ./src/test/resources/postman -type f -name "*.json" | grep -v "environment"
+          echo "User token found: ${USER_TOKEN:0:3}..."
+          echo "Admin token found: ${ADMIN_TOKEN:0:3}..."
+          
+          # Find the collection file
+          echo "Locating Postman collection file..."
+          COLLECTION=$(find ./src/test/resources -name "autotrader-api-collection.json" | head -1)
+          
+          if [ -z "$COLLECTION" ]; then
+            echo "Collection file not found in src/test/resources!"
+            find ./src/test/resources -type f -name "*.json" -not -path "*/node_modules/*"
             exit 1
           fi
           
-          # Make a temporary modified copy of the environment file with CSRF disabled for testing
+          echo "Using collection: $COLLECTION"
+          
+          # Make a temporary modified copy of the environment file with auth tokens
           ENV_FILE="../../postman/test_environment.json"
           TMP_ENV_FILE="../../postman/tmp_test_environment.json"
           cp "$ENV_FILE" "$TMP_ENV_FILE"
           
-          # Add CSRF configuration and API permissions flags
-          jq '.values += [
-            {"key": "csrf_enabled", "value": "false", "type": "default", "enabled": true},
-            {"key": "skip_auth", "value": "true", "type": "default", "enabled": true},
-            {"key": "direct_api_access", "value": "true", "type": "default", "enabled": true}
-          ]' "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
+          # Add tokens and test config to environment
+          echo "Adding authentication tokens to environment..."
+          jq --arg user_token "$USER_TOKEN" --arg admin_token "$ADMIN_TOKEN" '.values = (.values | map(if .key == "auth_token" then .value = $user_token | . else . end))' "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
           
-          # Check endpoint access directly  
-          echo "Testing endpoint access..."
-          curl -v http://localhost:8080/auth/signup -H "Content-Type: application/json" \
-            -d '{
-                "username": "testuser",
-                "email": "testuser@example.com",
-                "password": "password123",
-                "role": ["user"]
-              }'
+          # Add admin token 
+          jq --arg admin_token "$ADMIN_TOKEN" '.values += [{"key": "admin_token", "value": $admin_token, "type": "default", "enabled": true}]' "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
           
-          # Add flag to ignore certificate errors
-          echo "Running Postman tests with temporary environment..."
-          newman run "$COLLECTION" \
+          # Add CSRF configuration
+          jq '.values += [{"key": "csrf_enabled", "value": "false", "type": "default", "enabled": true}]' "$TMP_ENV_FILE" > "$TMP_ENV_FILE.tmp" && mv "$TMP_ENV_FILE.tmp" "$TMP_ENV_FILE"
+          
+          # Check if collection exists
+          if [ ! -f "$COLLECTION" ]; then
+            echo "ERROR: Collection not found at $COLLECTION"
+            exit 1
+          fi
+          
+          # Modify collection to include Authorization headers
+          echo "Modifying collection to add Authorization headers..."
+          TMP_COLLECTION="./temp_collection.json"
+          cp "$COLLECTION" "$TMP_COLLECTION"
+          
+          # Add Authorization header to all requests
+          jq '
+          walk(
+            if type == "object" and .request and .request.header then
+              .request.header += [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{auth_token}}",
+                  "type": "text"
+                }
+              ] | .
+            else
+              .
+            end
+          )
+          ' "$TMP_COLLECTION" > "$TMP_COLLECTION.tmp" && mv "$TMP_COLLECTION.tmp" "$TMP_COLLECTION"
+          
+          # Testing direct API access with token
+          echo "Testing API access with token..."
+          if [ -n "$USER_TOKEN" ]; then
+            echo "Trying /api/reference-data endpoint with token..."
+            curl -s -H "Authorization: Bearer $USER_TOKEN" http://localhost:8080/api/reference-data | head -20
+          fi
+          
+          # Run the Postman tests
+          echo "Running Postman tests with authentication..."
+          newman run "$TMP_COLLECTION" \
             --environment "$TMP_ENV_FILE" \
             --reporters cli,htmlextra,junit \
             --reporter-htmlextra-export ../../results/report.html \
