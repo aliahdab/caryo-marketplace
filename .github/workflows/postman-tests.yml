@@ -50,9 +50,6 @@ jobs:
 
       - name: Setup Docker Services
         uses: ./.github/actions/docker-services-setup
-        env:
-          MINIO_ROOT_USER: "newuser"
-          MINIO_ROOT_PASSWORD: "newpassword"
         with:
           docker-compose-file: "./backend/autotrader-backend/docker-compose.dev.yml"
           services: "db minio createbuckets redis"
@@ -62,8 +59,9 @@ jobs:
           minio-container-name: "autotrader-backend-minio-1"
           createbuckets-container-name: "autotrader-backend-createbuckets-1"
           post-minio-ready-wait-seconds: '20'
-          minio-root-user: "newuser"
-          minio-root-password: "newpassword"
+          # Using the default MinIO credentials that are in docker-compose.dev.yml
+          minio-root-user: "minioadmin"
+          minio-root-password: "minioadmin"
 
       # Add explicit MinIO bucket verification and creation step
       - name: Ensure MinIO bucket exists
@@ -74,8 +72,8 @@ jobs:
           curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
           chmod +x mc
           
-          # Configure MinIO client 
-          ./mc config host add myminio http://localhost:9000 newuser newpassword
+          # Configure MinIO client with default minioadmin credentials
+          ./mc config host add myminio http://localhost:9000 minioadmin minioadmin
           
           # List buckets to check if our bucket exists
           if ./mc ls myminio | grep -q "autotrader-assets"; then
@@ -119,8 +117,8 @@ jobs:
               password: password
           minio:
             endpoint: http://localhost:9000
-            accessKey: newuser
-            secretKey: newpassword
+            accessKey: minioadmin
+            secretKey: minioadmin
             bucket: autotrader-assets
           logging:
             level:
