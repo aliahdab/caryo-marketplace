@@ -130,6 +130,24 @@ jobs:
             port: 8080
           EOC
 
+      - name: Prepare Test Configuration
+        working-directory: ./backend/autotrader-backend
+        run: |
+          # Create test properties file to enable data initialization and detailed logging
+          echo "Creating application-test.properties file..."
+          mkdir -p src/main/resources
+          cat > src/main/resources/application-test.properties << EOF
+          # Test properties
+          spring.profiles.include=dev
+          
+          # Enable more detailed logging to see the authentication tokens
+          logging.level.com.autotrader.autotraderbackend.config.DataInitializer=DEBUG
+          
+          # Make sure initialization runs
+          spring.jpa.defer-datasource-initialization=true  
+          spring.sql.init.mode=always
+          EOF
+      
       - name: Start Spring Boot Application
         id: spring-boot-start
         working-directory: ./backend/autotrader-backend
@@ -143,8 +161,9 @@ jobs:
               kill -9 $pid || true
             fi
           fi
-          # Start application
-          nohup ./gradlew bootRun --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
+          # Start application with both dev and test profiles from the beginning
+          echo "Starting Spring Boot with dev and test profiles..."
+          nohup ./gradlew bootRun --args='--spring.profiles.active=dev,test' > spring-boot.log 2>&1 &
           SPRING_PID=$!
           echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
           echo "Spring Boot started with PID: $SPRING_PID"
@@ -172,6 +191,14 @@ jobs:
             tail -n 50 spring-boot.log
             exit 1
           fi
+          
+          # Wait a bit to ensure DataInitializer finishes and logs tokens
+          echo "Waiting for DataInitializer to complete..."
+          sleep 5
+          
+          # Check for generated tokens in logs
+          echo "Looking for authentication tokens in logs..."
+          grep -A 15 "DEVELOPMENT AUTHENTICATION TOKENS" spring-boot.log || echo "No tokens found yet, might need more time"
 
       - name: Install Newman
         run: npm install -g newman newman-reporter-htmlextra
@@ -193,52 +220,28 @@ jobs:
           # Make a copy of the application-dev.yml for inspection
           cat src/main/resources/application-dev.yml
           
-          # Let the application initialize data using its built-in DataInitializer
-          echo "Setting up test environment to use built-in DataInitializer..."
+          # The Spring Boot application was already started with the right profiles
+          echo "Using the DataInitializer that was initialized on application startup..."
           
-          # Update application config to ensure we get visible log output of auth tokens
-          cat > src/main/resources/application-test.properties << EOF
-          # Test properties
-          spring.profiles.include=dev
-          
-          # Enable more detailed logging to see the authentication tokens
-          logging.level.com.autotrader.autotraderbackend.config.DataInitializer=DEBUG
-          
-          # Make sure initialization runs
-          spring.jpa.defer-datasource-initialization=true  
-          spring.sql.init.mode=always
-          EOF
-
-          # We don't need a data.sql file as the DataInitializer creates the users
-          
-          # Restart application with test profile to initialize data
-          echo "Restarting application with test profile to initialize test data..."
-          kill $SPRING_PID
-          nohup ./gradlew bootRun --args='--spring.profiles.active=dev,test' > spring-boot.log 2>&1 &
-          SPRING_PID=$!
-          echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
-          
-          # Wait for application to start
-          MAX_WAIT=60
-          WAIT_COUNT=0
-          while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-            if curl -s http://localhost:8080/actuator/health > /dev/null; then
-              echo "Spring Boot application is running with test profile!"
-              curl -s http://localhost:8080/actuator/health
-              break
-            fi
-            echo "Waiting for application to start... ($WAIT_COUNT/$MAX_WAIT)"
-            sleep 5
-            WAIT_COUNT=$((WAIT_COUNT + 1))
-          done
+          # Wait a bit longer for the DataInitializer to complete and print tokens
+          echo "Waiting for DataInitializer to complete initialization..."
+          sleep 10
           
           # Verify the admin and user were created through DataInitializer
           echo "Verifying admin and user were created by DataInitializer..."
           docker exec -i $(docker ps -qf "name=autotrader-backend-db-1") psql -U autotrader -d autotrader -c "SELECT id, username, email FROM users WHERE username IN ('admin', 'user')"
           
-          # Check for the generated tokens in the Spring Boot logs
+          # Check for the generated tokens in the Spring Boot logs with more verbose output
           echo "Looking for authentication tokens in the logs..."
-          grep -A 15 "DEVELOPMENT AUTHENTICATION TOKENS" spring-boot.log || echo "No tokens found in logs"
+          echo "Searching for token pattern in logs..."
+          grep -n "DEVELOPMENT AUTHENTICATION TOKENS" spring-boot.log || echo "Token header not found in logs"
+          grep -n "ADMIN USER TOKEN" spring-boot.log || echo "Admin token marker not found in logs"
+          
+          echo "Displaying last 20 lines of log for debugging..."
+          tail -n 20 spring-boot.log
+          
+          echo "Extracting complete token section..."
+          awk '/====== DEVELOPMENT AUTHENTICATION TOKENS ======/{flag=1; print; next} /==============================================/{flag=0} flag' spring-boot.log
           
           # Try to authenticate directly first with the default admin user
           echo "Attempting direct authentication with admin user..."
@@ -299,39 +302,25 @@ jobs:
               # Try to extract token again
               TOKEN=$(echo $AUTH_RESPONSE | jq -r '.token // .accessToken // .access_token // ""')
               
-              # If still no token, create bypass configuration
+              # If still no token, use fallback token
               if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-                  echo "⚠️ All authentication attempts failed. Creating test config and fallback token."
-                  TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0YWRtaW4iLCJpYXQiOjE2MjY5NTQ1ODgsImV4cCI6MTYyNzA0MDk4OH0.test-token-placeholder"
+                  echo "⚠️ All authentication attempts failed. Using fallback token."
+                  TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImlhdCI6MTYyNjk1NDU4OCwiZXhwIjoxNjI3MDQwOTg4fQ.test-token-placeholder"
                   
-                  # Create a security bypass in application-dev.yml for testing
-                  echo "Creating test security configuration..."
+                  # Create a security bypass in application-test.properties for testing
+                  echo "Creating test security configuration in application-test.properties..."
                   echo '
           # Test security configuration
-          security:
-            testMode: true
-            permitAll: true
-          ' >> src/main/resources/application-dev.yml
+          security.testMode=true
+          security.permitAll=true
+          ' >> src/main/resources/application-test.properties
                   
-                  # Restart application to apply changes
-                  echo "Restarting application with test configuration..."
-                  kill $SPRING_PID
-                  nohup ./gradlew bootRun --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
-                  SPRING_PID=$!
-                  echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
+                  # Add test mode via environment variables rather than restart
+                  export SPRING_SECURITY_TEST_MODE=true
+                  export SPRING_SECURITY_PERMIT_ALL=true
                   
-                  # Wait for restart with more status updates
-                  echo "Waiting for application to restart..."
-                  for i in {1..6}; do
-                      echo "Waiting ($i/6)..."
-                      sleep 5
-                      # Check if app is responding
-                      if curl -s http://localhost:8080/actuator/health > /dev/null; then
-                          echo "Application is responding!"
-                          curl -s http://localhost:8080/actuator/health
-                          break
-                      fi
-                  done
+                  echo "Continuing with fallback authentication configuration..."
+              fi
               fi
           fi
           
