@@ -311,36 +311,38 @@ jobs:
           mkdir -p "$(dirname "$ENV_FILE_PATH")"
           
           echo "Writing current AUTH_TOKEN to $ENV_FILE_PATH"
-          # AUTH_TOKEN is sourced from GITHUB_ENV
-          cat > "$ENV_FILE_PATH" <<EOF
-          {
-            "id": "test-environment-$(date +%s)",
-            "name": "Test Environment (GitHub Actions)",
-            "values": [
-              {
-                "key": "baseUrl",
-                "value": "http://localhost:8080",
-                "type": "default",
-                "enabled": true
-              },
-              {
-                "key": "authToken",
-                "value": "${AUTH_TOKEN}",
-                "type": "secret",
-                "enabled": true
-              },
-              {
-                "key": "auth_token",
-                "value": "${AUTH_TOKEN}",
-                "type": "secret",
-                "enabled": true
-              }
-            ],
-            "_postman_variable_scope": "environment",
-            "_postman_exported_at": "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")",
-            "_postman_exported_using": "GitHub Actions"
-          }
-EOF
+          TIMESTAMP=$(date +%s)
+          EXPORTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
+          
+          # Create the environment file with a series of echo statements
+          echo '{' > "$ENV_FILE_PATH"
+          echo "  \"id\": \"test-environment-$TIMESTAMP\"," >> "$ENV_FILE_PATH"
+          echo '  "name": "Test Environment (GitHub Actions)",' >> "$ENV_FILE_PATH"
+          echo '  "values": [' >> "$ENV_FILE_PATH"
+          echo '    {' >> "$ENV_FILE_PATH"
+          echo '      "key": "baseUrl",' >> "$ENV_FILE_PATH"
+          echo '      "value": "http://localhost:8080",' >> "$ENV_FILE_PATH"
+          echo '      "type": "default",' >> "$ENV_FILE_PATH"
+          echo '      "enabled": true' >> "$ENV_FILE_PATH"
+          echo '    },' >> "$ENV_FILE_PATH"
+          echo '    {' >> "$ENV_FILE_PATH"
+          echo '      "key": "authToken",' >> "$ENV_FILE_PATH"
+          echo "      \"value\": \"$AUTH_TOKEN\"," >> "$ENV_FILE_PATH"
+          echo '      "type": "secret",' >> "$ENV_FILE_PATH"
+          echo '      "enabled": true' >> "$ENV_FILE_PATH"
+          echo '    },' >> "$ENV_FILE_PATH"
+          echo '    {' >> "$ENV_FILE_PATH"
+          echo '      "key": "auth_token",' >> "$ENV_FILE_PATH"
+          echo "      \"value\": \"$AUTH_TOKEN\"," >> "$ENV_FILE_PATH"
+          echo '      "type": "secret",' >> "$ENV_FILE_PATH"
+          echo '      "enabled": true' >> "$ENV_FILE_PATH"
+          echo '    }' >> "$ENV_FILE_PATH"
+          echo '  ],' >> "$ENV_FILE_PATH"
+          echo '  "_postman_variable_scope": "environment",' >> "$ENV_FILE_PATH"
+          echo "  \"_postman_exported_at\": \"$EXPORTED_AT\"," >> "$ENV_FILE_PATH"
+          echo '  "_postman_exported_using": "GitHub Actions"' >> "$ENV_FILE_PATH"
+          echo '}' >> "$ENV_FILE_PATH"
+          
           echo "Postman environment file $ENV_FILE_PATH updated."
 
       - name: Run Postman Tests with Newman
@@ -348,11 +350,11 @@ EOF
         uses: ./.github/actions/postman-tests
         with:
           collection-path: "${{ steps.prepare-auth.outputs.COLLECTION_PATH }}"
-          environment-file: 'postman/test_environment.json' # Path relative to repo root
-          working-directory: './backend/autotrader-backend' 
-          results-directory: 'results' # Path relative to repo root
+          environment-file: '../../postman/test_environment.json' # Path relative to the action's working-directory
+          working-directory: './backend/autotrader-backend'      # Action's working-directory
+          results-directory: '../../results'                     # Path relative to the action's working-directory for output
           auto-detect-collection: 'true'
-          extra-options: '--bail --export-environment results/updated_environment.json' # Path relative to repo root
+          extra-options: '--bail --export-environment ../../results/updated_environment.json' # Path relative to action's working-directory
 
       - name: Run diagnostic scripts if tests fail
         if: steps.postman-tests.outputs.test-status == 'failure'
