@@ -14,9 +14,7 @@ export default function SettingsPage() {
     language: "en",
     timezone: "UTC+4",
     currency: "SYR", // Default to Syrian  pound 
-    language: locale, // Initialize with current locale
-    timezone: "UTC+3", // Default to Syria timezone
-    currency: "SYP", // Default to Syrian Pound
+
   });
 
   // State for loading indicator during language change
