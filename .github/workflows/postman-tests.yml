@@ -170,109 +170,36 @@ jobs:
       - name: Wait for data initialization and extract tokens
         working-directory: ./backend/autotrader-backend
         run: |
-          # Wait to ensure DataInitializer finishes and logs tokens
-          echo "Waiting for DataInitializer to complete..."
-          
-          # Instead of a fixed sleep, poll the logs for a sign that initialization is complete
+          # Wait for DataInitializer to complete
           LOG_FILE="spring-boot.log"
-          MAX_ATTEMPTS=12
-          ATTEMPT=1
-          INIT_COMPLETE=false
+          echo "Waiting for DataInitializer to complete..."
+          sleep 10
           
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$INIT_COMPLETE" = "false" ]; do
-            echo "Checking for initialization completion (attempt $ATTEMPT/$MAX_ATTEMPTS)..."
-            
-            # Check if log contains indication that data initialization is complete
-            if grep -q "DataInitializer completed" $LOG_FILE 2>/dev/null || \
-               grep -q "DEVELOPMENT AUTHENTICATION TOKENS" $LOG_FILE 2>/dev/null; then
-              echo "✅ Data initialization appears to be complete!"
-              INIT_COMPLETE=true
-            else
-              echo "Still waiting for initialization to complete..."
-              sleep 5
-              ATTEMPT=$((ATTEMPT+1))
-            fi
-          done
-          
-          # Application health check
-          echo "Performing application health check..."
-          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health)
-          if [ "$HEALTH_STATUS" -eq 200 ]; then
-            echo "✅ Application health check successful (status $HEALTH_STATUS)"
+          # Quick check for application health
+          if curl -s http://localhost:8080/actuator/health | grep -q "UP"; then
+            echo "✅ Application is healthy"
           else
-            echo "⚠️ Application health check returned status $HEALTH_STATUS"
-            echo "Retrieving health details..."
-            curl -s http://localhost:8080/actuator/health | jq '.' || echo "Could not retrieve health details"
+            echo "⚠️ Application health check failed"
           fi
           
-          # Verify the application is running with correct profiles
-          echo "Verifying active profiles..."
-          PROFILES_OUTPUT=$(curl -s http://localhost:8080/actuator/env/spring.profiles.active || echo "")
-          if [ ! -z "$PROFILES_OUTPUT" ]; then
-            echo "Active profiles: $PROFILES_OUTPUT"
-            if echo "$PROFILES_OUTPUT" | grep -q "test"; then
-              echo "✅ Application started with test profile!"
-              # Check if dev profile is also active (imported by test)
-              if echo "$PROFILES_OUTPUT" | grep -q "dev"; then
-                echo "✅ Dev profile is also active (imported by test profile)"
-              fi
-            else
-              echo "⚠️ Profile verification failed! Continuing anyway..."
-            fi
-          else
-            echo "Could not retrieve active profiles. Continuing anyway..."
-          fi
-          
-          # Check for generated tokens in logs
-          echo "Looking for authentication tokens in logs..."
+          # Extract tokens from logs with simplified approach
+          echo "Extracting authentication tokens from logs..."
           if grep -q "DEVELOPMENT AUTHENTICATION TOKENS" $LOG_FILE; then
-            echo "Found authentication tokens section in logs:"
-            awk '/====== DEVELOPMENT AUTHENTICATION TOKENS ======/{flag=1; print; next} /==============================================/{flag=0} flag' $LOG_FILE || true
-            
-            # Extract admin token explicitly with better error handling
+            # Extract admin token
             ADMIN_TOKEN=$(grep -A 10 "ADMIN USER TOKEN" $LOG_FILE | grep -v "ADMIN USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
             if [ ! -z "$ADMIN_TOKEN" ]; then
-              echo "✅ Successfully extracted admin token!"
-              # Validate token format before setting
-              if [[ $ADMIN_TOKEN == eyJ* ]]; then
-                echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
-                echo "Admin token has expected JWT format"
-              else
-                echo "⚠️ Admin token doesn't match expected JWT format, might be invalid"
-                echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
-              fi
+              echo "✅ Admin token extracted"
+              echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
             fi
             
-            # Extract regular user token explicitly with better error handling
+            # Extract user token
             USER_TOKEN=$(grep -A 10 "REGULAR USER TOKEN" $LOG_FILE | grep -v "REGULAR USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
             if [ ! -z "$USER_TOKEN" ]; then
-              echo "✅ Successfully extracted regular user token!"
-              # Validate token format before setting
-              if [[ $USER_TOKEN == eyJ* ]]; then
-                echo "USER_TOKEN=$USER_TOKEN" >> $GITHUB_ENV
-                echo "User token has expected JWT format"
-              else
-                echo "⚠️ User token doesn't match expected JWT format, might be invalid"
-                echo "USER_TOKEN=$USER_TOKEN" >> $GITHUB_ENV
-              fi
+              echo "✅ Regular user token extracted"
+              echo "USER_TOKEN=$USER_TOKEN" >> $GITHUB_ENV
             fi
           else
-            echo "No tokens found in logs, dumping recent log entries..."
-            tail -n 100 $LOG_FILE
-            echo "Will attempt direct authentication in next step"
-          fi
-          
-          # Summarize token extraction results
-          if [ ! -z "$ADMIN_TOKEN" ]; then
-            echo "✅ Admin token available for tests"
-          else
-            echo "⚠️ No admin token extracted"
-          fi
-          
-          if [ ! -z "$USER_TOKEN" ]; then
-            echo "✅ User token available for tests"
-          else
-            echo "⚠️ No user token extracted"
+            echo "No authentication tokens found in logs"
           fi
 
       - name: Install Newman
