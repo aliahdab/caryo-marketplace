@@ -26,6 +26,10 @@ inputs:
     description: "Whether to auto-detect the collection file if not specified"
     required: false
     default: 'true'
+  extra-options:
+    description: "Additional options to pass to Newman"
+    required: false
+    default: ''
 
 outputs:
   results-path:
@@ -85,19 +89,35 @@ runs:
           echo "Running tests without environment file..."
           
           # Run tests without environment file
-          newman run "$COLLECTION" \
+          NEWMAN_CMD="newman run \"$COLLECTION\" \
             --reporters ${{ inputs.reporters }} \
             --reporter-htmlextra-export ${{ inputs.results-directory }}/report.html \
-            --reporter-junit-export ${{ inputs.results-directory }}/junit-report.xml
+            --reporter-junit-export ${{ inputs.results-directory }}/junit-report.xml"
+            
+          # Add extra options if provided
+          if [ ! -z "${{ inputs.extra-options }}" ]; then
+            NEWMAN_CMD="$NEWMAN_CMD ${{ inputs.extra-options }}"
+          fi
+          
+          echo "Executing: $NEWMAN_CMD"
+          eval $NEWMAN_CMD
         else
           echo "Using environment file: ${{ inputs.environment-file }}"
           
           # Run tests with environment file
-          newman run "$COLLECTION" \
-            --environment "${{ inputs.environment-file }}" \
+          NEWMAN_CMD="newman run \"$COLLECTION\" \
+            --environment \"${{ inputs.environment-file }}\" \
             --reporters ${{ inputs.reporters }} \
             --reporter-htmlextra-export ${{ inputs.results-directory }}/report.html \
-            --reporter-junit-export ${{ inputs.results-directory }}/junit-report.xml
+            --reporter-junit-export ${{ inputs.results-directory }}/junit-report.xml"
+            
+          # Add extra options if provided
+          if [ ! -z "${{ inputs.extra-options }}" ]; then
+            NEWMAN_CMD="$NEWMAN_CMD ${{ inputs.extra-options }}"
+          fi
+          
+          echo "Executing: $NEWMAN_CMD"
+          eval $NEWMAN_CMD
         fi
         
         TEST_STATUS=$?

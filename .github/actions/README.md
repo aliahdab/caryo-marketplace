@@ -61,9 +61,11 @@ Runs Postman collection tests using Newman.
 - name: Run Postman Tests
   uses: ./.github/actions/postman-tests
   with:
+    collection-path: './path/to/collection.json'
     environment-file: './postman/test_environment.json'
     results-directory: 'results'
     auto-detect-collection: 'true'
+    extra-options: '--bail --export-environment ./results/updated_environment.json'
 ```
 
 ## Benefits of Composite Actions
