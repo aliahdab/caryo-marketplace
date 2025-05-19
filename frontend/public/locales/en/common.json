@@ -99,6 +99,13 @@
     "total": "Total",
     "notification": "Notification",
     "sending": "Sending..."
+  },"categoriesCars": {
+    "convertible": "قابل للتحويل",
+    "electric": "كهربائي",
+    "sports": "رياضي",
+    "luxury": "فاخر",
+    "suv": "دفع رباعي",
+    "sedan": "سيدان"
   },
   "listings": {
     "active": "Active",

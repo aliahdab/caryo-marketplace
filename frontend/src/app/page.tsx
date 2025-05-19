@@ -43,11 +43,11 @@ export default function Home() {
   // Vehicle categories
   const categories = [
     { name: "Sedan", icon: "🚗", count: 128 },
-    { name: "SUV", icon: "🚙", count: 96 },
-    { name: "Luxury", icon: "✨", count: 64 },
-    { name: "Sports", icon: "🏎️", count: 42 },
-    { name: "Electric", icon: "⚡", count: 38 },
-    { name: "Convertible", icon: "🚘", count: 27 },
+    { name: t("categoriesCars.suv"), icon: "🚙", count: 962 },
+    { name: t("categoriesCars.luxury"), icon: "✨", count: 64 },
+    { name: t("categoriesCars.sports"), icon: "🏎️", count: 42 },
+    { name: t("categoriesCars.electric"), icon: "⚡", count: 38 },
+    { name: t("categoriesCars.convertible"), icon: "🚘", count: 27 },
   ];
 
   return (
