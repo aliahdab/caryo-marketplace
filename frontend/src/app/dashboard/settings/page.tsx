@@ -10,7 +10,7 @@ export default function SettingsPage() {
   const [accountSettings, setAccountSettings] = useState({
     language: "en",
     timezone: "UTC+4",
-    currency: "SAR", // Default to Saudi Riyal
+    currency: "SYR", // Default to Syrian  pound 
   });
   
   // Notification settings state
@@ -88,7 +88,7 @@ export default function SettingsPage() {
               onChange={handleAccountChange}
               className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
             >
-              <option value="en">English</option>
+              <option value="en" >English (الإنجليزية)</option>
               <option value="ar">العربية (Arabic)</option>
             </select>
           </div>
@@ -119,7 +119,7 @@ export default function SettingsPage() {
               onChange={handleAccountChange}
               className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
             >
-              <option value="SAR">SAR (Saudi Riyal)</option>
+              <option value="SYR">SYR (Syrian Pound)</option>
               <option value="USD">USD (US Dollar)</option>
             </select>
           </div>
