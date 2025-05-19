@@ -314,15 +314,15 @@ jobs:
           auto-detect-collection: 'true'
           extra-options: '--bail --export-environment ./results/updated_environment.json'
 
-      - name: Run diagnostic script if tests fail
+      - name: Run diagnostic scripts if tests fail
         if: steps.postman-tests.outputs.test-status == 'failure'
         working-directory: ./backend/autotrader-backend
         run: |
           echo "Running user authentication diagnostics..."
           bash ../../scripts/diagnose-user-auth.sh http://localhost:8080
           
-          echo "Checking API endpoints again..."
-          curl -i http://localhost:8080/actuator/health
+          echo "Running Postman tests diagnostics..."
+          bash ../../scripts/diagnose-postman-tests.sh http://localhost:8080 "${{ steps.prepare-auth.outputs.COLLECTION_PATH }}" "../../postman/test_environment.json"
           
           echo "Examining application logs..."
           tail -n 100 spring-boot.log
