@@ -157,53 +157,27 @@ jobs:
       
       - name: Start Spring Boot Application
         id: spring-boot-start
+        uses: ./.github/actions/spring-boot-setup
+        with:
+          working-directory: "./backend/autotrader-backend"
+          spring-profiles: "test"
+          debug-mode: "true"
+          wait-retries: "30"
+          wait-time: "10"
+          skip-build: "false"
+          server-port: "8080"
+          
+      - name: Wait for data initialization and extract tokens
         working-directory: ./backend/autotrader-backend
         run: |
-          # Check for port conflicts
-          if netstat -tuln | grep -q ":8080 "; then
-            echo "Port 8080 is already in use!"
-            netstat -tuln | grep ":8080 "
-            pid=$(lsof -t -i:8080) || true
-            if [ ! -z "$pid" ]; then
-              kill -9 $pid || true
-            fi
-          fi
-          # Start application with test profile (which imports dev)
-          echo "Starting Spring Boot with test profile..."
-          nohup ./gradlew bootRun --args='--spring.profiles.active=test' > spring-boot.log 2>&1 &
-          SPRING_PID=$!
-          echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
-          echo "Spring Boot started with PID: $SPRING_PID"
-          # Wait for application to start
-          MAX_WAIT=60
-          WAIT_COUNT=0
-          while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-            if curl -s http://localhost:8080/actuator/health > /dev/null; then
-              echo "Spring Boot application is running!"
-              curl -s http://localhost:8080/actuator/health
-              break
-            fi
-            # Check if process is still running
-            if ! ps -p $SPRING_PID > /dev/null; then
-              echo "Spring Boot process died! Check logs for details."
-              cat spring-boot.log
-              exit 1
-            fi
-            echo "Still waiting for application to start... ($WAIT_COUNT/$MAX_WAIT)"
-            sleep 5
-            WAIT_COUNT=$((WAIT_COUNT + 1))
-          done
-          if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
-            echo "Spring Boot application failed to start within timeout!"
-            tail -n 50 spring-boot.log
-            exit 1
-          fi
-          
           # Wait to ensure DataInitializer finishes and logs tokens
           echo "Waiting for DataInitializer to complete..."
-          sleep 5
+          sleep 10
           
-          # Verify the application started with the test profile
+          # Get the log file path from the spring-boot-setup action
+          LOG_FILE="spring-boot.log"
+          
+          # Verify the application is running with correct profiles
           echo "Verifying active profiles..."
           PROFILES_OUTPUT=$(curl -s http://localhost:8080/actuator/env/spring.profiles.active || echo "")
           if [ ! -z "$PROFILES_OUTPUT" ]; then
@@ -223,23 +197,26 @@ jobs:
           
           # Check for generated tokens in logs
           echo "Looking for authentication tokens in logs..."
-          if grep -q "DEVELOPMENT AUTHENTICATION TOKENS" spring-boot.log; then
+          if grep -q "DEVELOPMENT AUTHENTICATION TOKENS" $LOG_FILE; then
             echo "Found authentication tokens section in logs:"
-            awk '/====== DEVELOPMENT AUTHENTICATION TOKENS ======/{flag=1; print; next} /==============================================/{flag=0} flag' spring-boot.log || true
+            awk '/====== DEVELOPMENT AUTHENTICATION TOKENS ======/{flag=1; print; next} /==============================================/{flag=0} flag' $LOG_FILE || true
             
             # Extract admin token explicitly
-            ADMIN_TOKEN=$(grep -A 10 "ADMIN USER TOKEN" spring-boot.log | grep -v "ADMIN USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
+            ADMIN_TOKEN=$(grep -A 10 "ADMIN USER TOKEN" $LOG_FILE | grep -v "ADMIN USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
             if [ ! -z "$ADMIN_TOKEN" ]; then
               echo "✅ Successfully extracted admin token!"
+              echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
             fi
             
             # Extract regular user token explicitly
-            USER_TOKEN=$(grep -A 10 "REGULAR USER TOKEN" spring-boot.log | grep -v "REGULAR USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
+            USER_TOKEN=$(grep -A 10 "REGULAR USER TOKEN" $LOG_FILE | grep -v "REGULAR USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
             if [ ! -z "$USER_TOKEN" ]; then
               echo "✅ Successfully extracted regular user token!"
+              echo "USER_TOKEN=$USER_TOKEN" >> $GITHUB_ENV
             fi
           else
             echo "No tokens found yet, might need more time"
+            tail -n 50 $LOG_FILE
           fi
 
       - name: Install Newman
@@ -439,8 +416,29 @@ jobs:
           # Kill Spring Boot process
           SPRING_PID="${{ steps.spring-boot-start.outputs.pid }}"
           if [ ! -z "$SPRING_PID" ]; then
+            echo "Stopping Spring Boot process with PID: $SPRING_PID"
             kill $SPRING_PID || true
+            sleep 2
+            # Verify process is stopped
+            if ps -p $SPRING_PID > /dev/null 2>&1; then
+              echo "Process still running, force killing..."
+              kill -9 $SPRING_PID || true
+            else
+              echo "✅ Spring Boot process stopped successfully"
+            fi
+          else
+            echo "No Spring Boot PID found, checking for any Java processes..."
+            java_pids=$(ps aux | grep java | grep -v grep | awk '{print $2}')
+            if [ ! -z "$java_pids" ]; then
+              echo "Found Java processes: $java_pids"
+              for pid in $java_pids; do
+                echo "Killing Java process $pid"
+                kill -9 $pid || true
+              done
+            fi
           fi
+          
           # Stop Docker services
           cd ./backend/autotrader-backend
           docker compose -f docker-compose.dev.yml down -v
+          echo "✅ Docker services stopped"
