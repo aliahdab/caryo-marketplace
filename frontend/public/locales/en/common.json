@@ -98,6 +98,26 @@
     "listingDurationDesc": "Your listing will be active for the selected period. You can renew it before it expires.",
     "preview": "Preview",
     "expiresIn": "Expires in {{days}} days",
+    "expiredDaysAgo": "Expired {{days}} days ago",
+    "expiredListingsAlert": "You have {{count}} expired listing(s) that need attention",
+    "active": "Active",
+    "expired": "Expired",
+    "pending": "Pending",
+    "expiry": "Expiry",
+    "confirmDelete": "Are you sure you want to delete this listing? This action cannot be undone.",
+    "confirmBulkDelete": "Are you sure you want to delete the selected listings? This action cannot be undone.",
+    "renewAll": "Renew All",
+    "searchFields": "Search fields",
+    "filterByStatus": "Filter by status",
+    "deleteSelected": "Delete Selected",
+    "renewSelected": "Renew Selected",
+    "clearSelection": "Clear Selection",
+    "viewsTooltip": "Number of times your listing was viewed by users",
+    "expiryProgress": "Expiry progress",
+    "tooltipInfo": "Click for more information",
+    "refreshTable": "Refresh table",
+    "renew": "Renew",
+    "itemsSelected": "{{count}} items selected",
     "respondsFast": "Responds Fast",
     "title": "Title"
   },
@@ -194,6 +214,7 @@
     "settings": "Settings",
     "editProfileDesc": "Update your profile information and preferences",
     "logoutDesc": "Sign out of your account",
+    "expiredRenewalDesc": "Your listing has expired. Renew it to make it visible to buyers again.",
     "activeListings": "Active Vehicles",
     "views": "Views",
     "messages": "Messages",
@@ -224,7 +245,12 @@
     "support": "Support",
     "help": "Help",
     "addListing": "Add New Listing",
-    "helpCenter": "Help Center"
+    "helpCenter": "Help Center",
+    "accountSettings": "Account Settings",
+    "listingsTips": "Tips for Successful Listings",
+    "tip1": "Add high-quality photos for more views",
+    "tip2": "Be accurate about the vehicle condition",
+    "tip3": "Respond quickly to buyer inquiries"
   },
   "contact": {
     "title": "Contact Us",
@@ -263,5 +289,16 @@
       "messageLength": "Your message should be at least 20 characters",
       "submissionFailed": "There was a problem sending your message. Please try again."
     }
-  }
+  },
+  "loading": "Loading...",
+  "retry": "Try Again",
+  "sortBy": "Sort by",
+  "newest": "Newest",
+  "price": "Price",
+  "year": "Year",
+  "km": "km",
+  "learnMore": "Learn More",
+  "allRightsReserved": "All rights reserved",
+  "all": "All",
+  "date": "Date"
 }

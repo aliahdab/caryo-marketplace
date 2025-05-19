@@ -12,7 +12,35 @@
     "page": "صفحة",
     "loadingListings": "جاري تحميل المركبات...",
     "noListingsFound": "لم يتم العثور على مركبات",
-    "addedRecently": "أضيفت مؤخرا"
+    "addedRecently": "أضيفت مؤخرا",
+    "filtersAndSort": "الفلاتر والفرز",
+    "searchFields": "حقول البحث",
+    "filterByStatus": "تصفية حسب الحالة",
+    "active": "نشط",
+    "expired": "منتهي الصلاحية",
+    "pending": "قيد الانتظار",
+    "expiry": "تاريخ الانتهاء",
+    "itemsSelected": "{{count}} عنصر محدد",
+    "deleteSelected": "حذف المحدد",
+    "renewSelected": "تجديد المحدد",
+    "clearSelection": "مسح التحديد",
+    "viewsTooltip": "عدد مرات مشاهدة إعلانك من قبل المستخدمين",
+    "tooltipInfo": "انقر لمزيد من المعلومات",
+    "refreshTable": "تحديث الجدول",
+    "renew": "تجديد",
+    "expiresIn": "ينتهي خلال {{days}} أيام",
+    "expiredDaysAgo": "انتهى منذ {{days}} يوم",
+    "expiryProgress": "تقدم انتهاء الصلاحية",
+    "noMatchingListings": "لا توجد إعلانات مطابقة لمعايير البحث",
+    "noListings": "لا توجد إعلانات لعرضها",
+    "confirmDelete": "هل أنت متأكد أنك تريد حذف هذا الإعلان؟",
+    "confirmBulkDelete": "هل أنت متأكد أنك تريد حذف الإعلانات المحددة؟",
+    "expiredListingsAlert": "لديك {{count}} إعلان منتهي الصلاحية بحاجة للاهتمام",
+    "renewAll": "تجديد الكل"
+  },
+  "currency": {
+    "SYP": "ليرة سورية",
+    "USD": "دولار أمريكي"
   },
   "error": {
     "loadingListings": "فشل تحميل المركبات. يرجى المحاولة مرة أخرى."

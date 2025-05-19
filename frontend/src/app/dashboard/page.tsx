@@ -17,7 +17,6 @@ import {
   MdArrowForward,
   MdCalendarToday
 } from "react-icons/md";
-import TranslationDebugger from "@/components/dev/TranslationDebugger";
 // import Image from "next/image";
 
 export default function Dashboard() {
@@ -365,9 +364,6 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
-
-      {/* Debug component */}
-      <TranslationDebugger />
     </div>
   );
 }
