@@ -127,6 +127,14 @@
         "description": "احصل على المساعدة من خبراء السيارات لدينا طوال رحلتك."
       }
     }
+  },"carsFeatures":{
+      "convertible": " قابل_للتحويل",
+      "electric": "كهرباء",
+      "sports": "رياضي",
+      "luxury": "فاخر",
+      "suv": "رباعي",
+      "sedan": "سيدان"
+    
   },
   "settings": {
     "savedSuccessfully": "تم حفظ الإعدادات بنجاح",
