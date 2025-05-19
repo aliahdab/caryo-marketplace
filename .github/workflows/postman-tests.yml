@@ -1,280 +1,213 @@
-name: Postman API Tests (Standalone)
 
 on:
   workflow_dispatch:
   pull_request:
-    branches:
-      - develop
-      - main
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
   schedule:
-    - cron: '0 0 * * 1'  # Run weekly on Mondays at midnight
+    - cron: '0 0 * * 1'
 
 jobs:
   api-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Increased timeout to prevent hanging builds
+    timeout-minutes: 30
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
+      github.event_name == 'pull_request'
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        lfs: true # Explicitly enable LFS file download
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
         
-    # Setup Gradle Environment
-    - name: Setup Gradle Environment
-      uses: ./.github/actions/gradle-setup
-      with:
-        working-directory: "./backend/autotrader-backend"
-        java-version: "17"
-        gradle-version: "8.5"
-        cache: true
+      - name: Setup Gradle Environment
+        uses: ./.github/actions/gradle-setup
+        with:
+          working-directory: "./backend/autotrader-backend"
+          java-version: "17"
+          gradle-version: "8.5"
+          cache: true
         
-    # Ensure Gradle Wrapper exists as in original file
-    # Ensure Gradle Wrapper exists
-    - name: Ensure Gradle Wrapper
-      working-directory: ./backend/autotrader-backend
-      run: |
-        echo "Checking for Gradle wrapper files..."
-        if [ ! -f "./gradlew" ]; then
-          echo "gradlew script not found! Generating a new one..."
+      - name: Ensure Gradle Wrapper
+        working-directory: ./backend/autotrader-backend
+        run: |
+          if [ ! -f "./gradlew" ]; then
+            echo "gradlew script not found! Generating a new one..."
+            if command -v gradle &> /dev/null; then
+              gradle wrapper --gradle-version=8.5
+            else
+              echo "ERROR: Could not generate wrapper with Gradle CLI"
+              exit 1
+            fi
+          fi
+          chmod +x ./gradlew
+
+      - name: Setup Docker Services
+        uses: ./.github/actions/docker-services-setup
+        env:
+          MINIO_ROOT_USER: "newuser"
+          MINIO_ROOT_PASSWORD: "newpassword"
+        with:
+          docker-compose-file: "./backend/autotrader-backend/docker-compose.dev.yml"
+          services: "db minio createbuckets redis"
+          wait-time: '120'
+          db-container-name: "autotrader-backend-db-1"
+          db-user: "autotrader"
+          minio-container-name: "autotrader-backend-minio-1"
+          createbuckets-container-name: "autotrader-backend-createbuckets-1"
+          post-minio-ready-wait-seconds: '20'
+          minio-root-user: "newuser"
+          minio-root-password: "newpassword"
+
+      # Add explicit MinIO bucket verification and creation step
+      - name: Ensure MinIO bucket exists
+        run: |
+          echo "Verifying MinIO bucket existence..."
           
-          # First try to use the Gradle CLI if available
-          if command -v gradle &> /dev/null; then
-            echo "Using gradle CLI to generate wrapper"
-            gradle wrapper --gradle-version=8.5
-          elif [ -f "../gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "Copying Gradle wrapper from parent directory"
-            mkdir -p ./gradle/wrapper/
-            cp ../gradle/wrapper/gradle-wrapper.jar ./gradle/wrapper/
-            cp ../gradle/wrapper/gradle-wrapper.properties ./gradle/wrapper/
-            cp ../gradlew ./
-            cp ../gradlew.bat ./
-            chmod +x ./gradlew
+          # Install MinIO client
+          curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
+          chmod +x mc
+          
+          # Configure MinIO client 
+          ./mc config host add myminio http://localhost:9000 newuser newpassword
+          
+          # List buckets to check if our bucket exists
+          if ./mc ls myminio | grep -q "autotrader-assets"; then
+            echo "✅ autotrader-assets bucket exists!"
           else
-            echo "ERROR: Could not generate or find Gradle wrapper!"
-            echo "Current directory structure:"
-            ls -la ./
-            echo "Parent directory structure:"
-            ls -la ../
+            echo "⚠️ autotrader-assets bucket not found, creating it..."
+            ./mc mb --ignore-existing myminio/autotrader-assets
+            ./mc policy set download myminio/autotrader-assets
+            echo "✅ Created autotrader-assets bucket with download policy"
+          fi
+          
+          # Double-check creation
+          ./mc ls myminio
+
+      - name: Create application-dev.yml
+        working-directory: ./backend/autotrader-backend
+        run: |
+          mkdir -p src/main/resources
+          cat << 'EOC' > src/main/resources/application-dev.yml
+          spring:
+            datasource:
+              url: jdbc:postgresql://localhost:5432/autotrader
+              username: autotrader
+              password: autotrader
+            servlet:
+              multipart:
+                max-file-size: 10MB
+                max-request-size: 10MB
+            jpa:
+              hibernate:
+                ddl-auto: update
+              properties:
+                hibernate:
+                  dialect: org.hibernate.dialect.PostgreSQLDialect
+                  format_sql: true
+                  show_sql: true
+            mail:
+              host: localhost
+              port: 1025
+              username: admin
+              password: password
+          minio:
+            endpoint: http://localhost:9000
+            accessKey: newuser
+            secretKey: newpassword
+            bucket: autotrader-assets
+          logging:
+            level:
+              root: INFO
+              com.autotrader: DEBUG
+              org.springframework.web: DEBUG
+              org.hibernate: INFO
+          server:
+            port: 8080
+          EOC
+
+      - name: Start Spring Boot Application
+        id: spring-boot-start
+        working-directory: ./backend/autotrader-backend
+        run: |
+          # Check for port conflicts
+          if netstat -tuln | grep -q ":8080 "; then
+            echo "Port 8080 is already in use!"
+            netstat -tuln | grep ":8080 "
+            pid=$(lsof -t -i:8080) || true
+            if [ ! -z "$pid" ]; then
+              kill -9 $pid || true
+            fi
+          fi
+          # Start application
+          nohup ./gradlew bootRun --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
+          SPRING_PID=$!
+          echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
+          echo "Spring Boot started with PID: $SPRING_PID"
+          # Wait for application to start
+          MAX_WAIT=60
+          WAIT_COUNT=0
+          while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+            if curl -s http://localhost:8080/actuator/health > /dev/null; then
+              echo "Spring Boot application is running!"
+              curl -s http://localhost:8080/actuator/health
+              break
+            fi
+            # Check if process is still running
+            if ! ps -p $SPRING_PID > /dev/null; then
+              echo "Spring Boot process died! Check logs for details."
+              cat spring-boot.log
+              exit 1
+            fi
+            echo "Still waiting for application to start... ($WAIT_COUNT/$MAX_WAIT)"
+            sleep 5
+            WAIT_COUNT=$((WAIT_COUNT + 1))
+          done
+          if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
+            echo "Spring Boot application failed to start within timeout!"
+            tail -n 50 spring-boot.log
             exit 1
           fi
-        fi
-        
-        echo "Verifying gradlew exists and is executable:"
-        if [ -f "./gradlew" ]; then
-          ls -la ./gradlew
-          echo "Ensuring gradlew is executable"
-          chmod +x ./gradlew
-        else
-          echo "ERROR: gradlew still not found after attempt to generate/copy!"
-          exit 1
-        fi
 
-    # Setup Docker Services
-    - name: Setup Docker Services
-      uses: ./.github/actions/docker-services-setup
-      env:
-        # Set env vars at job level so they're available to docker-compose directly
-        MINIO_ROOT_USER: "newuser"
-        MINIO_ROOT_PASSWORD: "newpassword"
-      with:
-        docker-compose-file: "./backend/autotrader-backend/docker-compose.dev.yml"
-        services: "db minio createbuckets redis" # These are service names from docker-compose
-        wait-time: '120'  # Increased wait time
-        db-container-name: "autotrader-backend-db-1" 
-        db-user: "autotrader" 
-        minio-container-name: "autotrader-backend-minio-1"
-        createbuckets-container-name: "autotrader-backend-createbuckets-1"
-        post-minio-ready-wait-seconds: '20'  # Increased post-ready wait time
-        minio-root-user: "newuser"  # Custom MinIO user
-        minio-root-password: "newpassword"  # Custom MinIO password
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
 
-    # Create application configuration override for CI environment
-    - name: Create application-dev.yml for CI
-      working-directory: ./backend/autotrader-backend
-      run: |
-        echo "Creating application-dev.yml configuration for CI environment..."
-        mkdir -p src/main/resources
-        cat > src/main/resources/application-dev.yml << EOF
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/autotrader
-    username: autotrader
-    password: autotrader
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-        show_sql: true
-  mail:
-    host: localhost
-    port: 1025
-    username: admin
-    password: password
-minio:
-  endpoint: http://localhost:9000
-  accessKey: newuser
-  secretKey: newpassword
-  bucket: autotrader-assets
-logging:
-  level:
-    root: INFO
-    com.autotrader: DEBUG
-    org.springframework.web: DEBUG
-    org.hibernate: INFO
-server:
-  port: 8080
-EOF
+      - name: Run Postman Tests
+        working-directory: ./backend/autotrader-backend
+        run: |
+          # Create results directory
+          mkdir -p ../../results
+          COLLECTION="./src/test/resources/postman/autotrader-api-collection.json"
+          ENV_FILE="../../postman/test_environment.json"
+          newman run "$COLLECTION" \
+            --environment "$ENV_FILE" \
+            --reporters cli,htmlextra,junit \
+            --reporter-htmlextra-export ../../results/report.html \
+            --reporter-junit-export ../../results/junit-report.xml
+        
+      - name: Upload test results and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          path: |
+            results/**
+            ./backend/autotrader-backend/spring-boot*.log
+            ./backend/autotrader-backend/build/reports/**/*
 
-    # Use the composite action for Spring Boot startup
-    - name: Start Spring Boot Application
-      id: spring-boot
-      uses: ./.github/actions/spring-boot-setup
-      with:
-        working-directory: "./backend/autotrader-backend"
-        spring-profiles: "dev"
-        debug-mode: 'true'
-        wait-retries: '60'  # Increased number of retries
-        wait-time: '5'     # Shorter intervals but more attempts
-        health-check-path: "/actuator/health"
-        
-    # Capture initial logs and run diagnostics
-    - name: Capture Initial Spring Boot Logs and Run Diagnostics
-      if: always()
-      run: |
-        echo "Initial Spring Boot logs (if available):"
-        LOG_FILE="./backend/autotrader-backend/spring-boot.log"
-        if [ -f "$LOG_FILE" ]; then
-          echo "Log file found. Running diagnostic script..."
-          SPRING_PID="${{ steps.spring-boot.outputs.pid }}"
-          ./scripts/diagnose-spring-boot.sh "$LOG_FILE" "$SPRING_PID"
-        else
-          echo "Spring Boot log file not found at $LOG_FILE"
-        fi
-        
-        echo "Checking application status:"
-        curl -v http://localhost:8080/actuator/health || echo "Health endpoint not responding"
-        
-        echo "Checking application environment variables:"
-        curl -v http://localhost:8080/actuator/env || echo "Environment endpoint not responding"
-        
-        echo "Checking network ports in use:"
-        netstat -tulpn | grep LISTEN || echo "Could not check network ports"
-
-    # Run Postman Tests with more explicit collection path
-    - name: Run Postman Tests
-      if: always() # Try to run the tests even if Spring Boot had issues
-      uses: ./.github/actions/postman-tests
-      with:
-        collection-path: './backend/autotrader-backend/src/test/resources/postman/autotrader-api-collection.json'
-        environment-file: './postman/test_environment.json'
-        results-directory: 'results'
-        auto-detect-collection: 'false'
-        
-    # Upload test results and logs
-    - name: Upload test results and logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-artifacts
-        path: |
-          results/**
-          ./backend/autotrader-backend/spring-boot*.log
-          ./backend/autotrader-backend/build/reports/**/*
-
-    # Generate diagnostic summary
-    - name: Generate Diagnostic Summary
-      if: always()
-      run: |
-        echo "=== Postman Tests Diagnostic Summary ==="
-        echo "Date: $(date)"
-        echo ""
-        echo "=== Environment ==="
-        echo "OS: $(uname -a)"
-        echo "Java: $(java -version 2>&1 | head -n 1)"
-        echo "Docker: $(docker --version)"
-        echo "Docker Compose: $(docker compose version)"
-        echo ""
-        echo "=== Service Status ==="
-        echo "Docker Containers:"
-        docker ps -a
-        echo ""
-        echo "=== MinIO Status ==="
-        if docker ps | grep -q minio; then
-          echo "MinIO is running"
-          docker exec autotrader-backend-minio-1 mc ls myminio || echo "Failed to list MinIO buckets"
-        else
-          echo "MinIO is NOT running"
-        fi
-        echo ""
-        echo "=== Database Status ==="
-        if docker ps | grep -q db; then
-          echo "Database is running"
-          docker exec autotrader-backend-db-1 pg_isready -U autotrader || echo "Database connection issues"
-        else
-          echo "Database is NOT running"
-        fi
-        echo ""
-        echo "=== Spring Boot Status ==="
-        if curl -s http://localhost:8080/actuator/health > /dev/null; then
-          echo "Spring Boot is responding on health endpoint"
-          curl -s http://localhost:8080/actuator/health
-        else
-          echo "Spring Boot is NOT responding on health endpoint"
-          SPRING_PID="${{ steps.spring-boot.outputs.pid }}"
-          if [ ! -z "$SPRING_PID" ] && ps -p $SPRING_PID > /dev/null; then
-            echo "Process is still running with PID: $SPRING_PID"
-          else
-            echo "Process is NOT running"
+      - name: Cleanup test environment
+        if: always()
+        run: |
+          # Kill Spring Boot process
+          SPRING_PID="${{ steps.spring-boot-start.outputs.pid }}"
+          if [ ! -z "$SPRING_PID" ]; then
+            kill $SPRING_PID || true
           fi
-        fi
-        echo ""
-        echo "=== Log File Status ==="
-        if [ -f "./backend/autotrader-backend/spring-boot.log" ]; then
-          LOG_SIZE=$(wc -l < ./backend/autotrader-backend/spring-boot.log)
-          echo "Spring Boot log exists with $LOG_SIZE lines"
-          echo "Last 10 lines of log:"
-          tail -n 10 ./backend/autotrader-backend/spring-boot.log
-        else
-          echo "Spring Boot log file NOT found"
-        fi
-
-    # This step will always run after the tests are done, regardless of success or failure
-    - name: Cleanup test environment
-      if: always()
-      run: |
-        echo "Cleaning up test environment"
-        
-        # Kill the Spring Boot process if it was started using the action
-        SPRING_PID="${{ steps.spring-boot.outputs.pid }}"
-        if [ ! -z "$SPRING_PID" ]; then
-          echo "Stopping Spring Boot application (PID: $SPRING_PID)..."
-          kill $SPRING_PID || true
-          echo "Spring Boot logs (full content):"
-          if [ -f "./backend/autotrader-backend/spring-boot.log" ]; then
-            cat ./backend/autotrader-backend/spring-boot.log
-          fi
-        else
-          echo "No Spring Boot PID found from action output, checking running Java processes..."
-          ps aux | grep "[j]ava.*autotrader" || echo "No matching Java processes found"
-        fi
-        
-        # Stop Docker services if they were started
-        if [ -f "./backend/autotrader-backend/docker-compose.dev.yml" ]; then
-          echo "Stopping Docker services..."
+          # Stop Docker services
           cd ./backend/autotrader-backend
-          echo "Docker container status before shutdown:"
-          docker ps -a
           docker compose -f docker-compose.dev.yml down -v
-          echo "Docker container status after shutdown:"
-          docker ps -a
-        fi
-        
-        echo "Cleanup complete"

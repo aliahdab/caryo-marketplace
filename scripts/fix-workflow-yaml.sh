@@ -11,6 +11,36 @@ NC='\033[0m' # No Color
 WORKFLOWS_DIR="./.github/workflows"
 REUSABLE_DIR="$WORKFLOWS_DIR/reusable"
 
+# Special fix for the problematic Postman tests workflow file
+fix_postman_workflow() {
+  local file="$WORKFLOWS_DIR/postman-tests.yml"
+  local backup="$WORKFLOWS_DIR/postman-tests.yml.bak"
+  local clean_file="$WORKFLOWS_DIR/postman-tests-clean.yml"
+  
+  if [ -f "$file" ]; then
+    echo -e "${YELLOW}Fixing Postman workflow file with severe YAML issues...${NC}"
+    
+    # Create backup of original file if it doesn't exist
+    if [ ! -f "$backup" ]; then
+      echo "Creating backup of original file..."
+      cp "$file" "$backup"
+    fi
+    
+    # Check if our clean version exists
+    if [ -f "$clean_file" ]; then
+      echo "Using clean template version..."
+      cp "$clean_file" "$file"
+      echo -e "${GREEN}Successfully replaced problematic workflow with clean version!${NC}"
+    else
+      echo -e "${RED}Clean template file not found: $clean_file${NC}"
+      echo "Falling back to standard whitespace fixes"
+      fix_trailing_whitespace "$file"
+    fi
+  else
+    echo -e "${RED}Postman workflow file not found: $file${NC}"
+  fi
+}
+
 # Function to remove trailing whitespace from a file
 fix_trailing_whitespace() {
   local file="$1"
@@ -38,6 +68,9 @@ check_yamllint() {
   return 0
 }
 
+# Fix the problematic Postman workflow first
+fix_postman_workflow
+
 # Fix all reusable workflow files
 echo -e "${YELLOW}Fixing reusable workflow files...${NC}"
 for file in "$REUSABLE_DIR"/*.yml; do
@@ -50,7 +83,7 @@ done
 # Fix main workflow files
 echo -e "${YELLOW}Fixing main workflow files...${NC}"
 for file in "$WORKFLOWS_DIR"/*.yml; do
-  if [ -f "$file" ]; then
+  if [ -f "$file" ] && [[ "$file" != *"postman-tests.yml"* ]]; then
     echo "Processing $file..."
     fix_trailing_whitespace "$file"
   fi
