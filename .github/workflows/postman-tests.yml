@@ -138,14 +138,19 @@ jobs:
           mkdir -p src/main/resources
           cat > src/main/resources/application-test.properties << EOF
           # Test properties
-          spring.profiles.include=dev
-          
           # Enable more detailed logging to see the authentication tokens
           logging.level.com.autotrader.autotraderbackend.config.DataInitializer=DEBUG
           
           # Make sure initialization runs
           spring.jpa.defer-datasource-initialization=true  
           spring.sql.init.mode=always
+          EOF
+          
+          # Create a modified application.properties to include profiles correctly
+          echo "Creating application.properties with profile configurations..."
+          cat > src/main/resources/application.properties << EOF
+          # Include dev profile in test profile
+          spring.profiles.group.test=dev
           EOF
       
       - name: Start Spring Boot Application
@@ -192,13 +197,44 @@ jobs:
             exit 1
           fi
           
-          # Wait a bit to ensure DataInitializer finishes and logs tokens
+          # Wait to ensure DataInitializer finishes and logs tokens
           echo "Waiting for DataInitializer to complete..."
           sleep 5
           
+          # Verify the application started with the correct profiles
+          echo "Verifying active profiles..."
+          PROFILES_OUTPUT=$(curl -s http://localhost:8080/actuator/env/spring.profiles.active || echo "")
+          if [ ! -z "$PROFILES_OUTPUT" ]; then
+            echo "Active profiles: $PROFILES_OUTPUT"
+            if echo "$PROFILES_OUTPUT" | grep -q "dev" && echo "$PROFILES_OUTPUT" | grep -q "test"; then
+              echo "✅ Application started with both dev and test profiles!"
+            else
+              echo "⚠️ Profile verification failed! Continuing anyway..."
+            fi
+          else
+            echo "Could not retrieve active profiles. Continuing anyway..."
+          fi
+          
           # Check for generated tokens in logs
           echo "Looking for authentication tokens in logs..."
-          grep -A 15 "DEVELOPMENT AUTHENTICATION TOKENS" spring-boot.log || echo "No tokens found yet, might need more time"
+          if grep -q "DEVELOPMENT AUTHENTICATION TOKENS" spring-boot.log; then
+            echo "Found authentication tokens section in logs:"
+            awk '/====== DEVELOPMENT AUTHENTICATION TOKENS ======/{flag=1; print; next} /==============================================/{flag=0} flag' spring-boot.log || true
+            
+            # Extract admin token explicitly
+            ADMIN_TOKEN=$(grep -A 10 "ADMIN USER TOKEN" spring-boot.log | grep -v "ADMIN USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
+            if [ ! -z "$ADMIN_TOKEN" ]; then
+              echo "✅ Successfully extracted admin token!"
+            fi
+            
+            # Extract regular user token explicitly
+            USER_TOKEN=$(grep -A 10 "REGULAR USER TOKEN" spring-boot.log | grep -v "REGULAR USER TOKEN" | grep -v "----" | grep -v "^$" | head -1 | tr -d ' ' || echo "")
+            if [ ! -z "$USER_TOKEN" ]; then
+              echo "✅ Successfully extracted regular user token!"
+            fi
+          else
+            echo "No tokens found yet, might need more time"
+          fi
 
       - name: Install Newman
         run: npm install -g newman newman-reporter-htmlextra
@@ -281,7 +317,6 @@ jobs:
               curl -X POST http://localhost:8080/actuator/env \
                 -H "Content-Type: application/json" \
                 -d '{"name":"security.testMode","value":"true"}' || true
-          fi
           fi
           
           echo "Using token: ${TOKEN:0:25}..."
