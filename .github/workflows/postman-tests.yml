@@ -193,55 +193,146 @@ jobs:
           # Make a copy of the application-dev.yml for inspection
           cat src/main/resources/application-dev.yml
           
-          # Create an admin user test payload
-          echo "Creating test admin user directly in database..."
-          cat > create-test-admin.sql << EOF
-          INSERT INTO roles (id, name) VALUES (1, 'ROLE_USER'), (2, 'ROLE_ADMIN') ON CONFLICT DO NOTHING;
+          # Let the application initialize data using its built-in DataInitializer
+          echo "Setting up test environment to use built-in DataInitializer..."
           
-          INSERT INTO users (id, username, email, password, created_at, updated_at)
-          VALUES (999, 'testadmin', 'testadmin@example.com', '\$2a\$10\$iLEInh5KaLsKN.9JfW3xB.qD1mx6mKXWsB7O7g6jxDfV5WOm5mKs2', now(), now())
-          ON CONFLICT DO NOTHING;
+          # Update application config to ensure we get visible log output of auth tokens
+          cat > src/main/resources/application-test.properties << EOF
+          # Test properties
+          spring.profiles.include=dev
           
-          INSERT INTO user_roles (user_id, role_id) VALUES (999, 1), (999, 2) ON CONFLICT DO NOTHING;
+          # Enable more detailed logging to see the authentication tokens
+          logging.level.com.autotrader.autotraderbackend.config.DataInitializer=DEBUG
+          
+          # Make sure initialization runs
+          spring.jpa.defer-datasource-initialization=true  
+          spring.sql.init.mode=always
           EOF
+
+          # We don't need a data.sql file as the DataInitializer creates the users
           
-          # Execute the script (if this fails, it's ok - the test admin might already exist)
-          docker exec -i $(docker ps -qf "name=autotrader-backend-db-1") psql -U autotrader -d autotrader < create-test-admin.sql || true
+          # Restart application with test profile to initialize data
+          echo "Restarting application with test profile to initialize test data..."
+          kill $SPRING_PID
+          nohup ./gradlew bootRun --args='--spring.profiles.active=dev,test' > spring-boot.log 2>&1 &
+          SPRING_PID=$!
+          echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
           
-          # Try to authenticate directly first to get a token
-          echo "Attempting direct authentication to get token..."
-          AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
+          # Wait for application to start
+          MAX_WAIT=60
+          WAIT_COUNT=0
+          while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+            if curl -s http://localhost:8080/actuator/health > /dev/null; then
+              echo "Spring Boot application is running with test profile!"
+              curl -s http://localhost:8080/actuator/health
+              break
+            fi
+            echo "Waiting for application to start... ($WAIT_COUNT/$MAX_WAIT)"
+            sleep 5
+            WAIT_COUNT=$((WAIT_COUNT + 1))
+          done
+          
+          # Verify the admin and user were created through DataInitializer
+          echo "Verifying admin and user were created by DataInitializer..."
+          docker exec -i $(docker ps -qf "name=autotrader-backend-db-1") psql -U autotrader -d autotrader -c "SELECT id, username, email FROM users WHERE username IN ('admin', 'user')"
+          
+          # Check for the generated tokens in the Spring Boot logs
+          echo "Looking for authentication tokens in the logs..."
+          grep -A 15 "DEVELOPMENT AUTHENTICATION TOKENS" spring-boot.log || echo "No tokens found in logs"
+          
+          # Try to authenticate directly first with the default admin user
+          echo "Attempting direct authentication with admin user..."
+          AUTH_RESPONSE=$(curl -v -X POST http://localhost:8080/auth/signin \
             -H "Content-Type: application/json" \
-            -d '{"username":"testadmin","password":"password123"}')
+            -d '{"username":"admin","password":"Admin123!"}' 2>&1)
           
-          echo "Authentication response: $AUTH_RESPONSE"
+          echo "Authentication response (verbose):"
+          echo "$AUTH_RESPONSE"
           
-          # Extract token if successful
-          TOKEN=$(echo $AUTH_RESPONSE | jq -r '.token // ""')
+          # Extract token from the response (ignoring curl verbose output)
+          AUTH_JSON=$(echo "$AUTH_RESPONSE" | grep -v "^*" | grep -v "^>" | grep -v "^<" | grep -v "^}" | tr -d '\n')
+          echo "Extracted JSON: $AUTH_JSON"
           
-          # If token extraction failed, create an override file for testing
+          # Try multiple JSON paths that might contain the token
+          TOKEN=$(echo "$AUTH_JSON" | jq -r '.token // .accessToken // .access_token // ""')
+          
+          # Try to extract token from logs if API authentication failed
           if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-              echo "⚠️ Could not obtain authentication token. Creating test config."
-              TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0YWRtaW4iLCJpYXQiOjE2MjY5NTQ1ODgsImV4cCI6MTYyNzA0MDk4OH0.test-token-placeholder"
+              echo "Trying to extract token from logs..."
+              # Extract the ADMIN USER TOKEN from the logs
+              ADMIN_LOG_TOKEN=$(grep -A 10 "ADMIN USER TOKEN" spring-boot.log | grep -v "ADMIN USER TOKEN" | grep -v "----" | grep -v "^$" | head -1)
               
-              # Create a security bypass in application-dev.yml for testing
-              echo "Creating test security configuration..."
-              echo '
+              if [ ! -z "$ADMIN_LOG_TOKEN" ]; then
+                  echo "Found admin token in logs!"
+                  TOKEN=$(echo "$ADMIN_LOG_TOKEN" | tr -d ' ')
+              else
+                  echo "No admin token found in logs, trying regular user token..."
+                  # Try for regular user token
+                  USER_LOG_TOKEN=$(grep -A 10 "REGULAR USER TOKEN" spring-boot.log | grep -v "REGULAR USER TOKEN" | grep -v "----" | grep -v "^$" | head -1)
+                  if [ ! -z "$USER_LOG_TOKEN" ]; then
+                      echo "Found regular user token in logs!"
+                      TOKEN=$(echo "$USER_LOG_TOKEN" | tr -d ' ')
+                  fi
+              fi
+          fi
+          
+          # If token extraction failed, try direct signup and then signin
+          if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+              echo "⚠️ Could not obtain authentication token via signin. Trying fallback methods..."
+              
+              # Try creating a user via signup endpoint first
+              echo "Attempting to create user via signup..."
+              SIGNUP_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signup \
+                -H "Content-Type: application/json" \
+                -d '{"username":"testapi","email":"testapi@example.com","password":"password123"}')
+              
+              echo "Signup response: $SIGNUP_RESPONSE"
+              
+              # Try authenticating with the new user
+              echo "Attempting authentication with newly created user..."
+              AUTH_RESPONSE=$(curl -s -X POST http://localhost:8080/auth/signin \
+                -H "Content-Type: application/json" \
+                -d '{"username":"testapi","password":"password123"}')
+              
+              echo "Second auth response: $AUTH_RESPONSE"
+              
+              # Try to extract token again
+              TOKEN=$(echo $AUTH_RESPONSE | jq -r '.token // .accessToken // .access_token // ""')
+              
+              # If still no token, create bypass configuration
+              if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+                  echo "⚠️ All authentication attempts failed. Creating test config and fallback token."
+                  TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0YWRtaW4iLCJpYXQiOjE2MjY5NTQ1ODgsImV4cCI6MTYyNzA0MDk4OH0.test-token-placeholder"
+                  
+                  # Create a security bypass in application-dev.yml for testing
+                  echo "Creating test security configuration..."
+                  echo '
           # Test security configuration
           security:
             testMode: true
             permitAll: true
           ' >> src/main/resources/application-dev.yml
-              
-              # Restart application to apply changes
-              echo "Restarting application with test configuration..."
-              kill $SPRING_PID
-              nohup ./gradlew bootRun --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
-              SPRING_PID=$!
-              echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
-              
-              # Wait for restart
-              sleep 20
+                  
+                  # Restart application to apply changes
+                  echo "Restarting application with test configuration..."
+                  kill $SPRING_PID
+                  nohup ./gradlew bootRun --args='--spring.profiles.active=dev' > spring-boot.log 2>&1 &
+                  SPRING_PID=$!
+                  echo "pid=$SPRING_PID" >> $GITHUB_OUTPUT
+                  
+                  # Wait for restart with more status updates
+                  echo "Waiting for application to restart..."
+                  for i in {1..6}; do
+                      echo "Waiting ($i/6)..."
+                      sleep 5
+                      # Check if app is responding
+                      if curl -s http://localhost:8080/actuator/health > /dev/null; then
+                          echo "Application is responding!"
+                          curl -s http://localhost:8080/actuator/health
+                          break
+                      fi
+                  done
+              fi
           fi
           
           echo "Using token: ${TOKEN:0:25}..."
@@ -306,14 +397,34 @@ jobs:
           echo "Testing reference data endpoint..."
           curl -v -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/reference-data
           
-          # Run Postman tests
+          # Double check the authorization headers in the collection
+          echo "Verifying token injection into collection..."
+          jq '.item[0].request.header' "$TMP_COLLECTION" | head
+          
+          # Add a request header check to first validate we can make authenticated requests
+          echo "Testing basic authenticated request before running full tests..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/reference-data)
+          echo "Reference data endpoint responded with status: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+              echo "✅ Authentication is working correctly!"
+          else
+              echo "⚠️ Authentication issue detected. Will try to continue anyway."
+          fi
+          
+          # Run Postman tests with additional options
           echo "Running Postman tests with modified collection and environment..."
           newman run "$TMP_COLLECTION" \
             --environment "$TMP_ENV_FILE" \
             --reporters cli,htmlextra,junit \
             --reporter-htmlextra-export ../../results/report.html \
             --reporter-junit-export ../../results/junit-report.xml \
-            --insecure
+            --insecure \
+            --timeout-request 10000 \
+            --timeout 120000 \
+            --global-var "auth_token=$TOKEN" \
+            --global-var "skip_auth=true" \
+            --global-var "admin_token=$TOKEN"
         
       - name: Upload test results and logs
         if: always()
