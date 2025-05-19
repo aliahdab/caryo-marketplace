@@ -16,25 +16,7 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
-      (gith# Run diagnostic scripts if tests fail
-        if: steps.postman-tests.outputs.test-status == 'failure'
-        working-directory: ./backend/autotrader-backend
-        run: |
-          echo "Running user authentication diagnostics..."
-          bash ../../scripts/diagnose-user-auth.sh http://localhost:8080
-          
-          echo "Running Postman tests diagnostics..."
-          bash ../../scripts/diagnose-postman-tests.sh http://localhost:8080 "${{ steps.prepare-auth.outputs.COLLECTION_PATH }}" "../../postman/test_environment.json"
-          
-          echo "Checking for auth errors in the logs..."
-          grep -A 5 -B 5 "401\|403\|Authentication\|Unauthorized" spring-boot.log || echo "No authentication errors found in logs"
-          
-          echo "Examining application logs..."
-          tail -n 100 spring-boot.log
-          
-          echo "Testing non-authenticated endpoints..."
-          echo "Health endpoint: $(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health)"
-          echo "Public endpoint: $(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/public || echo 'not found')"e == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
       github.event_name == 'pull_request'
 
     steps:
@@ -320,43 +302,6 @@ jobs:
           
           # Create results directory
           mkdir -p ../../results
-
-      - name: Ensure Postman Environment File Exists
-        run: |
-          ENV_FILE="./postman/test_environment.json"
-          if [ ! -f "$ENV_FILE" ]; then
-            echo "Creating environment file as it doesn't exist..."
-            mkdir -p ./postman
-            cat > "$ENV_FILE" << EOF
-{
-  "id": "test-environment",
-  "name": "Test Environment",
-  "values": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8080",
-      "type": "default",
-      "enabled": true
-    },
-    {
-      "key": "authToken",
-      "value": "$AUTH_TOKEN",
-      "type": "default",
-      "enabled": true
-    },
-    {
-      "key": "auth_token",
-      "value": "$AUTH_TOKEN",
-      "type": "default",
-      "enabled": true
-    }
-  ]
-}
-EOF
-            echo "Environment file created at $ENV_FILE"
-          else
-            echo "Using existing environment file: $ENV_FILE"
-          fi
 
       - name: Run Postman Tests with Newman
         id: postman-tests
