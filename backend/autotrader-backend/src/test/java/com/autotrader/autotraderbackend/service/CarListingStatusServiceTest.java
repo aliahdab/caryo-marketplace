@@ -828,4 +828,54 @@ class CarListingStatusServiceTest {
         });
         assertEquals("User does not have permission to modify this listing.", exception.getMessage());
     }
+
+    @Test
+    void markListingAsSold_ShouldPublishCorrectEvent() {
+        // Arrange
+        Long listingId = 1L;
+        String username = testUser.getUsername();
+        savedListing.setSold(false);
+        savedListing.setArchived(false);
+
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(testUser));
+        when(carListingRepository.findById(listingId)).thenReturn(Optional.of(savedListing));
+        when(carListingRepository.save(any())).thenReturn(savedListing);
+
+        // Act
+        carListingStatusService.markListingAsSold(listingId, username);
+
+        // Assert
+        verify(eventPublisher).publishEvent(argThat(event -> {
+            if (!(event instanceof ListingMarkedAsSoldEvent soldEvent)) {
+                return false;
+            }
+            return soldEvent.getListing().equals(savedListing) &&
+                   !soldEvent.isAdminAction() &&
+                   soldEvent.getSource() == carListingStatusService;
+        }));
+    }
+
+    @Test
+    void markListingAsSoldByAdmin_ShouldPublishCorrectEvent() {
+        // Arrange
+        Long listingId = 1L;
+        savedListing.setSold(false);
+        savedListing.setArchived(false);
+
+        when(carListingRepository.findById(listingId)).thenReturn(Optional.of(savedListing));
+        when(carListingRepository.save(any())).thenReturn(savedListing);
+
+        // Act
+        carListingStatusService.markListingAsSoldByAdmin(listingId);
+
+        // Assert
+        verify(eventPublisher).publishEvent(argThat(event -> {
+            if (!(event instanceof ListingMarkedAsSoldEvent soldEvent)) {
+                return false;
+            }
+            return soldEvent.getListing().equals(savedListing) &&
+                   soldEvent.isAdminAction() &&
+                   soldEvent.getSource() == carListingStatusService;
+        }));
+    }
 }
