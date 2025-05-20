@@ -166,7 +166,7 @@ export default function SignUpPage() {
       
       {/* Right section - Sign up form */}
       <div className="flex-1 flex justify-center items-center p-4 md:p-6 lg:p-8 xl:p-10 auth-container">
-        <div className="w-full max-w-md md:max-w-lg lg:max-w-xl my-auto">
+        <div className="w-full max-w-md md:max-w-lg lg:max-w-xl mt-2 sm:mt-4 mb-auto">
           {/* Mobile logo (shown only on mobile) */}
           <div className="flex md:hidden items-center justify-center mb-6 sm:mb-8">
             <div className="flex items-center responsive-fade-in">
