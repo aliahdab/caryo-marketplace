@@ -3,6 +3,8 @@ package com.autotrader.autotraderbackend.service;
 
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
 import com.autotrader.autotraderbackend.exception.StorageException;
+import com.autotrader.autotraderbackend.events.ListingApprovedEvent;
+import com.autotrader.autotraderbackend.events.ListingMarkedAsSoldEvent;
 import com.autotrader.autotraderbackend.mapper.CarListingMapper;
 import com.autotrader.autotraderbackend.model.CarListing;
 import com.autotrader.autotraderbackend.model.ListingMedia;
@@ -17,8 +19,11 @@ import com.autotrader.autotraderbackend.repository.LocationRepository;
 import com.autotrader.autotraderbackend.repository.UserRepository;
 import com.autotrader.autotraderbackend.repository.specification.CarListingSpecification;
 import com.autotrader.autotraderbackend.service.storage.StorageService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +31,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Collections;
@@ -43,59 +49,16 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Validated
 public class CarListingService {
 
     private final CarListingRepository carListingRepository;
     private final LocationRepository locationRepository;
     private final StorageService storageService;
     private final CarListingMapper carListingMapper;
-<<<<<<< HEAD
-<<<<<<< HEAD
     private final UserRepository userRepository;
     private final CarListingStatusService carListingStatusService;
-=======
-    private final ApplicationEventPublisher eventPublisher; 
-
-    /**
-     * Pauses a car listing (sets isUserActive to false).
-     *
-     * @param listingId The ID of the car listing to pause.
-     * @param username  The username of the user making the request.
-     * @return The updated CarListingResponse.
-     */
-    @Transactional
-    public CarListingResponse pauseListing(Long listingId, String username) {
-        log.info("User {} attempting to pause listing ID {}", username, listingId);
-        CarListing listing = findListingByIdAndAuthorize(listingId, username, "pause");
-
-        if (!listing.getApproved()) {
-            log.warn("User {} attempted to pause unapproved listing ID {}", username, listingId);
-            throw new IllegalStateException("Cannot pause a listing that is not yet approved.");
-        }
-        if (listing.getSold()) {
-            log.warn("User {} attempted to pause sold listing ID {}", username, listingId);
-            throw new IllegalStateException("Cannot pause a listing that has been marked as sold.");
-        }
-        if (listing.getArchived()) {
-            log.warn("User {} attempted to pause archived listing ID {}", username, listingId);
-            throw new IllegalStateException("Cannot pause a listing that has been archived.");
-        }
-        if (!listing.getIsUserActive()) {
-            log.warn("Listing ID {} is already paused by user {}. Throwing IllegalStateException.", listingId, username);
-            // throw new IllegalStateException("Listing with ID " + listingId + " is already paused."); // Old behavior was to return
-            throw new IllegalStateException("Listing with ID " + listingId + " is already paused.");
-        }
-
-        listing.setIsUserActive(false);
-        CarListing updatedListing = carListingRepository.save(listing);
-        log.info("Successfully paused listing ID {} by user {}", listingId, username);
-        return carListingMapper.toCarListingResponse(updatedListing);
-    }
->>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
-=======
-    private final UserRepository userRepository;
-    private final CarListingStatusService carListingStatusService;
->>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Resumes a car listing (sets isUserActive to true).
@@ -355,37 +318,6 @@ public class CarListingService {
     }
 
     /**
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-     * Approve a car listing.
-     */
-    @Transactional
-    public CarListingResponse approveListing(Long id) {
-        log.info("Attempting to approve listing with ID: {}", id);
-        CarListing carListing = findListingById(id); 
-
-        if (Boolean.TRUE.equals(carListing.getApproved())) {
-            log.warn("Listing ID {} is already approved. No action taken.", id);
-            throw new IllegalStateException("Listing with ID " + id + " is already approved.");
-        }
-
-        carListing.setApproved(true);
-
-        CarListing approvedListing = carListingRepository.save(carListing);
-        log.info("Successfully approved listing ID: {}", approvedListing.getId());
-
-        // Publish ListingApprovedEvent
-        eventPublisher.publishEvent(new ListingApprovedEvent(this, approvedListing)); 
-        log.info("Published ListingApprovedEvent for listing ID: {}", approvedListing.getId());
-
-        return carListingMapper.toCarListingResponse(approvedListing);
-    }
-
-    /**
->>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
-=======
->>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
      * Update an existing car listing.
      * Does not handle status changes - those are handled by CarListingStatusService.
      *
@@ -404,26 +336,7 @@ public class CarListingService {
         CarListing existingListing = findListingById(id);
         authorizeListingModification(existingListing, user, "update");
         
-<<<<<<< HEAD
-<<<<<<< HEAD
         // Update non-status fields
-=======
-        // Check if the user owns this listing
-        if (!existingListing.getSeller().getUsername().equals(username)) {
-            log.warn("User {} attempted to update listing {} owned by {}", 
-                    username, id, existingListing.getSeller().getUsername());
-            throw new SecurityException("You are not authorized to update this listing");
-        }
-        
-        // Store original status for event publishing
-        boolean originalIsSold = existingListing.getSold();
-        boolean originalIsArchived = existingListing.getArchived();
-
-        // Update only non-null fields
->>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
-=======
-        // Update non-status fields
->>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
         if (request.getTitle() != null) {
             existingListing.setTitle(request.getTitle());
         }
@@ -459,48 +372,11 @@ public class CarListingService {
             existingListing.setTransmission(request.getTransmission());
         }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
         // Save the changes
         existingListing = carListingRepository.save(existingListing);
         log.info("Successfully updated listing ID: {}", id);
 
         return carListingMapper.toCarListingResponse(existingListing);
-=======
-        // Update isSold and isArchived if provided in the request
-        if (request.getIsSold() != null) {
-            existingListing.setSold(request.getIsSold());
-        }
-        if (request.getIsArchived() != null) {
-            existingListing.setArchived(request.getIsArchived());
-        }
-        
-        CarListing updatedListing = carListingRepository.save(existingListing);
-        log.info("Successfully updated listing ID: {} by user: {}", id, username);
-
-        // Publish events if status changed
-        if (updatedListing.getSold() && !originalIsSold) {
-            // Determine if admin action based on who is making the call, for now, assume false if called via this method by a user
-            boolean isAdminAction = false; // This might need to be determined by user roles or a specific parameter
-            eventPublisher.publishEvent(new ListingMarkedAsSoldEvent(this, updatedListing, isAdminAction)); 
-            log.info("Published ListingMarkedAsSoldEvent for listing ID: {} (isAdminAction: {})", updatedListing.getId(), isAdminAction);
-        }
-        if (updatedListing.getArchived() && !originalIsArchived) {
-            // Determine if admin action
-            boolean isAdminAction = false; // This might need to be determined by user roles or a specific parameter
-            eventPublisher.publishEvent(new ListingArchivedEvent(this, updatedListing, isAdminAction)); 
-            log.info("Published ListingArchivedEvent for listing ID: {} (isAdminAction: {})", updatedListing.getId(), isAdminAction);
-        }
-        
-        return carListingMapper.toCarListingResponse(updatedListing);
->>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
-=======
-        // Save the changes
-        existingListing = carListingRepository.save(existingListing);
-        log.info("Successfully updated listing ID: {}", id);
-
-        return carListingMapper.toCarListingResponse(existingListing);
->>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
     }
 
     /**
@@ -563,206 +439,62 @@ public class CarListingService {
         log.info("Admin successfully deleted listing with ID: {}", listingId);
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
     /**
-     * Marks a car listing as sold.
+     * Approve a car listing.
      *
-     * @param listingId The ID of the car listing to mark as sold.
-     * @param username  The username of the user making the request.
-     * @return The updated CarListingResponse.
-     * @throws ResourceNotFoundException If the listing does not exist.
-     * @throws SecurityException         If the user does not own the listing.
-     * @throws IllegalStateException     If the listing is already sold or archived.
+     * @param listingId The ID of the car listing to approve
+     * @return The updated car listing
      */
     @Transactional
-    public CarListingResponse markListingAsSold(Long listingId, String username) {
-        log.info("User {} attempting to mark listing ID {} as sold", username, listingId);
-        CarListing listing = findListingByIdAndAuthorize(listingId, username, "mark as sold");
-
-        if (Boolean.TRUE.equals(listing.getArchived())) {
-            log.warn("Attempt to mark archived listing ID {} as sold by user {}", listingId, username);
-            throw new IllegalStateException("Cannot mark an archived listing as sold. Please unarchive first.");
+    public CarListingResponse approveListing(@NotNull Long listingId) {
+        log.debug("Approving car listing with ID: {}", listingId);
+        CarListing listing = findListingById(listingId);
+        
+        if (listing.getApproved()) {
+            log.warn("Listing with ID {} is already approved", listingId);
+            throw new IllegalStateException("Listing is already approved");
         }
-        if (Boolean.TRUE.equals(listing.getSold())) {
-            log.warn("Listing ID {} is already marked as sold. No action taken by user {}.", listingId, username);
-            // Optionally, could return current state or throw specific exception
-            // For now, let's treat it as a successful no-op if already sold and not archived.
-            return carListingMapper.toCarListingResponse(listing);
-        }
+        
+        listing.setApproved(true);
+        CarListing savedListing = carListingRepository.save(listing);
+        
+        // Publish the approval event
+        eventPublisher.publishEvent(new ListingApprovedEvent(this, savedListing));
+        
+        log.info("Successfully approved listing with ID: {}", listingId);
+        return carListingMapper.toCarListingResponse(savedListing);
+    }
 
+    /**
+     * Mark a car listing as sold.
+     *
+     * @param listingId The ID of the car listing to mark as sold
+     * @param username The username of the user making the request
+     * @return The updated car listing
+     */
+    @Transactional
+    public CarListingResponse markListingAsSold(@NotNull Long listingId, @NotNull String username) {
+        log.debug("Marking car listing with ID: {} as sold by user: {}", listingId, username);
+        
+        User user = findUserByUsername(username);
+        CarListing listing = findListingById(listingId);
+        authorizeListingModification(listing, user, "mark as sold");
+        
+        if (listing.getSold()) {
+            log.warn("Listing with ID {} is already marked as sold", listingId);
+            throw new IllegalStateException("Listing is already marked as sold");
+        }
+        
         listing.setSold(true);
-        CarListing updatedListing = carListingRepository.save(listing);
+        CarListing savedListing = carListingRepository.save(listing);
         
-        // Publish event
-        eventPublisher.publishEvent(new ListingMarkedAsSoldEvent(this, updatedListing, false));
-        log.info("Successfully marked listing ID {} as sold by user {}", listingId, username);
-        return carListingMapper.toCarListingResponse(updatedListing);
-    }
-
-    /**
-     * Marks a car listing as sold (admin-only).
-     *
-     * @param listingId The ID of the car listing to mark as sold.
-     * @return The updated CarListingResponse.
-     * @throws ResourceNotFoundException If the listing does not exist.
-     * @throws IllegalStateException     If the listing is archived (can't mark archived listings as sold).
-     */
-    @Transactional
-    public CarListingResponse markListingAsSoldByAdmin(Long listingId) {
-        log.info("Admin attempting to mark listing ID {} as sold", listingId);
-        CarListing listing = carListingRepository.findById(listingId)
-                .orElseThrow(() -> {
-                    log.warn("Admin mark as sold failed: Listing not found with ID: {}", listingId);
-                    return new ResourceNotFoundException("Car Listing", "id", listingId.toString());
-                });
-
-        if (Boolean.TRUE.equals(listing.getArchived())) {
-            log.warn("Admin attempt to mark archived listing ID {} as sold", listingId);
-            throw new IllegalStateException("Cannot mark an archived listing as sold. Please unarchive first.");
-        }
-
-        CarListingResponse response;
-        if (Boolean.TRUE.equals(listing.getSold())) {
-            log.warn("Listing ID {} is already marked as sold. No action taken by admin.", listingId);
-            // Return current state as successful no-op
-            response = carListingMapper.toCarListingResponseForAdmin(listing);
-        } else {
-            listing.setSold(true);
-            CarListing updatedListing = carListingRepository.save(listing);
-            log.info("Admin successfully marked listing ID {} as sold", listingId);
-            response = carListingMapper.toCarListingResponseForAdmin(updatedListing);
-        }
-        // Defensive: never return null
-        if (response == null) {
-            log.error("carListingMapper.toCarListingResponseForAdmin returned null for listing ID {}. Returning minimal response.", listingId);
-            response = new CarListingResponse();
-            response.setId(listing.getId());
-            response.setIsSold(listing.getSold());
-            response.setIsArchived(listing.getArchived());
-        }
-        return response;
-    }
-
-    /**
-     * Archives a car listing.
-     *
-     * @param listingId The ID of the car listing to archive.
-     * @param username  The username of the user making the request.
-     * @return The updated CarListingResponse.
-     * @throws ResourceNotFoundException If the listing does not exist.
-     * @throws SecurityException         If the user does not own the listing.
-     * @throws IllegalStateException     If the listing is already archived.
-     */
-    @Transactional
-    public CarListingResponse archiveListing(Long listingId, String username) {
-        log.info("User {} attempting to archive listing ID {}", username, listingId);
-        CarListing listing = findListingByIdAndAuthorize(listingId, username, "archive");
-
-        if (Boolean.TRUE.equals(listing.getArchived())) {
-            log.warn("Listing ID {} is already archived. No action taken by user {}.", listingId, username);
-            return carListingMapper.toCarListingResponse(listing); // Idempotent
-        }
-
-        listing.setArchived(true);
-        // Optionally, consider if archiving should also mark it as "not sold" if it was sold.
-        // For now, archiving is independent of the sold status.
-        CarListing updatedListing = carListingRepository.save(listing);
+        // Publish the sold event
+        eventPublisher.publishEvent(new ListingMarkedAsSoldEvent(this, savedListing, false));
         
-        // Publish the event for successful archival
-        eventPublisher.publishEvent(new ListingArchivedEvent(this, updatedListing, false));
-        log.info("Published ListingArchivedEvent for listing ID: {}", updatedListing.getId());
-        
-        log.info("Successfully archived listing ID {} by user {}", listingId, username);
-        return carListingMapper.toCarListingResponse(updatedListing);
+        log.info("Successfully marked listing with ID: {} as sold", listingId);
+        return carListingMapper.toCarListingResponse(savedListing);
     }
 
-    /**
-     * Archives a car listing (admin-only).
-     *
-     * @param listingId The ID of the car listing to archive.
-     * @return The updated CarListingResponse.
-     * @throws ResourceNotFoundException If the listing does not exist.
-     * @throws IllegalStateException     If the listing is already archived.
-     */
-    @Transactional
-    public CarListingResponse archiveListingByAdmin(Long listingId) {
-        log.info("Admin attempting to archive listing ID {}", listingId);
-        CarListing listing = carListingRepository.findById(listingId)
-                .orElseThrow(() -> {
-                    log.warn("Admin archive failed: Listing not found with ID: {}", listingId);
-                    return new ResourceNotFoundException("Car Listing", "id", listingId.toString());
-                });
-
-        if (Boolean.TRUE.equals(listing.getArchived())) {
-            log.warn("Listing ID {} is already archived. No action taken by admin.", listingId);
-            return carListingMapper.toCarListingResponse(listing); // Idempotent
-        }
-
-        listing.setArchived(true);
-        CarListing updatedListing = carListingRepository.save(listing);
-        log.info("Admin successfully archived listing ID {}", listingId);
-        return carListingMapper.toCarListingResponse(updatedListing);
-    }
-
-    /**
-     * Unarchives a car listing.
-     *
-     * @param listingId The ID of the car listing to unarchive.
-     * @param username  The username of the user making the request.
-     * @return The updated CarListingResponse.
-     * @throws ResourceNotFoundException If the listing does not exist.
-     * @throws SecurityException         If the user does not own the listing.
-     * @throws IllegalStateException     If the listing is not currently archived.
-     */
-    @Transactional
-    public CarListingResponse unarchiveListing(Long listingId, String username) {
-        log.info("User {} attempting to unarchive listing ID {}", username, listingId);
-        CarListing listing = findListingByIdAndAuthorize(listingId, username, "unarchive");
-
-        if (!Boolean.TRUE.equals(listing.getArchived())) {
-            log.warn("Listing ID {} is not archived. No action taken for unarchive by user {}.", listingId, username);
-            throw new IllegalStateException("Listing with ID " + listingId + " is not currently archived.");
-        }
-
-        listing.setArchived(false);
-        CarListing updatedListing = carListingRepository.save(listing);
-        log.info("Successfully unarchived listing ID {} by user {}", listingId, username);
-        return carListingMapper.toCarListingResponse(updatedListing);
-    }
-
-    /**
-     * Unarchives a car listing (admin-only).
-     *
-     * @param listingId The ID of the car listing to unarchive.
-     * @return The updated CarListingResponse.
-     * @throws ResourceNotFoundException If the listing does not exist.
-     * @throws IllegalStateException     If the listing is not currently archived.
-     */
-    @Transactional
-    public CarListingResponse unarchiveListingByAdmin(Long listingId) {
-        log.info("Admin attempting to unarchive listing ID {}", listingId);
-        CarListing listing = carListingRepository.findById(listingId)
-                .orElseThrow(() -> {
-                    log.warn("Admin unarchive failed: Listing not found with ID: {}", listingId);
-                    return new ResourceNotFoundException("Car Listing", "id", listingId.toString());
-                });
-
-        if (!Boolean.TRUE.equals(listing.getArchived())) {
-            log.warn("Listing ID {} is not archived. No action taken for unarchive by admin.", listingId);
-            throw new IllegalStateException("Listing with ID " + listingId + " is not currently archived.");
-        }
-
-        listing.setArchived(false);
-        CarListing updatedListing = carListingRepository.save(listing);
-        log.info("Admin successfully unarchived listing ID {}", listingId);
-        return carListingMapper.toCarListingResponse(updatedListing);
-    }
-    
->>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
-=======
->>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
     // --- Helper Methods ---
 
     private void validateFile(MultipartFile file, Long listingId) {
