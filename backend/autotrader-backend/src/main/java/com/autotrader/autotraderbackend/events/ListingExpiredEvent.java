@@ -10,7 +10,7 @@ import java.util.Optional;
 
 /**
  * Event that is published when a car listing expires.
- * This happens when listing duration has elapsed based on the ad package duration.
+ * This can happen either automatically due to time expiry, by the seller, or by an admin.
  */
 @Getter
 public class ListingExpiredEvent extends ApplicationEvent {
