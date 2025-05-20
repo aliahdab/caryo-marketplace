@@ -120,11 +120,11 @@ export default function SignUpPage() {
           <div className="flex items-center mb-6">
             <div className="h-10 w-10 relative flex-shrink-0">
               <Image 
-                src="/logo-light.svg" 
+                src="/images/logo.svg" 
                 alt={t('auth.logo')} 
                 width={40} 
                 height={40} 
-                className="mr-2 md:mr-3 w-8 h-8 md:w-10 md:h-10 object-contain" 
+                className="mr-2 md:mr-3 w-8 h-8 md:w-10 md:h-10 object-contain filter invert" 
               />
             </div>
             <h1 className="text-lg md:text-xl font-bold">{t('appName')}</h1>

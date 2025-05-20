@@ -180,11 +180,11 @@ const SignInPage: React.FC = () => {
         <div className="z-10 p-6 md:p-8 lg:p-10 flex flex-col">
           <div className="flex items-center mb-6">
             <Image 
-              src="/logo-light.svg" 
+              src="/images/logo.svg" 
               alt={t('auth.logo')} 
               width={40} 
               height={40} 
-              className="mr-2 md:mr-3 w-8 h-8 md:w-10 md:h-10 object-contain" 
+              className="mr-2 md:mr-3 w-8 h-8 md:w-10 md:h-10 object-contain filter invert" 
             />
             <h1 className="text-lg md:text-xl font-bold">{t('appName')}</h1>
           </div>
@@ -202,7 +202,7 @@ const SignInPage: React.FC = () => {
           {/* Mobile logo (shown only on mobile) */}
           <div className="flex md:hidden items-center justify-center mb-6 sm:mb-8">
             <div className="flex items-center responsive-fade-in">
-              <Image src="/logo.svg" alt={t('auth.logo')} width={40} height={40} className="mr-2.5 sm:mr-3 w-8 h-8 sm:w-10 sm:h-10" />
+              <Image src="/images/logo.svg" alt={t('auth.logo')} width={40} height={40} className="mr-2.5 sm:mr-3 w-8 h-8 sm:w-10 sm:h-10" />
               <h1 className="text-lg sm:text-xl font-bold">{t('appName')}</h1>
             </div>
           </div>

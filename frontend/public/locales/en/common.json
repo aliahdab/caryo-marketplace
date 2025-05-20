@@ -328,6 +328,18 @@
     "weekdays": "Monday to Friday",
     "weekend": "Saturday & Sunday",
     "closed": "Closed",
+    "quickResponse": "We aim to respond to all inquiries within 24 hours.",
+    "supportHours": "Our support team is available Monday to Friday, 9:00 AM - 5:00 PM.",
+    "backToHome": "Back to Home",
+    "formDescription": "Fill in the form below and we'll get back to you as soon as possible.",
+    "namePlaceholder": "Enter your full name",
+    "emailPlaceholder": "Enter your email address",
+    "messagePlaceholder": "Write your message here...",
+    "pleaseVerify": "Please complete the verification first",
+    "pleaseVerifyFirst": "Please verify your device first",
+    "logo": "Caryo Logo",
+    "privacy_policy": "Privacy Policy",
+    "terms_of_service": "Terms of Service",
     "subjects": {
       "general": "General Inquiry",
       "support": "Technical Support",
@@ -337,12 +349,14 @@
     },
     "errors": {
       "nameRequired": "Please enter your name",
+      "nameLength": "Name must be at least 2 characters",
       "emailRequired": "Please enter your email address",
       "emailInvalid": "Please enter a valid email address",
       "subjectRequired": "Please select a subject",
       "messageRequired": "Please enter your message",
       "messageLength": "Your message should be at least 20 characters",
-      "submissionFailed": "There was a problem sending your message. Please try again."
+      "submissionFailed": "There was a problem sending your message. Please try again.",
+      "verificationRequired": "Please complete the verification before submitting"
     }
   },
   "loading": "Loading...",
