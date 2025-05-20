@@ -24,6 +24,7 @@ class ListingArchivedEventTest {
     @BeforeEach
     void setUp() {
         source = new Object();
+
     }
 
     @Test
