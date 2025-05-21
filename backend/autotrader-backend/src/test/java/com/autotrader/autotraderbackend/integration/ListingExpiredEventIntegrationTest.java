@@ -22,17 +22,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-<<<<<<< HEAD
 public class ListingExpiredEventIntegrationTest {
 
     @InjectMocks
     private CarListingStatusService carListingStatusService;
-=======
-public class ListingArchivedEventIntegrationTest {
-
-    @InjectMocks
-    private CarListingService carListingService;
->>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -62,6 +55,7 @@ public class ListingArchivedEventIntegrationTest {
         mockListing.setTitle("Test Listing");
         mockListing.setSeller(mockUser);
         mockListing.setArchived(false);
+        
         // Setup repository mocks
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(mockUser));
         when(carListingRepository.findById(mockListing.getId())).thenReturn(Optional.of(mockListing));
@@ -78,7 +72,6 @@ public class ListingArchivedEventIntegrationTest {
     @Test
     public void testListingExpiredEventPublished() {
         // Arrange
-<<<<<<< HEAD
         doNothing().when(eventPublisher).publishEvent(any(ListingExpiredEvent.class));
 
         // Act
@@ -86,14 +79,5 @@ public class ListingArchivedEventIntegrationTest {
 
         // Assert
         verify(eventPublisher, times(1)).publishEvent(any(ListingExpiredEvent.class));
-=======
-        doNothing().when(eventPublisher).publishEvent(any(ListingArchivedEvent.class));
-
-        // Act
-        carListingService.archiveListing(mockListing.getId(), "testuser");
-
-        // Assert
-        verify(eventPublisher, times(1)).publishEvent(any(ListingArchivedEvent.class));
->>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
     }
 }
