@@ -1,7 +1,6 @@
 package com.autotrader.autotraderbackend.listeners;
 
 import com.autotrader.autotraderbackend.model.CarListing;
-import lombok.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
