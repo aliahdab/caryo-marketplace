@@ -21,6 +21,7 @@ public class ListingExpiredEventIntegrationTest extends BaseListingEventIntegrat
             CarListing listing = i.getArgument(0);
             CarListingResponse response = new CarListingResponse();
             response.setId(listing.getId());
+            response.setIsExpired(true); // Set the expired flag for testing
             return response;
         });
     }
