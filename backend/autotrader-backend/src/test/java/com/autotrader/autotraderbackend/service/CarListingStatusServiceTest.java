@@ -828,6 +828,7 @@ class CarListingStatusServiceTest {
         });
         assertEquals("User does not have permission to modify this listing.", exception.getMessage());
     }
+<<<<<<< HEAD
 
     @Test
     void markListingAsSold_ShouldPublishCorrectEvent() {
@@ -878,4 +879,6 @@ class CarListingStatusServiceTest {
                    soldEvent.getSource() == carListingStatusService;
         }));
     }
+=======
+>>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
 }

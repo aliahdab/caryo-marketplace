@@ -17,12 +17,8 @@ import com.autotrader.autotraderbackend.repository.LocationRepository;
 import com.autotrader.autotraderbackend.repository.UserRepository;
 import com.autotrader.autotraderbackend.repository.specification.CarListingSpecification;
 import com.autotrader.autotraderbackend.service.storage.StorageService;
-import com.autotrader.autotraderbackend.events.ListingApprovedEvent; // Re-added import
-import com.autotrader.autotraderbackend.events.ListingArchivedEvent;
-import com.autotrader.autotraderbackend.events.ListingMarkedAsSoldEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -53,6 +49,7 @@ public class CarListingService {
     private final LocationRepository locationRepository;
     private final StorageService storageService;
     private final CarListingMapper carListingMapper;
+<<<<<<< HEAD
 <<<<<<< HEAD
     private final UserRepository userRepository;
     private final CarListingStatusService carListingStatusService;
@@ -95,6 +92,10 @@ public class CarListingService {
         return carListingMapper.toCarListingResponse(updatedListing);
     }
 >>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
+=======
+    private final UserRepository userRepository;
+    private final CarListingStatusService carListingStatusService;
+>>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
 
     /**
      * Resumes a car listing (sets isUserActive to true).
@@ -355,6 +356,7 @@ public class CarListingService {
 
     /**
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
      * Approve a car listing.
      */
@@ -382,6 +384,8 @@ public class CarListingService {
 
     /**
 >>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
+=======
+>>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
      * Update an existing car listing.
      * Does not handle status changes - those are handled by CarListingStatusService.
      *
@@ -401,6 +405,7 @@ public class CarListingService {
         authorizeListingModification(existingListing, user, "update");
         
 <<<<<<< HEAD
+<<<<<<< HEAD
         // Update non-status fields
 =======
         // Check if the user owns this listing
@@ -416,6 +421,9 @@ public class CarListingService {
 
         // Update only non-null fields
 >>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
+=======
+        // Update non-status fields
+>>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
         if (request.getTitle() != null) {
             existingListing.setTitle(request.getTitle());
         }
@@ -452,6 +460,7 @@ public class CarListingService {
         }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         // Save the changes
         existingListing = carListingRepository.save(existingListing);
         log.info("Successfully updated listing ID: {}", id);
@@ -485,6 +494,13 @@ public class CarListingService {
         
         return carListingMapper.toCarListingResponse(updatedListing);
 >>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
+=======
+        // Save the changes
+        existingListing = carListingRepository.save(existingListing);
+        log.info("Successfully updated listing ID: {}", id);
+
+        return carListingMapper.toCarListingResponse(existingListing);
+>>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
     }
 
     /**
@@ -547,6 +563,7 @@ public class CarListingService {
         log.info("Admin successfully deleted listing with ID: {}", listingId);
     }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
     /**
@@ -744,6 +761,8 @@ public class CarListingService {
     }
     
 >>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
+=======
+>>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
     // --- Helper Methods ---
 
     private void validateFile(MultipartFile file, Long listingId) {

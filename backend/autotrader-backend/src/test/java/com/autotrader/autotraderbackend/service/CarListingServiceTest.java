@@ -2,9 +2,6 @@ package com.autotrader.autotraderbackend.service;
 
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
 import com.autotrader.autotraderbackend.exception.StorageException;
-import com.autotrader.autotraderbackend.events.ListingApprovedEvent;
-import com.autotrader.autotraderbackend.events.ListingArchivedEvent;
-import com.autotrader.autotraderbackend.events.ListingMarkedAsSoldEvent;
 import com.autotrader.autotraderbackend.mapper.CarListingMapper;
 import com.autotrader.autotraderbackend.model.CarListing;
 import com.autotrader.autotraderbackend.model.ListingMedia;
@@ -26,7 +23,6 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -66,6 +62,7 @@ class CarListingServiceTest {
     private CarListingMapper carListingMapper;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     @Mock
     private CarListingStatusService carListingStatusService;
 
@@ -76,6 +73,12 @@ class CarListingServiceTest {
 
     @InjectMocks // Ensure this injects all mocks into the service
 >>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
+=======
+    @Mock
+    private CarListingStatusService carListingStatusService;
+
+    @InjectMocks
+>>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
     private CarListingService carListingService;
 
     private User testUser;
@@ -281,6 +284,7 @@ class CarListingServiceTest {
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     // --- Tests for approveListing ---
     @Test
@@ -420,6 +424,8 @@ class CarListingServiceTest {
     }
 
 >>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
+=======
+>>>>>>> a7fbdc3 (Add unit tests for CarListingStatusService methods to ensure proper functionality and error handling)
     // --- Tests for getAllApprovedListings & getFilteredListings ---
     @Test
     void getAllApprovedListings_ShouldReturnPageOfApprovedListings() {
