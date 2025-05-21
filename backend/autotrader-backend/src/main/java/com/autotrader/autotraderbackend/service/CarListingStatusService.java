@@ -57,36 +57,24 @@ public class CarListingStatusService {
     @Transactional
     public CarListingResponse markListingAsSoldByAdmin(Long listingId) {
         log.info("Admin attempting to mark listing ID {} as sold", listingId);
-        CarListing listing = carListingRepository.findById(listingId)
-                .orElseThrow(() -> {
-                    log.warn("Admin mark as sold failed: Listing not found with ID: {}", listingId);
-                    return new ResourceNotFoundException("Car Listing", "id", listingId.toString());
-                });
+        CarListing listing = findListingById(listingId);
 
         if (Boolean.TRUE.equals(listing.getArchived())) {
             log.warn("Admin attempt to mark archived listing ID {} as sold", listingId);
             throw new IllegalStateException("Cannot mark an archived listing as sold. Please unarchive first.");
         }
 
-        CarListingResponse response;
         if (Boolean.TRUE.equals(listing.getSold())) {
-            log.warn("Listing ID {} is already marked as sold. No action taken by admin.", listingId);
-            response = carListingMapper.toCarListingResponseForAdmin(listing);
-        } else {
-            listing.setSold(true);
-            CarListing updatedListing = carListingRepository.save(listing);
-            log.info("Admin successfully marked listing ID {} as sold", listingId);
-            response = carListingMapper.toCarListingResponseForAdmin(updatedListing);
+            log.warn("Listing ID {} is already marked as sold. Throwing IllegalStateException.", listingId);
+            throw new IllegalStateException("Listing with ID " + listingId + " is already marked as sold.");
         }
+
+        listing.setSold(true);
+        CarListing updatedListing = carListingRepository.save(listing);
+        log.info("Admin successfully marked listing ID {} as sold", listingId);
+        eventPublisher.publishEvent(new ListingMarkedAsSoldEvent(this, updatedListing, true));
         
-        if (response == null) {
-            log.error("carListingMapper.toCarListingResponseForAdmin returned null for listing ID {}. Returning minimal response.", listingId);
-            response = new CarListingResponse();
-            response.setId(listing.getId());
-            response.setIsSold(listing.getSold());
-            response.setIsArchived(listing.getArchived());
-        }
-        return response;
+        return carListingMapper.toCarListingResponseForAdmin(updatedListing);
     }
 
     /**
@@ -198,8 +186,8 @@ public class CarListingStatusService {
             throw new IllegalStateException("Cannot pause a listing that has been archived.");
         }
         if (!listing.getIsUserActive()) {
-            log.warn("Listing ID {} is already paused by user {}. Throwing IllegalStateException.", listingId, username);
-            throw new IllegalStateException("Listing with ID " + listingId + " is already paused.");
+            log.info("Listing ID {} is already paused by user {}. No action needed.", listingId, username);
+            return carListingMapper.toCarListingResponse(listing);
         }
 
         listing.setIsUserActive(false);
@@ -225,8 +213,8 @@ public class CarListingStatusService {
             throw new IllegalStateException("Cannot resume a listing that has been archived. Please contact support or renew if applicable.");
         }
         if (listing.getIsUserActive()) {
-            log.warn("Listing ID {} is already active for user {}. Throwing IllegalStateException.", listingId, username);
-            throw new IllegalStateException("Listing with ID " + listingId + " is already active.");
+            log.info("Listing ID {} is already active for user {}. No action needed.", listingId, username);
+            return carListingMapper.toCarListingResponse(listing);
         }
 
         listing.setIsUserActive(true);
@@ -309,7 +297,7 @@ public class CarListingStatusService {
         return carListingRepository.findById(listingId)
                 .orElseThrow(() -> {
                     log.warn("CarListing lookup failed for ID: {}", listingId);
-                    return new ResourceNotFoundException("CarListing", "id", listingId);
+                    return new ResourceNotFoundException("Car Listing", "id", String.valueOf(listingId));
                 });
     }
 

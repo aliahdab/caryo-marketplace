@@ -41,7 +41,7 @@ public class CarListingResponse {
     private Boolean isSold;
     private Boolean isArchived;
     private Boolean isUserActive;
-    private Boolean isExpired;
+    private Boolean isExpired; // Added field
 
     // Explicit Getters
     public Long getId() { return id; }
@@ -62,8 +62,8 @@ public class CarListingResponse {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public Boolean getIsSold() { return isSold; }
     public Boolean getIsArchived() { return isArchived; }
-    public Boolean getIsUserActive() { return isUserActive; }
-    public Boolean getIsExpired() { return isExpired; }
+    public Boolean getIsUserActive() { return isUserActive; } // Added getter
+    public Boolean getIsExpired() { return isExpired; } // Added getter
 
     // Explicit Setters (Add if needed, currently only getters seem required by errors)
     public void setId(Long id) { this.id = id; }
@@ -84,6 +84,6 @@ public class CarListingResponse {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public void setIsSold(Boolean isSold) { this.isSold = isSold; }
     public void setIsArchived(Boolean isArchived) { this.isArchived = isArchived; }
-    public void setIsUserActive(Boolean isUserActive) { this.isUserActive = isUserActive; }
-    public void setIsExpired(Boolean isExpired) { this.isExpired = isExpired; }
+    public void setIsUserActive(Boolean isUserActive) { this.isUserActive = isUserActive; } // Added setter
+    public void setIsExpired(Boolean isExpired) { this.isExpired = isExpired; } // Added setter
 }
