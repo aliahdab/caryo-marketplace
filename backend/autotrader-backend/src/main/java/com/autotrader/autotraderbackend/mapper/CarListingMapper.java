@@ -58,10 +58,9 @@ public class CarListingMapper {
             // Ensure approved is properly set (never null)
             response.setApproved(carListing.getApproved() != null ? carListing.getApproved() : false);
 
-            // Map isSold and isArchived fields
             response.setIsSold(carListing.getSold());
             response.setIsArchived(carListing.getArchived());
-            response.setIsExpired(carListing.getExpired()); // Map expired field
+            response.setIsExpired(carListing.getExpired());
 
             if (carListing.getSeller() != null) {
                 response.setSellerId(carListing.getSeller().getId());
@@ -87,6 +86,9 @@ public class CarListingMapper {
             fallbackResponse.setId(carListing.getId());
             fallbackResponse.setIsSold(carListing.getSold());
             fallbackResponse.setIsArchived(carListing.getArchived());
+            fallbackResponse.setIsExpired(carListing.getExpired());
+            // Ensure approved is properly set in fallback response
+            fallbackResponse.setApproved(carListing.getApproved() != null ? carListing.getApproved() : false);
             fallbackResponse.setMedia(new ArrayList<>());
             return fallbackResponse;
         }
@@ -216,6 +218,14 @@ public class CarListingMapper {
                 fallback.setIsExpired(carListing.getExpired());
             } catch (Exception ex) {
                 fallback.setIsExpired(false);
+            }
+            
+            // Ensure approved is properly set in fallback response
+            try {
+                fallback.setApproved(carListing.getApproved() != null ? carListing.getApproved() : false);
+            } catch (Exception ex) {
+                fallback.setApproved(false);
+                log.warn("Error setting approved for listing ID {} in fallback, defaulting to false", carListing.getId());
             }
             
             fallback.setMedia(new ArrayList<>());
