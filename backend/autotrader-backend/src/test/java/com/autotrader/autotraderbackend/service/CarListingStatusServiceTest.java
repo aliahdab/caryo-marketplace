@@ -339,22 +339,41 @@ class CarListingStatusServiceTest {
         when(carListingRepository.findById(testListing.getId())).thenReturn(Optional.of(testListing));
 
         // Case 1: Already approved
+        // Ensure clean state before setting specific condition
+        testListing.setApproved(false);
+        testListing.setArchived(false);
+        testListing.setSold(false);
+
         testListing.setApproved(true);
         IllegalStateException approveException = assertThrows(IllegalStateException.class,
                 () -> carListingStatusService.approveListing(testListing.getId()));
         assertEquals("Listing with ID 1 is already approved.", approveException.getMessage());
+        testListing.setApproved(false); // Reset state
 
         // Case 2: Already archived
+        // Ensure clean state before setting specific condition
+        testListing.setApproved(false);
+        testListing.setArchived(false);
+        testListing.setSold(false);
+
         testListing.setArchived(true);
         IllegalStateException archiveException = assertThrows(IllegalStateException.class,
                 () -> carListingStatusService.archiveListingByAdmin(testListing.getId()));
         assertEquals("Listing with ID 1 is already archived.", archiveException.getMessage());
+        testListing.setArchived(false); // Reset state
 
         // Case 3: Already sold
+        // Ensure clean state before setting specific condition
+        testListing.setApproved(true); // Listing needs to be approved to be sold without other errors
+        testListing.setArchived(false);
+        testListing.setSold(false);
+
         testListing.setSold(true);
         IllegalStateException soldException = assertThrows(IllegalStateException.class,
                 () -> carListingStatusService.markListingAsSoldByAdmin(testListing.getId()));
         assertEquals("Listing with ID 1 is already marked as sold.", soldException.getMessage());
+        testListing.setSold(false); // Reset state
+        testListing.setApproved(true); // Reset to original setUp state if needed for other tests
     }
 
     @Test
