@@ -8,6 +8,7 @@ import com.autotrader.autotraderbackend.model.User;
 import com.autotrader.autotraderbackend.repository.CarListingRepository;
 import com.autotrader.autotraderbackend.repository.UserRepository;
 import com.autotrader.autotraderbackend.service.CarListingStatusService;
+import com.autotrader.autotraderbackend.service.CarListingService;
 import org.mockito.InjectMocks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,45 +23,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class ListingMarkedAsSoldEventIntegrationTest {
+public class ListingMarkedAsSoldEventIntegrationTest extends BaseListingEventIntegrationTest {
 
-    @InjectMocks
-    private CarListingStatusService carListingStatusService;
-
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
-
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private CarListingRepository carListingRepository;
-
-    @Mock
-    private CarListingMapper carListingMapper;
-
-    private CarListing mockListing;
-    private User mockUser;
-
+    @Override
     @BeforeEach
-    public void setUp() {
-        // Setup test user
-        mockUser = new User();
-        mockUser.setId(1L);
-        mockUser.setUsername("testuser");
-
-        // Setup test listing
-        mockListing = new CarListing();
-        mockListing.setId(1L);
-        mockListing.setTitle("Test Listing");
-        mockListing.setSeller(mockUser);
-        mockListing.setArchived(false);
+    public void setUpBase() {
+        super.setUpBase();
+        
+        // Additional setup specific to MarkedAsSold tests
         mockListing.setSold(false);
-
-        // Setup repository mocks
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(mockUser));
-        when(carListingRepository.findById(mockListing.getId())).thenReturn(Optional.of(mockListing));
-        when(carListingRepository.save(any(CarListing.class))).thenAnswer(i -> i.getArgument(0));
+        
         when(carListingMapper.toCarListingResponse(any(CarListing.class))).thenAnswer(i -> {
             CarListing listing = i.getArgument(0);
             CarListingResponse response = new CarListingResponse();

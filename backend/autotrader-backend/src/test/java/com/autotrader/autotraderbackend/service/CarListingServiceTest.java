@@ -2,6 +2,9 @@ package com.autotrader.autotraderbackend.service;
 
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
 import com.autotrader.autotraderbackend.exception.StorageException;
+import com.autotrader.autotraderbackend.events.ListingApprovedEvent;
+import com.autotrader.autotraderbackend.events.ListingArchivedEvent;
+import com.autotrader.autotraderbackend.events.ListingMarkedAsSoldEvent;
 import com.autotrader.autotraderbackend.mapper.CarListingMapper;
 import com.autotrader.autotraderbackend.model.CarListing;
 import com.autotrader.autotraderbackend.model.ListingMedia;
@@ -23,6 +26,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -61,10 +65,17 @@ class CarListingServiceTest {
     @Mock
     private CarListingMapper carListingMapper;
 
+<<<<<<< HEAD
     @Mock
     private CarListingStatusService carListingStatusService;
 
     @InjectMocks
+=======
+    @Mock // Add mock for the event publisher
+    private ApplicationEventPublisher eventPublisher;
+
+    @InjectMocks // Ensure this injects all mocks into the service
+>>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
     private CarListingService carListingService;
 
     private User testUser;
@@ -269,6 +280,146 @@ class CarListingServiceTest {
     }
 
 
+<<<<<<< HEAD
+=======
+    // --- Tests for approveListing ---
+    @Test
+    void approveListing_Success() {
+        // Arrange
+        Long listingId = 1L;
+        savedListing.setApproved(false); // Ensure it starts as not approved
+        CarListing approvedListing = new CarListing(); // Create a separate instance for the state after save
+        // Copy properties from savedListing
+        approvedListing.setId(savedListing.getId());
+        approvedListing.setTitle(savedListing.getTitle());
+        // ... copy other properties ...
+        approvedListing.setBrand(savedListing.getBrand());
+        approvedListing.setModel(savedListing.getModel());
+        approvedListing.setModelYear(savedListing.getModelYear());
+        approvedListing.setPrice(savedListing.getPrice());
+        approvedListing.setMileage(savedListing.getMileage());
+        approvedListing.setLocation(savedListing.getLocation()); // Use location
+        approvedListing.setDescription(savedListing.getDescription());
+        approvedListing.setSeller(savedListing.getSeller());
+        approvedListing.setApproved(true); // Set approved to true
+        approvedListing.setCreatedAt(savedListing.getCreatedAt());
+
+        CarListingResponse approvedResponse = new CarListingResponse(); // Expected response after approval
+        // ... populate approvedResponse based on approvedListing ...
+        approvedResponse.setId(approvedListing.getId());
+        approvedResponse.setTitle(approvedListing.getTitle());
+        approvedResponse.setBrand(approvedListing.getBrand());
+        approvedResponse.setModel(approvedListing.getModel());
+        approvedResponse.setModelYear(approvedListing.getModelYear());
+        approvedResponse.setPrice(approvedListing.getPrice());
+        approvedResponse.setMileage(approvedListing.getMileage());
+        // Create and set LocationResponse for LocationDetails
+        if (approvedListing.getLocation() != null) {
+            LocationResponse locationResp = new LocationResponse();
+            locationResp.setId(approvedListing.getLocation().getId());
+            locationResp.setDisplayNameEn(approvedListing.getLocation().getDisplayNameEn());
+            // Set other fields of locationResp if necessary
+            approvedResponse.setLocationDetails(locationResp);
+        }
+        approvedResponse.setDescription(approvedListing.getDescription());
+        approvedResponse.setCreatedAt(approvedListing.getCreatedAt());
+        approvedResponse.setApproved(true);
+        if (approvedListing.getSeller() != null) {
+            approvedResponse.setSellerId(approvedListing.getSeller().getId());
+            approvedResponse.setSellerUsername(approvedListing.getSeller().getUsername());
+        }
+
+        // Setup argument captor for the event
+        ArgumentCaptor<ListingApprovedEvent> eventCaptor = ArgumentCaptor.forClass(ListingApprovedEvent.class);
+
+        when(carListingRepository.findById(listingId)).thenReturn(Optional.of(savedListing));
+        when(carListingRepository.save(any(CarListing.class))).thenReturn(approvedListing); // Return the approved state
+        // Mock the mapper call for the approved state
+        when(carListingMapper.toCarListingResponse(approvedListing)).thenReturn(approvedResponse);
+
+        // Act
+        CarListingResponse response = carListingService.approveListing(listingId);
+
+        // Assert
+        assertNotNull(response);
+        assertTrue(response.getApproved());
+        assertEquals(approvedResponse, response);
+        verify(carListingRepository).findById(listingId);
+        verify(carListingRepository).save(argThat(listing -> listing.getId().equals(listingId) && Boolean.TRUE.equals(listing.getApproved())));
+        verify(carListingMapper).toCarListingResponse(approvedListing);
+
+        // Verify event publishing
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        ListingApprovedEvent capturedEvent = eventCaptor.getValue();
+        assertNotNull(capturedEvent);
+        assertEquals(approvedListing, capturedEvent.getListing());
+        assertEquals(carListingService, capturedEvent.getSource());
+    }
+
+    @Test
+    void approveListing_NotFound_ThrowsResourceNotFoundException() {
+        // Arrange
+        Long nonExistentId = 999L;
+        when(carListingRepository.findById(nonExistentId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
+            carListingService.approveListing(nonExistentId);
+        });
+        assertEquals("CarListing not found with id : '999'", exception.getMessage());
+        verify(carListingRepository).findById(nonExistentId);
+        verify(carListingRepository, never()).save(any());
+        verify(carListingMapper, never()).toCarListingResponse(any());
+        // Verify no events were published
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void approveListing_AlreadyApproved_ThrowsIllegalStateException() {
+        // Arrange
+        Long listingId = 1L;
+        savedListing.setApproved(true); // Start as already approved
+        when(carListingRepository.findById(listingId)).thenReturn(Optional.of(savedListing));
+
+        // Act & Assert
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
+            carListingService.approveListing(listingId);
+        });
+        assertEquals("Listing with ID 1 is already approved.", exception.getMessage());
+        verify(carListingRepository).findById(listingId);
+        verify(carListingRepository, never()).save(any());
+        verify(carListingMapper, never()).toCarListingResponse(any());
+        // Verify no events were published
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void approveListing_WhenRepositorySaveFails_ShouldThrowRuntimeException() {
+        // Arrange
+        Long listingId = 1L;
+        savedListing.setApproved(false); // Ensure it starts as not approved
+        RuntimeException dbException = new RuntimeException("DB save failed");
+
+        when(carListingRepository.findById(listingId)).thenReturn(Optional.of(savedListing));
+        // Mock repository save to throw an exception
+        when(carListingRepository.save(any(CarListing.class))).thenThrow(dbException);
+
+        // Act & Assert
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> {
+            carListingService.approveListing(listingId);
+        });
+
+        // Assert that the original exception message is thrown
+        assertEquals("DB save failed", thrown.getMessage()); // <-- Updated assertion
+        assertSame(dbException, thrown); // Verify it's the exact exception instance
+
+        verify(carListingRepository).findById(listingId);
+        // Verify save was attempted with the correct state
+        verify(carListingRepository).save(argThat(listing -> listing.getId().equals(listingId) && Boolean.TRUE.equals(listing.getApproved())));
+        verify(carListingMapper, never()).toCarListingResponse(any()); // Mapper should not be called
+    }
+
+>>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
     // --- Tests for getAllApprovedListings & getFilteredListings ---
     @Test
     void getAllApprovedListings_ShouldReturnPageOfApprovedListings() {
