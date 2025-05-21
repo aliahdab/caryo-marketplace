@@ -1,26 +1,19 @@
 package com.autotrader.autotraderbackend.events;
 
 import com.autotrader.autotraderbackend.model.CarListing;
-<<<<<<< HEAD
 import com.autotrader.autotraderbackend.model.User;
 import org.junit.jupiter.api.BeforeEach;
-=======
->>>>>>> 299f8c8 (feat: Add event classes for listing expiration, marking as sold, and renewal initiation with corresponding tests)
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
-<<<<<<< HEAD
 import static org.mockito.Mockito.when;
-=======
->>>>>>> 299f8c8 (feat: Add event classes for listing expiration, marking as sold, and renewal initiation with corresponding tests)
 
 @ExtendWith(MockitoExtension.class)
 class ListingMarkedAsSoldEventTest {
 
-<<<<<<< HEAD
     @Mock private CarListing mockListing;
     @Mock private User mockSeller;
     
@@ -146,54 +139,5 @@ class ListingMarkedAsSoldEventTest {
                 "null", true, "unknown"),
             event.toString()
         );
-=======
-    @Mock
-    private CarListing mockListing;
-
-    @Test
-    void constructor_ShouldSetSourceListingAndAdminFlag() {
-        // Arrange
-        Object source = new Object();
-        boolean isAdminAction = true;
-
-        // Act
-        ListingMarkedAsSoldEvent event = new ListingMarkedAsSoldEvent(source, mockListing, isAdminAction);
-
-        // Assert
-        assertNotNull(event);
-        assertEquals(source, event.getSource());
-        assertEquals(mockListing, event.getListing());
-        assertTrue(event.isAdminAction());
-    }
-
-    @Test
-    void getListing_ShouldReturnListing() {
-        // Arrange
-        ListingMarkedAsSoldEvent event = new ListingMarkedAsSoldEvent(new Object(), mockListing, false);
-
-        // Act
-        CarListing listing = event.getListing();
-
-        // Assert
-        assertEquals(mockListing, listing);
-    }
-
-    @Test
-    void isAdminAction_ShouldReturnFalseForUserAction() {
-        // Arrange
-        ListingMarkedAsSoldEvent event = new ListingMarkedAsSoldEvent(new Object(), mockListing, false);
-
-        // Act & Assert
-        assertFalse(event.isAdminAction());
-    }
-
-    @Test
-    void isAdminAction_ShouldReturnTrueForAdminAction() {
-        // Arrange
-        ListingMarkedAsSoldEvent event = new ListingMarkedAsSoldEvent(new Object(), mockListing, true);
-
-        // Act & Assert
-        assertTrue(event.isAdminAction());
->>>>>>> 299f8c8 (feat: Add event classes for listing expiration, marking as sold, and renewal initiation with corresponding tests)
     }
 }
