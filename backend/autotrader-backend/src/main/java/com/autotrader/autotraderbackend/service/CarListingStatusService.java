@@ -113,13 +113,15 @@ public class CarListingStatusService {
                 });
 
         if (Boolean.TRUE.equals(listing.getArchived())) {
-            log.warn("Listing ID {} is already archived. No action taken by admin.", listingId);
-            return carListingMapper.toCarListingResponse(listing);
+            log.warn("Listing ID {} is already archived. Admin operation aborted.", listingId);
+            throw new IllegalStateException("Listing with ID " + listingId + " is already archived.");
         }
 
         listing.setArchived(true);
         CarListing updatedListing = carListingRepository.save(listing);
         log.info("Admin successfully archived listing ID {}", listingId);
+        eventPublisher.publishEvent(new ListingArchivedEvent(this, updatedListing, true)); 
+        log.info("Published ListingArchivedEvent for listing ID: {} (admin)", updatedListing.getId());
         return carListingMapper.toCarListingResponse(updatedListing);
     }
 
@@ -232,7 +234,7 @@ public class CarListingStatusService {
         CarListing carListing = findListingById(id); 
 
         if (Boolean.TRUE.equals(carListing.getApproved())) {
-            log.warn("Listing ID {} is already approved. No action taken.", id);
+            log.warn("Listing ID {} is already approved. Admin operation aborted.", id);
             throw new IllegalStateException("Listing with ID " + id + " is already approved.");
         }
 
