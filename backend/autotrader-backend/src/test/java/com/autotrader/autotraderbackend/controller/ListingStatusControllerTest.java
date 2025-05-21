@@ -2,7 +2,7 @@ package com.autotrader.autotraderbackend.controller;
 
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
 import com.autotrader.autotraderbackend.payload.response.CarListingResponse;
-import com.autotrader.autotraderbackend.service.CarListingService;
+import com.autotrader.autotraderbackend.service.CarListingStatusService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +26,7 @@ import static org.mockito.Mockito.when;
 public class ListingStatusControllerTest {
 
     @Mock
-    private CarListingService carListingService;
+    private CarListingStatusService carListingStatusService;
 
     @InjectMocks
     private CarListingController carListingController;
@@ -57,63 +57,69 @@ public class ListingStatusControllerTest {
         soldResponse.setIsSold(true);
         soldResponse.setIsArchived(false);
         
-        when(carListingService.markListingAsSold(eq(validListingId), anyString()))
+        when(carListingStatusService.markListingAsSold(eq(validListingId), anyString()))
             .thenReturn(soldResponse);
         
         // Act
         ResponseEntity<?> response = carListingController.markListingAsSold(validListingId, mockUserDetails);
         
         // Assert
+        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof CarListingResponse);
+        assertNotNull(response.getBody(), "Response body should not be null");
+        assertTrue(response.getBody() instanceof CarListingResponse, "Response body should be a CarListingResponse");
         
         CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
+        assertNotNull(returnedResponse, "CarListingResponse should not be null");
         assertEquals(validListingId, returnedResponse.getId());
         assertTrue(returnedResponse.getIsSold());
         
-        verify(carListingService).markListingAsSold(eq(validListingId), eq("testuser"));
+        verify(carListingStatusService).markListingAsSold(eq(validListingId), eq("testuser"));
     }
     
     @Test
     void markListingAsSold_NotFound() {
         // Arrange
         Long nonExistentId = 999L;
-        when(carListingService.markListingAsSold(eq(nonExistentId), anyString()))
+        when(carListingStatusService.markListingAsSold(eq(nonExistentId), anyString()))
             .thenThrow(new ResourceNotFoundException("CarListing", "id", nonExistentId));
         
         // Act
         ResponseEntity<?> response = carListingController.markListingAsSold(nonExistentId, mockUserDetails);
         
         // Assert
+        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
+        assertNotNull(response.getBody(), "Response body should not be null");
+        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
         
         @SuppressWarnings("unchecked")
         Map<String, String> errorResponse = (Map<String, String>) response.getBody();
+        assertNotNull(errorResponse, "Error response should not be null");
         assertTrue(errorResponse.containsKey("message"));
         
-        verify(carListingService).markListingAsSold(eq(nonExistentId), eq("testuser"));
+        verify(carListingStatusService).markListingAsSold(eq(nonExistentId), eq("testuser"));
     }
     
     @Test
     void markListingAsSold_Forbidden() {
         // Arrange
         String errorMessage = "User does not have permission to modify this listing.";
-        when(carListingService.markListingAsSold(eq(validListingId), anyString()))
+        when(carListingStatusService.markListingAsSold(eq(validListingId), anyString()))
             .thenThrow(new SecurityException(errorMessage));
         
         // Act
         ResponseEntity<?> response = carListingController.markListingAsSold(validListingId, mockUserDetails);
         
         // Assert
+        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
+        assertNotNull(response.getBody(), "Response body should not be null");
+        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
         
         @SuppressWarnings("unchecked")
         Map<String, String> errorResponse = (Map<String, String>) response.getBody();
+        assertNotNull(errorResponse, "Error response should not be null");
         assertTrue(errorResponse.containsKey("message"));
         assertEquals(errorMessage, errorResponse.get("message"));
     }
@@ -122,19 +128,21 @@ public class ListingStatusControllerTest {
     void markListingAsSold_Conflict() {
         // Arrange
         String errorMessage = "Cannot mark an archived listing as sold. Please unarchive first.";
-        when(carListingService.markListingAsSold(eq(validListingId), anyString()))
+        when(carListingStatusService.markListingAsSold(eq(validListingId), anyString()))
             .thenThrow(new IllegalStateException(errorMessage));
         
         // Act
         ResponseEntity<?> response = carListingController.markListingAsSold(validListingId, mockUserDetails);
         
         // Assert
+        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
+        assertNotNull(response.getBody(), "Response body should not be null");
+        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
         
         @SuppressWarnings("unchecked")
         Map<String, String> errorResponse = (Map<String, String>) response.getBody();
+        assertNotNull(errorResponse, "Error response should not be null");
         assertTrue(errorResponse.containsKey("message"));
         assertEquals(errorMessage, errorResponse.get("message"));
     }
@@ -148,41 +156,45 @@ public class ListingStatusControllerTest {
         archivedResponse.setIsSold(false);
         archivedResponse.setIsArchived(true);
         
-        when(carListingService.archiveListing(eq(validListingId), anyString()))
+        when(carListingStatusService.archiveListing(eq(validListingId), anyString()))
             .thenReturn(archivedResponse);
         
         // Act
         ResponseEntity<?> response = carListingController.archiveListing(validListingId, mockUserDetails);
         
         // Assert
+        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof CarListingResponse);
+        assertNotNull(response.getBody(), "Response body should not be null");
+        assertTrue(response.getBody() instanceof CarListingResponse, "Response body should be a CarListingResponse");
         
         CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
+        assertNotNull(returnedResponse, "CarListingResponse should not be null");
         assertEquals(validListingId, returnedResponse.getId());
         assertTrue(returnedResponse.getIsArchived());
         
-        verify(carListingService).archiveListing(eq(validListingId), eq("testuser"));
+        verify(carListingStatusService).archiveListing(eq(validListingId), eq("testuser"));
     }
     
     @Test
     void archiveListing_NotFound() {
         // Arrange
         Long nonExistentId = 999L;
-        when(carListingService.archiveListing(eq(nonExistentId), anyString()))
+        when(carListingStatusService.archiveListing(eq(nonExistentId), anyString()))
             .thenThrow(new ResourceNotFoundException("CarListing", "id", nonExistentId));
         
         // Act
         ResponseEntity<?> response = carListingController.archiveListing(nonExistentId, mockUserDetails);
         
         // Assert
+        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
+        assertNotNull(response.getBody(), "Response body should not be null");
+        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
         
         @SuppressWarnings("unchecked")
         Map<String, String> errorResponse = (Map<String, String>) response.getBody();
+        assertNotNull(errorResponse, "Error response should not be null");
         assertTrue(errorResponse.containsKey("message"));
     }
     
@@ -190,19 +202,21 @@ public class ListingStatusControllerTest {
     void archiveListing_Forbidden() {
         // Arrange
         String errorMessage = "User does not have permission to modify this listing.";
-        when(carListingService.archiveListing(eq(validListingId), anyString()))
+        when(carListingStatusService.archiveListing(eq(validListingId), anyString()))
             .thenThrow(new SecurityException(errorMessage));
         
         // Act
         ResponseEntity<?> response = carListingController.archiveListing(validListingId, mockUserDetails);
         
         // Assert
+        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
+        assertNotNull(response.getBody(), "Response body should not be null");
+        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
         
         @SuppressWarnings("unchecked")
         Map<String, String> errorResponse = (Map<String, String>) response.getBody();
+        assertNotNull(errorResponse, "Error response should not be null");
         assertTrue(errorResponse.containsKey("message"));
         assertEquals(errorMessage, errorResponse.get("message"));
     }
@@ -216,41 +230,45 @@ public class ListingStatusControllerTest {
         unarchivedResponse.setIsSold(false);
         unarchivedResponse.setIsArchived(false);
         
-        when(carListingService.unarchiveListing(eq(validListingId), anyString()))
+        when(carListingStatusService.unarchiveListing(eq(validListingId), anyString()))
             .thenReturn(unarchivedResponse);
         
         // Act
         ResponseEntity<?> response = carListingController.unarchiveListing(validListingId, mockUserDetails);
         
         // Assert
+        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof CarListingResponse);
+        assertNotNull(response.getBody(), "Response body should not be null");
+        assertTrue(response.getBody() instanceof CarListingResponse, "Response body should be a CarListingResponse");
         
         CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
+        assertNotNull(returnedResponse, "CarListingResponse should not be null");
         assertEquals(validListingId, returnedResponse.getId());
         assertFalse(returnedResponse.getIsArchived());
         
-        verify(carListingService).unarchiveListing(eq(validListingId), eq("testuser"));
+        verify(carListingStatusService).unarchiveListing(eq(validListingId), eq("testuser"));
     }
     
     @Test
     void unarchiveListing_Conflict() {
         // Arrange
         String errorMessage = "Listing with ID 1 is not currently archived.";
-        when(carListingService.unarchiveListing(eq(validListingId), anyString()))
+        when(carListingStatusService.unarchiveListing(eq(validListingId), anyString()))
             .thenThrow(new IllegalStateException(errorMessage));
         
         // Act
         ResponseEntity<?> response = carListingController.unarchiveListing(validListingId, mockUserDetails);
         
         // Assert
+        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
+        assertNotNull(response.getBody(), "Response body should not be null");
+        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
         
         @SuppressWarnings("unchecked")
         Map<String, String> errorResponse = (Map<String, String>) response.getBody();
+        assertNotNull(errorResponse, "Error response should not be null");
         assertTrue(errorResponse.containsKey("message"));
         assertEquals(errorMessage, errorResponse.get("message"));
     }

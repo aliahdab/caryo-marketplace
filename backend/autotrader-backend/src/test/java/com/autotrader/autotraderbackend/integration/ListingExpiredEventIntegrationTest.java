@@ -55,7 +55,6 @@ public class ListingExpiredEventIntegrationTest {
         mockListing.setTitle("Test Listing");
         mockListing.setSeller(mockUser);
         mockListing.setArchived(false);
-        
         // Setup repository mocks
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(mockUser));
         when(carListingRepository.findById(mockListing.getId())).thenReturn(Optional.of(mockListing));

@@ -57,6 +57,15 @@ public class CarListingCrudOperationsTest {
         testUser.setId(1L);
         testUser.setUsername(TEST_USERNAME);
 
+        // Mock userRepository behavior for all tests that need it, using lenient stubbing
+        lenient().when(userRepository.findByUsername(TEST_USERNAME)).thenReturn(Optional.of(testUser));
+        // Mock for "differentuser" to also return a user, to ensure the authorization logic is what's being tested
+        User differentUser = new User();
+        differentUser.setId(2L);
+        differentUser.setUsername("differentuser");
+        lenient().when(userRepository.findByUsername("differentuser")).thenReturn(Optional.of(differentUser));
+
+
         // Set up test listing
         testListing = new CarListing();
         testListing.setId(TEST_LISTING_ID);
@@ -105,6 +114,7 @@ public class CarListingCrudOperationsTest {
         updateRequest.setTitle("Updated Title");
         updateRequest.setPrice(new BigDecimal("16000.00"));
 
+        // No need to mock userRepository.findByUsername here if done in setUp
         when(carListingRepository.findById(TEST_LISTING_ID)).thenReturn(Optional.of(testListing));
         when(carListingRepository.save(any(CarListing.class))).thenReturn(testListing);
         when(carListingMapper.toCarListingResponse(any(CarListing.class))).thenReturn(testListingResponse);
@@ -130,13 +140,14 @@ public class CarListingCrudOperationsTest {
         UpdateListingRequest updateRequest = new UpdateListingRequest();
         updateRequest.setTitle("Updated Title");
         
+        // No need to mock userRepository.findByUsername here if done in setUp
         when(carListingRepository.findById(TEST_LISTING_ID)).thenReturn(Optional.of(testListing));
 
         // Act & Assert
         Exception exception = assertThrows(SecurityException.class, () -> 
             carListingService.updateListing(TEST_LISTING_ID, updateRequest, "differentuser"));
         
-        assertTrue(exception.getMessage().contains("not authorized"));
+        assertEquals("User does not have permission to modify this listing.", exception.getMessage());
         verify(carListingRepository, never()).save(any(CarListing.class));
     }
 
@@ -146,6 +157,7 @@ public class CarListingCrudOperationsTest {
         UpdateListingRequest updateRequest = new UpdateListingRequest();
         updateRequest.setTitle("Updated Title");
         
+        // No need to mock userRepository.findByUsername here if done in setUp
         when(carListingRepository.findById(TEST_LISTING_ID)).thenReturn(Optional.empty());
 
         // Act & Assert
@@ -158,6 +170,7 @@ public class CarListingCrudOperationsTest {
     @Test
     void deleteListing_ownedByUser_shouldDeleteSuccessfully() {
         // Arrange
+        // No need to mock userRepository.findByUsername here if done in setUp
         when(carListingRepository.findById(TEST_LISTING_ID)).thenReturn(Optional.of(testListing));
         
         // Act
@@ -171,13 +184,14 @@ public class CarListingCrudOperationsTest {
     @Test
     void deleteListing_notOwnedByUser_shouldThrowSecurityException() {
         // Arrange
+        // No need to mock userRepository.findByUsername here if done in setUp
         when(carListingRepository.findById(TEST_LISTING_ID)).thenReturn(Optional.of(testListing));
 
         // Act & Assert
         Exception exception = assertThrows(SecurityException.class, () -> 
             carListingService.deleteListing(TEST_LISTING_ID, "differentuser"));
         
-        assertTrue(exception.getMessage().contains("not authorized"));
+        assertEquals("User does not have permission to modify this listing.", exception.getMessage());
         verify(carListingRepository, never()).delete(any(CarListing.class));
         verify(storageService, never()).delete(anyString());
     }
@@ -185,6 +199,7 @@ public class CarListingCrudOperationsTest {
     @Test
     void deleteListing_nonExistentListing_shouldThrowResourceNotFoundException() {
         // Arrange
+        // No need to mock userRepository.findByUsername here if done in setUp
         when(carListingRepository.findById(TEST_LISTING_ID)).thenReturn(Optional.empty());
 
         // Act & Assert

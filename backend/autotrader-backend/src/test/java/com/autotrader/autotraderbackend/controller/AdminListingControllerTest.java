@@ -2,7 +2,7 @@ package com.autotrader.autotraderbackend.controller;
 
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
 import com.autotrader.autotraderbackend.payload.response.CarListingResponse;
-import com.autotrader.autotraderbackend.service.CarListingService;
+import com.autotrader.autotraderbackend.service.CarListingStatusService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +21,7 @@ import static org.mockito.Mockito.*;
 public class AdminListingControllerTest {
 
     @Mock
-    private CarListingService carListingService;
+    private CarListingStatusService carListingStatusService;
 
     @InjectMocks
     private AdminListingController adminListingController;
@@ -38,7 +38,7 @@ public class AdminListingControllerTest {
     @Test
     void approveListingAdmin_Success() {
         mockResponse.setApproved(true);
-        when(carListingService.approveListing(validListingId)).thenReturn(mockResponse);
+        when(carListingStatusService.approveListing(validListingId)).thenReturn(mockResponse);
 
         ResponseEntity<?> response = adminListingController.approveListingAdmin(validListingId);
 
@@ -47,12 +47,12 @@ public class AdminListingControllerTest {
         CarListingResponse responseBody = (CarListingResponse) response.getBody();
         assertEquals(validListingId, responseBody.getId());
         assertTrue(responseBody.getApproved());
-        verify(carListingService).approveListing(validListingId);
+        verify(carListingStatusService).approveListing(validListingId);
     }
 
     @Test
     void approveListingAdmin_NotFound() {
-        when(carListingService.approveListing(validListingId))
+        when(carListingStatusService.approveListing(validListingId))
             .thenThrow(new ResourceNotFoundException("Car Listing", "id", validListingId.toString()));
 
         ResponseEntity<?> response = adminListingController.approveListingAdmin(validListingId);
@@ -63,12 +63,12 @@ public class AdminListingControllerTest {
         @SuppressWarnings("unchecked")
         Map<String, String> body = (Map<String, String>) response.getBody();
         assertTrue(body.containsKey("message"));
-        verify(carListingService).approveListing(validListingId);
+        verify(carListingStatusService).approveListing(validListingId);
     }
 
     @Test
     void approveListingAdmin_Conflict() {
-        when(carListingService.approveListing(validListingId))
+        when(carListingStatusService.approveListing(validListingId))
             .thenThrow(new IllegalStateException("Listing already approved"));
 
         ResponseEntity<?> response = adminListingController.approveListingAdmin(validListingId);
@@ -79,6 +79,6 @@ public class AdminListingControllerTest {
         @SuppressWarnings("unchecked")
         Map<String, String> body = (Map<String, String>) response.getBody();
         assertTrue(body.containsKey("message"));
-        verify(carListingService).approveListing(validListingId);
+        verify(carListingStatusService).approveListing(validListingId);
     }
 }

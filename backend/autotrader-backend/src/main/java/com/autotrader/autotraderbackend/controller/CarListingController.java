@@ -8,6 +8,7 @@ import com.autotrader.autotraderbackend.payload.request.UpdateListingRequest;
 import com.autotrader.autotraderbackend.payload.response.CarListingResponse;
 import com.autotrader.autotraderbackend.payload.response.PageResponse;
 import com.autotrader.autotraderbackend.service.CarListingService;
+import com.autotrader.autotraderbackend.service.CarListingStatusService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -42,6 +43,7 @@ import java.util.Map;
 public class CarListingController {
 
     private final CarListingService carListingService;
+    private final CarListingStatusService carListingStatusService;
 
     @PutMapping("/{id}/pause")
     @PreAuthorize("isAuthenticated()")
@@ -62,7 +64,7 @@ public class CarListingController {
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
             log.info("User {} attempting to pause listing ID {}", userDetails.getUsername(), id);
-            CarListingResponse response = carListingService.pauseListing(id, userDetails.getUsername());
+            CarListingResponse response = carListingStatusService.pauseListing(id, userDetails.getUsername());
             log.info("Successfully paused listing ID {} by user {}", id, userDetails.getUsername());
             return ResponseEntity.ok(response);
         } catch (ResourceNotFoundException e) {
@@ -96,7 +98,7 @@ public class CarListingController {
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
             log.info("User {} attempting to resume listing ID {}", userDetails.getUsername(), id);
-            CarListingResponse response = carListingService.resumeListing(id, userDetails.getUsername());
+            CarListingResponse response = carListingStatusService.resumeListing(id, userDetails.getUsername());
             log.info("Successfully resumed listing ID {} by user {}", id, userDetails.getUsername());
             return ResponseEntity.ok(response);
         } catch (ResourceNotFoundException e) {
@@ -489,7 +491,7 @@ public class CarListingController {
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
             log.info("User {} attempting to mark listing ID {} as sold", userDetails.getUsername(), id);
-            CarListingResponse response = carListingService.markListingAsSold(id, userDetails.getUsername());
+            CarListingResponse response = carListingStatusService.markListingAsSold(id, userDetails.getUsername());
             log.info("Successfully marked listing ID {} as sold by user {}", id, userDetails.getUsername());
             return ResponseEntity.ok(response);
         } catch (ResourceNotFoundException e) {
@@ -517,7 +519,7 @@ public class CarListingController {
             @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "403", description = "Forbidden (not owner)"),
             @ApiResponse(responseCode = "404", description = "Listing not found"),
-            @ApiResponse(responseCode = "409", description = "Conflict (e.g., listing already archived)")
+            @ApiResponse(responseCode = "409", description = "Listing already archived")
         }
     )
     public ResponseEntity<?> archiveListing(
@@ -525,24 +527,20 @@ public class CarListingController {
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
             log.info("User {} attempting to archive listing ID {}", userDetails.getUsername(), id);
-            CarListingResponse response = carListingService.archiveListing(id, userDetails.getUsername());
+            CarListingResponse response = carListingStatusService.archiveListing(id, userDetails.getUsername());
             log.info("Successfully archived listing ID {} by user {}", id, userDetails.getUsername());
             return ResponseEntity.ok(response);
         } catch (ResourceNotFoundException e) {
-            log.warn("Archive failed for listing ID {}: {}", id, e.getMessage());
+            log.warn("Archive listing failed for listing ID {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
         } catch (SecurityException e) {
             log.warn("User {} not authorized to archive listing ID {}: {}", userDetails.getUsername(), id, e.getMessage());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", e.getMessage()));
-        } catch (IllegalStateException e) { // Catches if already archived, service handles this as idempotent or error
-            log.warn("Archive failed for listing ID {}: {}", id, e.getMessage());
-            // Depending on service implementation, this might be a success (200) or conflict (409)
-            // Assuming service throws IllegalStateException if it's an issue.
+        } catch (IllegalStateException e) {
+            log.warn("Archive listing failed for listing ID {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
         }
     }
-
-
 
     @PostMapping("/{id}/unarchive")
     @PreAuthorize("isAuthenticated()")
@@ -555,7 +553,7 @@ public class CarListingController {
             @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "403", description = "Forbidden (not owner)"),
             @ApiResponse(responseCode = "404", description = "Listing not found"),
-            @ApiResponse(responseCode = "409", description = "Conflict (e.g., listing not archived)")
+            @ApiResponse(responseCode = "409", description = "Listing is not archived")
         }
     )
     public ResponseEntity<?> unarchiveListing(
@@ -563,17 +561,17 @@ public class CarListingController {
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
             log.info("User {} attempting to unarchive listing ID {}", userDetails.getUsername(), id);
-            CarListingResponse response = carListingService.unarchiveListing(id, userDetails.getUsername());
+            CarListingResponse response = carListingStatusService.unarchiveListing(id, userDetails.getUsername());
             log.info("Successfully unarchived listing ID {} by user {}", id, userDetails.getUsername());
             return ResponseEntity.ok(response);
         } catch (ResourceNotFoundException e) {
-            log.warn("Unarchive failed for listing ID {}: {}", id, e.getMessage());
+            log.warn("Unarchive listing failed for listing ID {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
         } catch (SecurityException e) {
             log.warn("User {} not authorized to unarchive listing ID {}: {}", userDetails.getUsername(), id, e.getMessage());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", e.getMessage()));
         } catch (IllegalStateException e) {
-            log.warn("Unarchive failed for listing ID {}: {}", id, e.getMessage());
+            log.warn("Unarchive listing failed for listing ID {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
         }
     }

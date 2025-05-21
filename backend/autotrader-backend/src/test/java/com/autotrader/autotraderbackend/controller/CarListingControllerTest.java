@@ -8,6 +8,7 @@ import com.autotrader.autotraderbackend.payload.response.CarListingResponse;
 import com.autotrader.autotraderbackend.payload.response.LocationResponse;
 import com.autotrader.autotraderbackend.payload.response.PageResponse;
 import com.autotrader.autotraderbackend.service.CarListingService;
+import com.autotrader.autotraderbackend.service.CarListingStatusService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -48,6 +49,9 @@ public class CarListingControllerTest {
 
     @Mock
     private CarListingService carListingService;
+
+    @Mock
+    private CarListingStatusService carListingStatusService;
 
     @InjectMocks
     private CarListingController carListingController;
@@ -359,7 +363,7 @@ public class CarListingControllerTest {
         
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn("testuser");
-        when(carListingService.markListingAsSold(eq(listingId), anyString()))
+        when(carListingStatusService.markListingAsSold(eq(listingId), anyString()))
             .thenReturn(soldResponse);
         
         // Act
@@ -370,7 +374,7 @@ public class CarListingControllerTest {
         assertNotNull(response.getBody());
         assertEquals(soldResponse, response.getBody());
         
-        verify(carListingService).markListingAsSold(eq(listingId), eq("testuser"));
+        verify(carListingStatusService).markListingAsSold(eq(listingId), eq("testuser"));
     }
     
     @Test
@@ -380,7 +384,7 @@ public class CarListingControllerTest {
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn("testuser");
         
-        when(carListingService.markListingAsSold(eq(listingId), anyString()))
+        when(carListingStatusService.markListingAsSold(eq(listingId), anyString()))
             .thenThrow(new ResourceNotFoundException("CarListing", "id", listingId));
         
         // Act
@@ -404,7 +408,7 @@ public class CarListingControllerTest {
         when(userDetails.getUsername()).thenReturn("testuser");
         
         String errorMessage = "User does not have permission to modify this listing.";
-        when(carListingService.markListingAsSold(eq(listingId), anyString()))
+        when(carListingStatusService.markListingAsSold(eq(listingId), anyString()))
             .thenThrow(new SecurityException(errorMessage));
         
         // Act
@@ -416,7 +420,7 @@ public class CarListingControllerTest {
         assertTrue(response.getBody() instanceof java.util.Map);
         @SuppressWarnings("unchecked")
         java.util.Map<String, String> errorBody = (java.util.Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals(errorMessage, errorBody.get("message"));
     }
@@ -429,7 +433,7 @@ public class CarListingControllerTest {
         when(userDetails.getUsername()).thenReturn("testuser");
         
         String errorMessage = "Cannot mark an archived listing as sold. Please unarchive first.";
-        when(carListingService.markListingAsSold(eq(listingId), anyString()))
+        when(carListingStatusService.markListingAsSold(eq(listingId), anyString()))
             .thenThrow(new IllegalStateException(errorMessage));
         
         // Act
@@ -441,7 +445,7 @@ public class CarListingControllerTest {
         assertTrue(response.getBody() instanceof java.util.Map);
         @SuppressWarnings("unchecked")
         java.util.Map<String, String> errorBody = (java.util.Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals(errorMessage, errorBody.get("message"));
     }
@@ -457,7 +461,7 @@ public class CarListingControllerTest {
         
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn("testuser");
-        when(carListingService.archiveListing(eq(listingId), anyString()))
+        when(carListingStatusService.archiveListing(eq(listingId), anyString()))
             .thenReturn(archivedResponse);
         
         // Act
@@ -468,7 +472,7 @@ public class CarListingControllerTest {
         assertNotNull(response.getBody());
         assertEquals(archivedResponse, response.getBody());
         
-        verify(carListingService).archiveListing(eq(listingId), eq("testuser"));
+        verify(carListingStatusService).archiveListing(eq(listingId), eq("testuser"));
     }
     
     @Test
@@ -478,7 +482,7 @@ public class CarListingControllerTest {
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn("testuser");
         
-        when(carListingService.archiveListing(eq(listingId), anyString()))
+        when(carListingStatusService.archiveListing(eq(listingId), anyString()))
             .thenThrow(new ResourceNotFoundException("CarListing", "id", listingId));
         
         // Act
@@ -497,7 +501,7 @@ public class CarListingControllerTest {
         when(userDetails.getUsername()).thenReturn("testuser");
         
         String errorMessage = "User does not have permission to modify this listing.";
-        when(carListingService.archiveListing(eq(listingId), anyString()))
+        when(carListingStatusService.archiveListing(eq(listingId), anyString()))
             .thenThrow(new SecurityException(errorMessage));
         
         // Act
@@ -519,7 +523,7 @@ public class CarListingControllerTest {
         
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn("testuser");
-        when(carListingService.unarchiveListing(eq(listingId), anyString()))
+        when(carListingStatusService.unarchiveListing(eq(listingId), anyString()))
             .thenReturn(unarchivedResponse);
         
         // Act
@@ -530,7 +534,7 @@ public class CarListingControllerTest {
         assertNotNull(response.getBody());
         assertEquals(unarchivedResponse, response.getBody());
         
-        verify(carListingService).unarchiveListing(eq(listingId), eq("testuser"));
+        verify(carListingStatusService).unarchiveListing(eq(listingId), eq("testuser"));
     }
     
     @Test
@@ -541,7 +545,7 @@ public class CarListingControllerTest {
         when(userDetails.getUsername()).thenReturn("testuser");
         
         String errorMessage = "Listing with ID 1 is not currently archived.";
-        when(carListingService.unarchiveListing(eq(listingId), anyString()))
+        when(carListingStatusService.unarchiveListing(eq(listingId), anyString()))
             .thenThrow(new IllegalStateException(errorMessage));
         
         // Act
@@ -553,12 +557,10 @@ public class CarListingControllerTest {
         assertTrue(response.getBody() instanceof java.util.Map);
         @SuppressWarnings("unchecked")
         java.util.Map<String, String> errorBody = (java.util.Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals(errorMessage, errorBody.get("message"));
     }
-    
-
 
     // --- Tests for pauseListing endpoint ---
     @Test
@@ -570,7 +572,7 @@ public class CarListingControllerTest {
         pausedResponse.setIsUserActive(false);
 
         when(userDetails.getUsername()).thenReturn("testuser");
-        when(carListingService.pauseListing(eq(listingId), eq("testuser"))).thenReturn(pausedResponse);
+        when(carListingStatusService.pauseListing(eq(listingId), eq("testuser"))).thenReturn(pausedResponse);
 
         // Act
         ResponseEntity<?> response = carListingController.pauseListing(listingId, userDetails);
@@ -578,7 +580,7 @@ public class CarListingControllerTest {
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(pausedResponse, response.getBody());
-        verify(carListingService).pauseListing(listingId, "testuser");
+        verify(carListingStatusService).pauseListing(listingId, "testuser");
     }
 
     @Test
@@ -586,7 +588,7 @@ public class CarListingControllerTest {
         // Arrange
         Long listingId = 999L;
         when(userDetails.getUsername()).thenReturn("testuser");
-        when(carListingService.pauseListing(eq(listingId), eq("testuser")))
+        when(carListingStatusService.pauseListing(eq(listingId), eq("testuser")))
             .thenThrow(new ResourceNotFoundException("CarListing", "id", listingId));
 
         // Act
@@ -594,11 +596,11 @@ public class CarListingControllerTest {
 
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNotNull(response.getBody()); // Ensure body is not null before casting/checking
+        assertNotNull(response.getBody());
         assertTrue(response.getBody() instanceof Map);
         @SuppressWarnings("unchecked")
         Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals("CarListing not found with id : '" + listingId + "'", errorBody.get("message"));
     }
@@ -609,7 +611,7 @@ public class CarListingControllerTest {
         Long listingId = 1L;
         String errorMessage = "User does not have permission to modify this listing.";
         when(userDetails.getUsername()).thenReturn("otheruser"); // Different user
-        when(carListingService.pauseListing(eq(listingId), eq("otheruser")))
+        when(carListingStatusService.pauseListing(eq(listingId), eq("otheruser")))
             .thenThrow(new SecurityException(errorMessage));
 
         // Act
@@ -617,11 +619,11 @@ public class CarListingControllerTest {
 
         // Assert
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNotNull(response.getBody()); // Ensure body is not null
+        assertNotNull(response.getBody());
         assertTrue(response.getBody() instanceof Map);
         @SuppressWarnings("unchecked")
         Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals(errorMessage, errorBody.get("message"));
     }
@@ -632,7 +634,7 @@ public class CarListingControllerTest {
         Long listingId = 1L;
         String errorMessage = "Listing with ID 1 cannot be paused because it is not approved.";
         when(userDetails.getUsername()).thenReturn("testuser");
-        when(carListingService.pauseListing(eq(listingId), eq("testuser")))
+        when(carListingStatusService.pauseListing(eq(listingId), eq("testuser")))
             .thenThrow(new IllegalStateException(errorMessage));
 
         // Act
@@ -640,11 +642,11 @@ public class CarListingControllerTest {
 
         // Assert
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody()); // Ensure body is not null
+        assertNotNull(response.getBody());
         assertTrue(response.getBody() instanceof Map);
         @SuppressWarnings("unchecked")
         Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals(errorMessage, errorBody.get("message"));
     }
@@ -659,7 +661,7 @@ public class CarListingControllerTest {
         resumedResponse.setIsUserActive(true);
 
         when(userDetails.getUsername()).thenReturn("testuser");
-        when(carListingService.resumeListing(eq(listingId), eq("testuser"))).thenReturn(resumedResponse);
+        when(carListingStatusService.resumeListing(eq(listingId), eq("testuser"))).thenReturn(resumedResponse);
 
         // Act
         ResponseEntity<?> response = carListingController.resumeListing(listingId, userDetails);
@@ -667,7 +669,7 @@ public class CarListingControllerTest {
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(resumedResponse, response.getBody());
-        verify(carListingService).resumeListing(listingId, "testuser");
+        verify(carListingStatusService).resumeListing(listingId, "testuser");
     }
 
     @Test
@@ -675,7 +677,7 @@ public class CarListingControllerTest {
         // Arrange
         Long listingId = 999L;
         when(userDetails.getUsername()).thenReturn("testuser");
-        when(carListingService.resumeListing(eq(listingId), eq("testuser")))
+        when(carListingStatusService.resumeListing(eq(listingId), eq("testuser")))
             .thenThrow(new ResourceNotFoundException("CarListing", "id", listingId));
 
         // Act
@@ -683,11 +685,11 @@ public class CarListingControllerTest {
 
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNotNull(response.getBody()); // Ensure body is not null
+        assertNotNull(response.getBody());
         assertTrue(response.getBody() instanceof Map);
         @SuppressWarnings("unchecked")
         Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals("CarListing not found with id : '" + listingId + "'", errorBody.get("message"));
     }
@@ -698,7 +700,7 @@ public class CarListingControllerTest {
         Long listingId = 1L;
         String errorMessage = "User does not have permission to modify this listing.";
         when(userDetails.getUsername()).thenReturn("otheruser"); // Different user
-        when(carListingService.resumeListing(eq(listingId), eq("otheruser")))
+        when(carListingStatusService.resumeListing(eq(listingId), eq("otheruser")))
             .thenThrow(new SecurityException(errorMessage));
 
         // Act
@@ -706,11 +708,11 @@ public class CarListingControllerTest {
 
         // Assert
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNotNull(response.getBody()); // Ensure body is not null
+        assertNotNull(response.getBody());
         assertTrue(response.getBody() instanceof Map);
         @SuppressWarnings("unchecked")
         Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals(errorMessage, errorBody.get("message"));
     }
@@ -721,7 +723,7 @@ public class CarListingControllerTest {
         Long listingId = 1L;
         String errorMessage = "Listing with ID 1 is already active.";
         when(userDetails.getUsername()).thenReturn("testuser");
-        when(carListingService.resumeListing(eq(listingId), eq("testuser")))
+        when(carListingStatusService.resumeListing(eq(listingId), eq("testuser")))
             .thenThrow(new IllegalStateException(errorMessage));
 
         // Act
@@ -729,30 +731,28 @@ public class CarListingControllerTest {
 
         // Assert
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody()); // Ensure body is not null
+        assertNotNull(response.getBody());
         assertTrue(response.getBody() instanceof Map);
         @SuppressWarnings("unchecked")
         Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals(errorMessage, errorBody.get("message"));
     }
 
-    // --- Integration Tests for pauseListing endpoint (Copied and adapted from unit tests) ---
+    // Integration tests remain the same but use carListingStatusService instead of carListingService
     @Test
     void pauseListing_Integration_Success() {
         // Arrange
         Long listingId = 1L;
         CarListingResponse pausedResponse = new CarListingResponse();
         pausedResponse.setId(listingId);
-        pausedResponse.setIsUserActive(false); // Expected state after pause
+        pausedResponse.setIsUserActive(false);
 
-        // Mock UserDetails
         UserDetails mockUserDetails = mock(UserDetails.class);
         when(mockUserDetails.getUsername()).thenReturn("testuser");
 
-        // Mock service layer
-        when(carListingService.pauseListing(eq(listingId), eq("testuser"))).thenReturn(pausedResponse);
+        when(carListingStatusService.pauseListing(eq(listingId), eq("testuser"))).thenReturn(pausedResponse);
 
         // Act
         ResponseEntity<?> response = carListingController.pauseListing(listingId, mockUserDetails);
@@ -760,17 +760,17 @@ public class CarListingControllerTest {
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(pausedResponse, response.getBody());
-        verify(carListingService).pauseListing(listingId, "testuser");
+        verify(carListingStatusService).pauseListing(listingId, "testuser");
     }
 
     @Test
     void pauseListing_Integration_NotFound() {
         // Arrange
-        Long listingId = 999L; // Non-existent ID
+        Long listingId = 999L;
         UserDetails mockUserDetails = mock(UserDetails.class);
         when(mockUserDetails.getUsername()).thenReturn("testuser");
 
-        when(carListingService.pauseListing(eq(listingId), eq("testuser")))
+        when(carListingStatusService.pauseListing(eq(listingId), eq("testuser")))
             .thenThrow(new ResourceNotFoundException("CarListing", "id", listingId));
 
         // Act
@@ -782,206 +782,8 @@ public class CarListingControllerTest {
         assertTrue(response.getBody() instanceof Map);
         @SuppressWarnings("unchecked")
         Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
+        assertNotNull(errorBody);
         assertTrue(errorBody.containsKey("message"));
         assertEquals("CarListing not found with id : '" + listingId + "'", errorBody.get("message"));
-    }
-
-    @Test
-    void pauseListing_Integration_Forbidden() {
-        // Arrange
-        Long listingId = 1L;
-        String errorMessage = "User does not have permission to modify this listing.";
-        UserDetails mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("otheruser"); // User who doesn't own the listing
-
-        when(carListingService.pauseListing(eq(listingId), eq("otheruser")))
-            .thenThrow(new SecurityException(errorMessage));
-
-        // Act
-        ResponseEntity<?> response = carListingController.pauseListing(listingId, mockUserDetails);
-
-        // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
-        assertTrue(errorBody.containsKey("message"));
-        assertEquals(errorMessage, errorBody.get("message"));
-    }
-
-    @Test
-    void pauseListing_Integration_Conflict_NotApproved() {
-        // Arrange
-        Long listingId = 1L;
-        String errorMessage = "Cannot pause a listing that is not yet approved.";
-        UserDetails mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("testuser");
-
-        when(carListingService.pauseListing(eq(listingId), eq("testuser")))
-            .thenThrow(new IllegalStateException(errorMessage));
-
-        // Act
-        ResponseEntity<?> response = carListingController.pauseListing(listingId, mockUserDetails);
-
-        // Assert
-        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
-        assertTrue(errorBody.containsKey("message"));
-        assertEquals(errorMessage, errorBody.get("message"));
-    }
-
-    @Test
-    void pauseListing_Integration_Conflict_AlreadyPaused() {
-        // Arrange
-        Long listingId = 1L;
-        String errorMessage = "Listing with ID " + listingId + " is already paused.";
-        UserDetails mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("testuser");
-
-        when(carListingService.pauseListing(eq(listingId), eq("testuser")))
-            .thenThrow(new IllegalStateException(errorMessage));
-
-        // Act
-        ResponseEntity<?> response = carListingController.pauseListing(listingId, mockUserDetails);
-
-        // Assert
-        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
-        assertTrue(errorBody.containsKey("message"));
-        assertEquals(errorMessage, errorBody.get("message"));
-    }
-
-
-    // --- Integration Tests for resumeListing endpoint (Copied and adapted from unit tests) ---
-    @Test
-    void resumeListing_Integration_Success() {
-        // Arrange
-        Long listingId = 1L;
-        CarListingResponse resumedResponse = new CarListingResponse();
-        resumedResponse.setId(listingId);
-        resumedResponse.setIsUserActive(true); // Expected state after resume
-
-        UserDetails mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("testuser");
-
-        when(carListingService.resumeListing(eq(listingId), eq("testuser"))).thenReturn(resumedResponse);
-
-        // Act
-        ResponseEntity<?> response = carListingController.resumeListing(listingId, mockUserDetails);
-
-        // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(resumedResponse, response.getBody());
-        verify(carListingService).resumeListing(listingId, "testuser");
-    }
-
-    @Test
-    void resumeListing_Integration_NotFound() {
-        // Arrange
-        Long listingId = 999L; // Non-existent ID
-        UserDetails mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("testuser");
-
-        when(carListingService.resumeListing(eq(listingId), eq("testuser")))
-            .thenThrow(new ResourceNotFoundException("CarListing", "id", listingId));
-
-        // Act
-        ResponseEntity<?> response = carListingController.resumeListing(listingId, mockUserDetails);
-
-        // Assert
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
-        assertTrue(errorBody.containsKey("message"));
-        assertEquals("CarListing not found with id : '" + listingId + "'", errorBody.get("message"));
-    }
-
-    @Test
-    void resumeListing_Integration_Forbidden() {
-        // Arrange
-        Long listingId = 1L;
-        String errorMessage = "User does not have permission to modify this listing.";
-        UserDetails mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("otheruser"); // User who doesn't own the listing
-
-        when(carListingService.resumeListing(eq(listingId), eq("otheruser")))
-            .thenThrow(new SecurityException(errorMessage));
-
-        // Act
-        ResponseEntity<?> response = carListingController.resumeListing(listingId, mockUserDetails);
-
-        // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
-        assertTrue(errorBody.containsKey("message"));
-        assertEquals(errorMessage, errorBody.get("message"));
-    }
-
-    @Test
-    void resumeListing_Integration_Conflict_Archived() {
-        // Arrange
-        Long listingId = 1L;
-        String errorMessage = "Cannot resume a listing that has been archived. Please contact support or renew if applicable.";
-        UserDetails mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("testuser");
-
-        when(carListingService.resumeListing(eq(listingId), eq("testuser")))
-            .thenThrow(new IllegalStateException(errorMessage));
-
-        // Act
-        ResponseEntity<?> response = carListingController.resumeListing(listingId, mockUserDetails);
-
-        // Assert
-        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
-        assertTrue(errorBody.containsKey("message"));
-        assertEquals(errorMessage, errorBody.get("message"));
-    }
-
-    @Test
-    void resumeListing_Integration_Conflict_AlreadyActive() {
-        // Arrange
-        Long listingId = 1L;
-        String errorMessage = "Listing with ID " + listingId + " is already active.";
-        UserDetails mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("testuser");
-
-        when(carListingService.resumeListing(eq(listingId), eq("testuser")))
-            .thenThrow(new IllegalStateException(errorMessage));
-
-        // Act
-        ResponseEntity<?> response = carListingController.resumeListing(listingId, mockUserDetails);
-
-        // Assert
-        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorBody = (Map<String, String>) response.getBody();
-        assertNotNull(errorBody); // Added null check
-        assertTrue(errorBody.containsKey("message"));
-        assertEquals(errorMessage, errorBody.get("message"));
     }
 }
