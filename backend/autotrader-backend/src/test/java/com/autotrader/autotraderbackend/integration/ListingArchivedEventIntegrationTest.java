@@ -1,17 +1,17 @@
 package com.autotrader.autotraderbackend.integration;
 
-import com.autotrader.autotraderbackend.events.ListingExpiredEvent;
+import com.autotrader.autotraderbackend.events.ListingArchivedEvent;
 import com.autotrader.autotraderbackend.payload.response.CarListingResponse;
 import com.autotrader.autotraderbackend.mapper.CarListingMapper;
 import com.autotrader.autotraderbackend.model.CarListing;
 import com.autotrader.autotraderbackend.model.User;
 import com.autotrader.autotraderbackend.repository.CarListingRepository;
 import com.autotrader.autotraderbackend.repository.UserRepository;
-import com.autotrader.autotraderbackend.service.CarListingStatusService;
+import com.autotrader.autotraderbackend.service.CarListingService;
+import org.mockito.InjectMocks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -22,17 +22,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-<<<<<<< HEAD
-public class ListingExpiredEventIntegrationTest {
-
-    @InjectMocks
-    private CarListingStatusService carListingStatusService;
-=======
 public class ListingArchivedEventIntegrationTest {
 
     @InjectMocks
     private CarListingService carListingService;
->>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -62,6 +55,7 @@ public class ListingArchivedEventIntegrationTest {
         mockListing.setTitle("Test Listing");
         mockListing.setSeller(mockUser);
         mockListing.setArchived(false);
+
         // Setup repository mocks
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(mockUser));
         when(carListingRepository.findById(mockListing.getId())).thenReturn(Optional.of(mockListing));
@@ -76,17 +70,8 @@ public class ListingArchivedEventIntegrationTest {
     }
 
     @Test
-    public void testListingExpiredEventPublished() {
+    public void testListingArchivedEventPublished() {
         // Arrange
-<<<<<<< HEAD
-        doNothing().when(eventPublisher).publishEvent(any(ListingExpiredEvent.class));
-
-        // Act
-        carListingStatusService.expireListing(mockListing.getId());
-
-        // Assert
-        verify(eventPublisher, times(1)).publishEvent(any(ListingExpiredEvent.class));
-=======
         doNothing().when(eventPublisher).publishEvent(any(ListingArchivedEvent.class));
 
         // Act
@@ -94,6 +79,5 @@ public class ListingArchivedEventIntegrationTest {
 
         // Assert
         verify(eventPublisher, times(1)).publishEvent(any(ListingArchivedEvent.class));
->>>>>>> 43c7c09 (feat: Implement ListingApprovedEvent and integrate event publishing in CarListingService; add corresponding tests)
     }
 }
