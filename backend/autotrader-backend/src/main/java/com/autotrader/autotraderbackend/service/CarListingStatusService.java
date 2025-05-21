@@ -3,6 +3,7 @@ package com.autotrader.autotraderbackend.service;
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
 import com.autotrader.autotraderbackend.events.ListingApprovedEvent;
 import com.autotrader.autotraderbackend.events.ListingArchivedEvent;
+import com.autotrader.autotraderbackend.events.ListingExpiredEvent;
 import com.autotrader.autotraderbackend.events.ListingMarkedAsSoldEvent;
 import com.autotrader.autotraderbackend.mapper.CarListingMapper;
 import com.autotrader.autotraderbackend.model.CarListing;
@@ -277,6 +278,42 @@ public class CarListingStatusService {
         
         log.info("Listing {} unarchived by admin", listingId);
         return carListingMapper.toCarListingResponseForAdmin(savedListing);
+    }
+
+    /**
+     * Marks a car listing as expired. This is typically called by the system
+     * when a listing reaches its expiration date.
+     *
+     * @param listingId The ID of the listing to expire
+     * @return Updated car listing response with admin-specific fields since this is a system action
+     * @throws ResourceNotFoundException if the listing is not found
+     * @throws IllegalStateException if the listing is already expired, sold, or archived
+     */
+    @Transactional
+    public CarListingResponse expireListing(@NonNull Long listingId) {
+        Objects.requireNonNull(listingId, "Listing ID must not be null");
+
+        CarListing listing = findListingById(listingId);
+        validateListingCanBeExpired(listing);
+
+        listing.setExpired(true);
+        CarListing savedListing = carListingRepository.save(listing);
+        eventPublisher.publishEvent(new ListingExpiredEvent(this, savedListing, true));
+        
+        log.info("Listing {} has expired", listingId);
+        return carListingMapper.toCarListingResponseForAdmin(savedListing);
+    }
+
+    private void validateListingCanBeExpired(@NonNull CarListing listing) {
+        if (Boolean.TRUE.equals(listing.getExpired())) {
+            throw new IllegalStateException(String.format("Listing with ID %d is already expired.", listing.getId()));
+        }
+        if (Boolean.TRUE.equals(listing.getSold())) {
+            throw new IllegalStateException("Cannot expire a listing that has been marked as sold.");
+        }
+        if (Boolean.TRUE.equals(listing.getArchived())) {
+            throw new IllegalStateException("Cannot expire a listing that has been archived.");
+        }
     }
 
     // Helper methods
