@@ -20,6 +20,7 @@ class ListingArchivedEventTest {
     private Object source;
     private static final Long LISTING_ID = 1L;
     private static final String SELLER_USERNAME = "testSeller";
+    private static final String TO_STRING_FORMAT = "ListingArchivedEvent[listingId=%s, isAdminAction=%s, seller=%s]";
 
     @BeforeEach
     void setUp() {
@@ -82,14 +83,13 @@ class ListingArchivedEventTest {
 
         // Assert
         assertEquals(
-            String.format("ListingArchivedEvent[listingId=%d, isAdminAction=%s, seller=%s]", // Changed to listingId
-                LISTING_ID, false, SELLER_USERNAME),
+            String.format(TO_STRING_FORMAT, LISTING_ID, false, SELLER_USERNAME),
             event.toString()
         );
     }
 
     @Test
-    void toString_ShouldHandleNullSeller() { // Renamed for clarity
+    void toString_ShouldHandleNullSeller() {
         // Arrange
         when(mockListing.getId()).thenReturn(LISTING_ID);
         when(mockListing.getSeller()).thenReturn(null);
@@ -99,8 +99,7 @@ class ListingArchivedEventTest {
 
         // Assert
         assertEquals(
-            String.format("ListingArchivedEvent[listingId=%d, isAdminAction=%s, seller=%s]", // Changed to listingId
-                LISTING_ID, true, "unknown"),
+            String.format(TO_STRING_FORMAT, LISTING_ID, true, "unknown"),
             event.toString()
         );
     }
@@ -117,8 +116,7 @@ class ListingArchivedEventTest {
 
         // Assert
         assertEquals(
-            String.format("ListingArchivedEvent[listingId=%s, isAdminAction=%s, seller=%s]",
-                "null", false, SELLER_USERNAME),
+            String.format(TO_STRING_FORMAT, "null", false, SELLER_USERNAME),
             event.toString()
         );
     }
@@ -134,8 +132,7 @@ class ListingArchivedEventTest {
 
         // Assert
         assertEquals(
-            String.format("ListingArchivedEvent[listingId=%s, isAdminAction=%s, seller=%s]",
-                "null", true, "unknown"),
+            String.format(TO_STRING_FORMAT, "null", true, "unknown"),
             event.toString()
         );
     }

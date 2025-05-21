@@ -1,19 +1,26 @@
 package com.autotrader.autotraderbackend.events;
 
 import com.autotrader.autotraderbackend.model.CarListing;
+<<<<<<< HEAD
 import com.autotrader.autotraderbackend.model.User;
 import org.junit.jupiter.api.BeforeEach;
+=======
+>>>>>>> 299f8c8 (feat: Add event classes for listing expiration, marking as sold, and renewal initiation with corresponding tests)
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
+<<<<<<< HEAD
 import static org.mockito.Mockito.when;
+=======
+>>>>>>> 299f8c8 (feat: Add event classes for listing expiration, marking as sold, and renewal initiation with corresponding tests)
 
 @ExtendWith(MockitoExtension.class)
 class ListingExpiredEventTest {
 
+<<<<<<< HEAD
     @Mock private CarListing mockListing;
     @Mock private User mockSeller;
     
@@ -121,5 +128,34 @@ class ListingExpiredEventTest {
                 "null", false, SELLER_USERNAME),
             event.toString()
         );
+=======
+    @Mock
+    private CarListing mockListing;
+
+    @Test
+    void constructor_ShouldSetSourceAndListing() {
+        // Arrange
+        Object source = new Object();
+
+        // Act
+        ListingExpiredEvent event = new ListingExpiredEvent(source, mockListing);
+
+        // Assert
+        assertNotNull(event);
+        assertEquals(source, event.getSource());
+        assertEquals(mockListing, event.getListing());
+    }
+
+    @Test
+    void getListing_ShouldReturnListing() {
+        // Arrange
+        ListingExpiredEvent event = new ListingExpiredEvent(new Object(), mockListing);
+
+        // Act
+        CarListing listing = event.getListing();
+
+        // Assert
+        assertEquals(mockListing, listing);
+>>>>>>> 299f8c8 (feat: Add event classes for listing expiration, marking as sold, and renewal initiation with corresponding tests)
     }
 }
