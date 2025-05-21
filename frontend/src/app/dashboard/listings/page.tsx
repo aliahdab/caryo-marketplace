@@ -705,7 +705,7 @@ export default function ListingsPage() {
                           </div>
                         </div>
                         
-                        {/* Enhanced Tooltip */}
+                        {/* Enhanced Tooltip. */}
                         <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-0 mb-2 w-60 bg-gray-900 text-white text-xs p-3 rounded shadow-lg pointer-events-none transition-opacity z-10">
                           <div className="text-sm font-medium mb-1">{t("listings.viewsTooltip")}</div>
                           <div className="opacity-75 text-xs">{t("listings.tooltipInfo")}</div>
