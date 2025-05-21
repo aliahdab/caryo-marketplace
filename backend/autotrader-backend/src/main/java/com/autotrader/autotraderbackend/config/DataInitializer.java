@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -71,7 +72,8 @@ public class DataInitializer implements CommandLineRunner {
                 if (roles.isEmpty()) {
                     try {
                         Role userRole = new Role("ROLE_USER");
-                        userRole = roleRepository.save(userRole);
+                        userRole = Objects.requireNonNull(roleRepository.save(userRole), 
+                            "Failed to save ROLE_USER");
                         roles.add(userRole);
                     } catch (Exception e) {
                         // Role might have been created by another process
@@ -88,13 +90,14 @@ public class DataInitializer implements CommandLineRunner {
                 user.setRoles(roles);
                 
                 // Save the user
-                user = userRepository.save(user);
+                user = Objects.requireNonNull(userRepository.save(user), 
+                    "Failed to save regular user");
                 log.info("Regular user created successfully");
             } else {
                 log.info("Regular user already exists: {}", USER_USERNAME);
                 try {
                     user = userRepository.findByUsername(USER_USERNAME).orElse(null);
-                    if (Objects.isNull(user)) {
+                    if (user == null) {
                         log.error("User exists but couldn't be retrieved: {}", USER_USERNAME);
                     }
                 } catch (Exception e) {
@@ -110,49 +113,69 @@ public class DataInitializer implements CommandLineRunner {
     
     private User createAdminUser() {
         // Check if admin user already exists
-        User admin = null;
+        User adminUser = null;
         
         try {
             if (!userRepository.existsByUsername(ADMIN_USERNAME)) {
                 log.info("Creating admin development user: {}", ADMIN_USERNAME);
                 
                 // Create the user
-                admin = new User(ADMIN_USERNAME, ADMIN_EMAIL, passwordEncoder.encode(ADMIN_PASSWORD));
+                adminUser = new User(ADMIN_USERNAME, ADMIN_EMAIL, passwordEncoder.encode(ADMIN_PASSWORD));
                 
                 // Set roles (ADMIN and USER roles)
                 Set<Role> roles = new HashSet<>();
+                Optional<Role> userRole = roleRepository.findByName("ROLE_USER");
+                Optional<Role> adminRole = roleRepository.findByName("ROLE_ADMIN");
                 
-                try {
-                    // Find or create USER role
-                    Role userRole = roleRepository.findByName("ROLE_USER").orElse(null);
-                    if (Objects.isNull(userRole)) {
-                        userRole = new Role("ROLE_USER");
-                        userRole = roleRepository.save(userRole);
+                userRole.ifPresent(roles::add);
+                adminRole.ifPresent(roles::add);
+                
+                // If roles don't exist, create them
+                if (!userRole.isPresent()) {
+                    try {
+                        Role newUserRole = new Role("ROLE_USER");
+                        newUserRole = Objects.requireNonNull(roleRepository.save(newUserRole), 
+                            "Failed to save ROLE_USER");
+                        roles.add(newUserRole);
+                    } catch (Exception e) {
+                        log.warn("Error creating ROLE_USER, trying to fetch it again: {}", e.getMessage());
+                        roleRepository.findByName("ROLE_USER").ifPresent(roles::add);
                     }
-                    roles.add(Objects.requireNonNull(userRole, "User role cannot be null"));
-                    
-                    // Find or create ADMIN role
-                    Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElse(null);
-                    if (Objects.isNull(adminRole)) {
-                        adminRole = new Role("ROLE_ADMIN");
-                        adminRole = roleRepository.save(adminRole);
+                }
+                
+                if (!adminRole.isPresent()) {
+                    try {
+                        Role newAdminRole = new Role("ROLE_ADMIN");
+                        newAdminRole = Objects.requireNonNull(roleRepository.save(newAdminRole), 
+                            "Failed to save ROLE_ADMIN");
+                        roles.add(newAdminRole);
+                    } catch (Exception e) {
+                        log.warn("Error creating ROLE_ADMIN, trying to fetch it again: {}", e.getMessage());
+                        roleRepository.findByName("ROLE_ADMIN").ifPresent(roles::add);
                     }
-                    roles.add(Objects.requireNonNull(adminRole, "Admin role cannot be null"));
-                } catch (Exception e) {
-                    log.error("Error creating or retrieving roles: {}", e.getMessage());
+                }
+                
+                // Verify that we have both roles
+                boolean hasUserRole = roles.stream().anyMatch(role -> "ROLE_USER".equals(role.getName()));
+                boolean hasAdminRole = roles.stream().anyMatch(role -> "ROLE_ADMIN".equals(role.getName()));
+                
+                if (!hasUserRole || !hasAdminRole) {
+                    log.error("Failed to create or retrieve required roles for admin user. User role: {}, Admin role: {}", 
+                        hasUserRole, hasAdminRole);
                     return null;
                 }
                 
-                admin.setRoles(roles);
+                adminUser.setRoles(roles);
                 
-                // Save the user
-                admin = userRepository.save(admin);
+                // Save the admin user
+                adminUser = Objects.requireNonNull(userRepository.save(adminUser), 
+                    "Failed to save admin user");
                 log.info("Admin user created successfully");
             } else {
                 log.info("Admin user already exists: {}", ADMIN_USERNAME);
                 try {
-                    admin = userRepository.findByUsername(ADMIN_USERNAME).orElse(null);
-                    if (Objects.isNull(admin)) {
+                    adminUser = userRepository.findByUsername(ADMIN_USERNAME).orElse(null);
+                    if (adminUser == null) {
                         log.error("Admin user exists but couldn't be retrieved: {}", ADMIN_USERNAME);
                     }
                 } catch (Exception e) {
@@ -163,7 +186,7 @@ public class DataInitializer implements CommandLineRunner {
             log.error("Error creating or retrieving admin user: {}", e.getMessage());
         }
         
-        return admin;
+        return adminUser;
     }
     
     private void generateAndPrintDevTokens(User regularUser, User adminUser) {
