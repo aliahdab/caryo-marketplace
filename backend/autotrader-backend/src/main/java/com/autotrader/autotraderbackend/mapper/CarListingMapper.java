@@ -61,6 +61,7 @@ public class CarListingMapper {
             // Map isSold and isArchived fields
             response.setIsSold(carListing.getSold());
             response.setIsArchived(carListing.getArchived());
+            response.setIsExpired(carListing.getExpired()); // Map expired field
 
             if (carListing.getSeller() != null) {
                 response.setSellerId(carListing.getSeller().getId());
@@ -160,6 +161,13 @@ public class CarListingMapper {
                 log.warn("Error setting isArchived for listing ID {}, defaulting to false", carListing.getId());
                 response.setIsArchived(false);
             }
+            
+            try { 
+                response.setIsExpired(carListing.getExpired()); 
+            } catch (Exception e) { 
+                log.warn("Error setting isExpired for listing ID {}, defaulting to false", carListing.getId());
+                response.setIsExpired(false);
+            }
 
             // Set seller info safely
             try {
@@ -202,6 +210,12 @@ public class CarListingMapper {
                 fallback.setIsArchived(carListing.getArchived());
             } catch (Exception ex) {
                 fallback.setIsArchived(false);
+            }
+            
+            try {
+                fallback.setIsExpired(carListing.getExpired());
+            } catch (Exception ex) {
+                fallback.setIsExpired(false);
             }
             
             fallback.setMedia(new ArrayList<>());
