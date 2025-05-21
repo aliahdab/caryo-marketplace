@@ -55,7 +55,8 @@ public class CarListingMapper {
             // and the legacy response.setLocation() is not set.
             
             response.setCreatedAt(carListing.getCreatedAt());
-            response.setApproved(carListing.getApproved());
+            // Ensure approved is properly set (never null)
+            response.setApproved(carListing.getApproved() != null ? carListing.getApproved() : false);
 
             // Map isSold and isArchived fields
             response.setIsSold(carListing.getSold());
