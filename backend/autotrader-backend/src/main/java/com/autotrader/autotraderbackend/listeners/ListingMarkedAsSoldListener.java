@@ -39,24 +39,34 @@ public class ListingMarkedAsSoldListener {
         User seller = listing.getSeller();
         boolean isAdminAction = event.isAdminAction();
 
+        String actionBy = isAdminAction ? "admin" : "seller";
         log.info("Listing marked as sold event received for {} by {}", 
-                eventUtils.getListingInfo(listing),
-                isAdminAction ? "admin" : "seller");
+                eventUtils.getListingInfo(listing), actionBy);
 
-        // Detailed log about the car using Optional for null safety
-        log.debug("Sold Listing Details: ID: {}, Seller: {}, Make: {}, Model: {}, Year: {}, Price: {}",
-                Objects.toString(listing.getId(), "unknown"),
-                Optional.ofNullable(seller).map(User::getUsername).orElse("N/A"),
-                Objects.toString(listing.getBrand(), "N/A"),
-                Objects.toString(listing.getModel(), "N/A"),
-                Optional.ofNullable(listing.getModelYear()).map(String::valueOf).orElse("N/A"),
-                Optional.ofNullable(listing.getPrice()).map(String::valueOf).orElse("N/A")
+        // Detailed log about the car with safe null handling
+        String sellerUsername = Optional.ofNullable(seller)
+                .map(User::getUsername)
+                .orElse("N/A");
+        
+        String sellerId = Optional.ofNullable(seller)
+                .map(User::getId)
+                .map(Object::toString)
+                .orElse("N/A");
+                
+        log.debug("Sold Listing Details: ID: {}, Seller: {} (ID: {}), Make: {}, Model: {}, Year: {}, Price: {}",
+                listing.getId(),
+                sellerUsername,
+                sellerId,
+                listing.getBrand(),
+                listing.getModel(),
+                listing.getModelYear(),
+                listing.getPrice()
         );
 
         // TODO: Send confirmation email to seller
-        // if (seller != null && seller.getEmail() != null) {
-        //     emailService.sendListingSoldEmail(seller.getEmail(), listing);
-        // }
+        // Optional.ofNullable(seller)
+        //     .map(User::getEmail)
+        //     .ifPresent(email -> emailService.sendListingSoldEmail(email, listing));
         
         // TODO: Send feedback request to seller
     }
