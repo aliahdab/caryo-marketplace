@@ -466,7 +466,7 @@ class CarListingServiceTest {
     }
 
     @Test
-    void uploadListingImage_StorageFailure_ThrowsRuntimeException() throws IOException {
+    void uploadListingImage_StorageFailure_ThrowsStorageException() throws IOException { // Renamed from uploadListingImage_StorageFailure_ThrowsRuntimeException
         // Arrange
         Long listingId = testListing.getId();
         String username = testUser.getUsername();
