@@ -3,6 +3,7 @@ package com.autotrader.autotraderbackend.service;
 import com.autotrader.autotraderbackend.events.ListingApprovedEvent;
 import com.autotrader.autotraderbackend.events.ListingArchivedEvent;
 import com.autotrader.autotraderbackend.events.ListingMarkedAsSoldEvent;
+import com.autotrader.autotraderbackend.events.ListingExpiredEvent;
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
 import com.autotrader.autotraderbackend.mapper.CarListingMapper;
 import com.autotrader.autotraderbackend.model.CarListing;
@@ -255,6 +256,43 @@ public class CarListingStatusService {
         log.info("Published ListingApprovedEvent for listing ID: {}", approvedListing.getId());
 
         return carListingMapper.toCarListingResponse(approvedListing);
+    }
+
+    /**
+     * Marks a car listing as expired.
+     */
+    @Transactional
+    public CarListingResponse expireListing(Long listingId) {
+        log.info("Attempting to expire listing ID {}", listingId);
+        CarListing listing = findListingById(listingId);
+
+        // Check if already expired
+        if (Boolean.TRUE.equals(listing.getExpired())) {
+            log.warn("Listing ID {} is already expired. No action taken.", listingId);
+            throw new IllegalStateException("Listing is already expired");
+        }
+
+        // Check if archived
+        if (Boolean.TRUE.equals(listing.getArchived())) {
+            log.warn("Cannot expire archived listing ID {}", listingId);
+            throw new IllegalStateException("Cannot expire an archived listing");
+        }
+
+        // Check if sold
+        if (Boolean.TRUE.equals(listing.getSold())) {
+            log.warn("Cannot expire sold listing ID {}", listingId);
+            throw new IllegalStateException("Cannot expire a sold listing");
+        }
+
+        listing.setExpired(true);
+        listing.setIsUserActive(false); // Deactivate the listing
+
+        CarListing updatedListing = carListingRepository.save(listing);
+        
+        eventPublisher.publishEvent(new ListingExpiredEvent(this, updatedListing, true));
+        log.info("Successfully expired listing ID {}", listingId);
+        
+        return carListingMapper.toCarListingResponse(updatedListing);
     }
 
     // --- Helper Methods ---

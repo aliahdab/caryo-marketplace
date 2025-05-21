@@ -310,4 +310,32 @@ public class ListingStatusController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
         }
     }
+
+    @PutMapping("/admin/{id}/expire")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+        summary = "Expire a car listing",
+        description = "Marks a car listing as expired and deactivates it. Admin access required.",
+        security = @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearer-token"),
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Listing expired successfully", content = @Content(schema = @Schema(implementation = CarListingResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - Admin access required"),
+            @ApiResponse(responseCode = "404", description = "Listing not found"),
+            @ApiResponse(responseCode = "409", description = "Conflict - Listing is already expired, archived, or sold")
+        }
+    )
+    public ResponseEntity<?> expireListing(@PathVariable Long id) {
+        log.info("Admin API: Received request to expire listing ID: {}", id);
+        try {
+            CarListingResponse expiredListing = carListingStatusService.expireListing(id);
+            log.info("Admin API: Successfully expired listing ID: {}", id);
+            return ResponseEntity.ok(expiredListing);
+        } catch (ResourceNotFoundException e) {
+            log.warn("Admin API: Resource not found when trying to expire listing ID: {}", id);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            log.warn("Admin API: Failed to expire listing ID: {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
+        }
+    }
 }
