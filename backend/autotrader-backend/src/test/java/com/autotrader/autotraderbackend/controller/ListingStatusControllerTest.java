@@ -39,7 +39,6 @@ public class ListingStatusControllerTest {
     void setUp() {
         validListingId = 1L;
         mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("testuser");
         
         mockResponse = new CarListingResponse();
         mockResponse.setId(validListingId);
@@ -58,6 +57,7 @@ public class ListingStatusControllerTest {
         soldResponse.setTitle("Test Car");
         soldResponse.setIsSold(true);
         
+        when(mockUserDetails.getUsername()).thenReturn("testuser");
         when(carListingStatusService.markListingAsSold(eq(validListingId), anyString()))
             .thenReturn(soldResponse);
         
@@ -70,6 +70,7 @@ public class ListingStatusControllerTest {
         assertTrue(response.getBody() instanceof CarListingResponse);
         
         CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
+        assertNotNull(returnedResponse);
         assertEquals(validListingId, returnedResponse.getId());
         assertTrue(returnedResponse.getIsSold());
         
@@ -122,6 +123,7 @@ public class ListingStatusControllerTest {
         assertTrue(response.getBody() instanceof CarListingResponse);
         
         CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
+        assertNotNull(returnedResponse);
         assertEquals(validListingId, returnedResponse.getId());
         assertTrue(returnedResponse.getApproved());
         
@@ -145,6 +147,7 @@ public class ListingStatusControllerTest {
         
         @SuppressWarnings("unchecked")
         Map<String, String> errorResponse = (Map<String, String>) response.getBody();
+        assertNotNull(errorResponse);
         assertTrue(errorResponse.containsKey("message"));
         
         verify(carListingStatusService).approveListing(eq(nonExistentId));
@@ -170,6 +173,7 @@ public class ListingStatusControllerTest {
         assertTrue(response.getBody() instanceof CarListingResponse);
         
         CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
+        assertNotNull(returnedResponse);
         assertEquals(validListingId, returnedResponse.getId());
         assertTrue(returnedResponse.getIsArchived());
         
@@ -196,6 +200,7 @@ public class ListingStatusControllerTest {
         assertTrue(response.getBody() instanceof CarListingResponse);
         
         CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
+        assertNotNull(returnedResponse);
         assertEquals(validListingId, returnedResponse.getId());
         assertFalse(returnedResponse.getIsArchived());
         

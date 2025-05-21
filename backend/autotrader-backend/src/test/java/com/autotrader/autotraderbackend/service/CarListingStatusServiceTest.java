@@ -20,10 +20,10 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(MockitoExtension.class)
 class CarListingStatusServiceTest {
@@ -202,18 +202,38 @@ class CarListingStatusServiceTest {
 
     @Test
     void listing_NotFound() {
-        when(carListingRepository.findById(anyLong())).thenReturn(Optional.empty());
+        // Arrange
+        Long nonExistentId = 999L;
+        String username = testUser.getUsername();
 
-        assertThrows(ResourceNotFoundException.class,
-                () -> carListingStatusService.markListingAsSold(999L, testUser.getUsername()));
-        assertThrows(ResourceNotFoundException.class,
-                () -> carListingStatusService.archiveListing(999L, testUser.getUsername()));
-        assertThrows(ResourceNotFoundException.class,
-                () -> carListingStatusService.unarchiveListing(999L, testUser.getUsername()));
-        assertThrows(ResourceNotFoundException.class,
-                () -> carListingStatusService.pauseListing(999L, testUser.getUsername()));
-        assertThrows(ResourceNotFoundException.class,
-                () -> carListingStatusService.resumeListing(999L, testUser.getUsername()));
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(testUser));
+        when(carListingRepository.findById(nonExistentId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        ResourceNotFoundException soldException = assertThrows(ResourceNotFoundException.class,
+                () -> carListingStatusService.markListingAsSold(nonExistentId, username));
+        assertEquals("CarListing not found with id : '999'", soldException.getMessage());
+
+        ResourceNotFoundException archiveException = assertThrows(ResourceNotFoundException.class,
+                () -> carListingStatusService.archiveListing(nonExistentId, username));
+        assertEquals("CarListing not found with id : '999'", archiveException.getMessage());
+
+        ResourceNotFoundException unarchiveException = assertThrows(ResourceNotFoundException.class,
+                () -> carListingStatusService.unarchiveListing(nonExistentId, username));
+        assertEquals("CarListing not found with id : '999'", unarchiveException.getMessage());
+
+        ResourceNotFoundException pauseException = assertThrows(ResourceNotFoundException.class,
+                () -> carListingStatusService.pauseListing(nonExistentId, username));
+        assertEquals("CarListing not found with id : '999'", pauseException.getMessage());
+
+        ResourceNotFoundException resumeException = assertThrows(ResourceNotFoundException.class,
+                () -> carListingStatusService.resumeListing(nonExistentId, username));
+        assertEquals("CarListing not found with id : '999'", resumeException.getMessage());
+
+        // Verify
+        verify(userRepository, times(5)).findByUsername(username);
+        verify(carListingRepository, times(5)).findById(nonExistentId);
+        verify(carListingRepository, never()).save(any(CarListing.class));
     }
 
     @Test
