@@ -1,6 +1,7 @@
 package com.autotrader.autotraderbackend.controller;
 
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
+import com.autotrader.autotraderbackend.payload.response.ApiResponse;
 import com.autotrader.autotraderbackend.payload.response.CarListingResponse;
 import com.autotrader.autotraderbackend.service.CarListingStatusService;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,265 +12,344 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.access.AccessDeniedException;
 
-import java.util.Map;
+import java.security.Principal;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class ListingStatusControllerTest {
+class ListingStatusControllerTest {
 
     @Mock
     private CarListingStatusService carListingStatusService;
 
-    @InjectMocks
-    private CarListingController carListingController;
+    @Mock
+    private Principal principal;
 
-    private UserDetails mockUserDetails;
-    private Long validListingId;
+    @InjectMocks
+    private ListingStatusController listingStatusController;
+
     private CarListingResponse mockResponse;
+    private Long listingId;
 
     @BeforeEach
     void setUp() {
-        validListingId = 1L;
-        mockUserDetails = mock(UserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("testuser");
-        
+        listingId = 1L;
         mockResponse = new CarListingResponse();
-        mockResponse.setId(validListingId);
+        mockResponse.setId(listingId);
         mockResponse.setTitle("Test Car");
-        mockResponse.setIsSold(false);
-        mockResponse.setIsArchived(false);
     }
 
     @Test
     void markListingAsSold_Success() {
         // Arrange
-        CarListingResponse soldResponse = new CarListingResponse();
-        soldResponse.setId(validListingId);
-        soldResponse.setTitle("Test Car");
-        soldResponse.setIsSold(true);
-        soldResponse.setIsArchived(false);
-        
-        when(carListingStatusService.markListingAsSold(eq(validListingId), anyString()))
-            .thenReturn(soldResponse);
-        
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.markListingAsSold(listingId, "testUser"))
+                .thenReturn(mockResponse);
+
         // Act
-        ResponseEntity<?> response = carListingController.markListingAsSold(validListingId, mockUserDetails);
-        
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.markListingAsSold(listingId, principal);
+
         // Assert
-        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody(), "Response body should not be null");
-        assertTrue(response.getBody() instanceof CarListingResponse, "Response body should be a CarListingResponse");
-        
-        CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
-        assertNotNull(returnedResponse, "CarListingResponse should not be null");
-        assertEquals(validListingId, returnedResponse.getId());
-        assertTrue(returnedResponse.getIsSold());
-        
-        verify(carListingStatusService).markListingAsSold(eq(validListingId), eq("testuser"));
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Listing marked as sold successfully", body.getMessage());
+        assertEquals(mockResponse, body.getData());
+
+        verify(carListingStatusService).markListingAsSold(listingId, "testUser");
     }
-    
+
     @Test
     void markListingAsSold_NotFound() {
         // Arrange
-        Long nonExistentId = 999L;
-        when(carListingStatusService.markListingAsSold(eq(nonExistentId), anyString()))
-            .thenThrow(new ResourceNotFoundException("CarListing", "id", nonExistentId));
-        
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.markListingAsSold(listingId, "testUser"))
+                .thenThrow(new ResourceNotFoundException("Listing", "id", listingId));
+
         // Act
-        ResponseEntity<?> response = carListingController.markListingAsSold(nonExistentId, mockUserDetails);
-        
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.markListingAsSold(listingId, principal);
+
         // Assert
-        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNotNull(response.getBody(), "Response body should not be null");
-        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
-        
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorResponse = (Map<String, String>) response.getBody();
-        assertNotNull(errorResponse, "Error response should not be null");
-        assertTrue(errorResponse.containsKey("message"));
-        
-        verify(carListingStatusService).markListingAsSold(eq(nonExistentId), eq("testuser"));
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("not found"));
     }
-    
+
     @Test
-    void markListingAsSold_Forbidden() {
+    void markListingAsSoldByAdmin_Success() {
         // Arrange
-        String errorMessage = "User does not have permission to modify this listing.";
-        when(carListingStatusService.markListingAsSold(eq(validListingId), anyString()))
-            .thenThrow(new SecurityException(errorMessage));
-        
+        when(carListingStatusService.markListingAsSoldByAdmin(listingId))
+                .thenReturn(mockResponse);
+
         // Act
-        ResponseEntity<?> response = carListingController.markListingAsSold(validListingId, mockUserDetails);
-        
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.markListingAsSoldByAdmin(listingId);
+
         // Assert
-        assertNotNull(response, "Response should not be null");
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNotNull(response.getBody(), "Response body should not be null");
-        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
-        
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorResponse = (Map<String, String>) response.getBody();
-        assertNotNull(errorResponse, "Error response should not be null");
-        assertTrue(errorResponse.containsKey("message"));
-        assertEquals(errorMessage, errorResponse.get("message"));
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Listing marked as sold by admin successfully", body.getMessage());
+        assertEquals(mockResponse, body.getData());
     }
-    
+
     @Test
-    void markListingAsSold_Conflict() {
+    void markListingAsSoldByAdmin_NotFound() {
         // Arrange
-        String errorMessage = "Cannot mark an archived listing as sold. Please unarchive first.";
-        when(carListingStatusService.markListingAsSold(eq(validListingId), anyString()))
-            .thenThrow(new IllegalStateException(errorMessage));
-        
+        when(carListingStatusService.markListingAsSoldByAdmin(listingId))
+                .thenThrow(new ResourceNotFoundException("Listing", "id", listingId));
+
         // Act
-        ResponseEntity<?> response = carListingController.markListingAsSold(validListingId, mockUserDetails);
-        
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.markListingAsSoldByAdmin(listingId);
+
         // Assert
-        assertNotNull(response, "Response should not be null");
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("not found"));
+    }
+
+    @Test
+    void markListingAsSoldByAdmin_IllegalState() {
+        // Arrange
+        when(carListingStatusService.markListingAsSoldByAdmin(listingId))
+                .thenThrow(new IllegalStateException("Listing cannot be marked as sold in its current state"));
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.markListingAsSoldByAdmin(listingId);
+
+        // Assert
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody(), "Response body should not be null");
-        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
-        
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorResponse = (Map<String, String>) response.getBody();
-        assertNotNull(errorResponse, "Error response should not be null");
-        assertTrue(errorResponse.containsKey("message"));
-        assertEquals(errorMessage, errorResponse.get("message"));
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("current state"));
     }
-    
+
+    @Test
+    void markListingAsSoldByAdmin_UnexpectedError() {
+        // Arrange
+        when(carListingStatusService.markListingAsSoldByAdmin(listingId))
+                .thenThrow(new RuntimeException("Database error"));
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.markListingAsSoldByAdmin(listingId);
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("unexpected error"));
+    }
+
+    @Test
+    void approveListing_Success() {
+        // Arrange
+        when(carListingStatusService.approveListing(listingId))
+                .thenReturn(mockResponse);
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.approveListing(listingId);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Listing approved successfully", body.getMessage());
+        assertEquals(mockResponse, body.getData());
+    }
+
+    @Test
+    void approveListing_IllegalState() {
+        // Arrange
+        when(carListingStatusService.approveListing(listingId))
+                .thenThrow(new IllegalStateException("Listing is already approved"));
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.approveListing(listingId);
+
+        // Assert
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("already approved"));
+    }
+
+    @Test
+    void pauseListing_Success() {
+        // Arrange
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.pauseListing(listingId, "testUser"))
+                .thenReturn(mockResponse);
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.pauseListing(listingId, principal);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Listing paused successfully", body.getMessage());
+        assertEquals(mockResponse, body.getData());
+    }
+
+    @Test
+    void pauseListing_IllegalState() {
+        // Arrange
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.pauseListing(listingId, "testUser"))
+                .thenThrow(new IllegalStateException("Listing is already paused"));
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.pauseListing(listingId, principal);
+
+        // Assert
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("already paused"));
+    }
+
+    @Test
+    void resumeListing_Success() {
+        // Arrange
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.resumeListing(listingId, "testUser"))
+                .thenReturn(mockResponse);
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.resumeListing(listingId, principal);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Listing resumed successfully", body.getMessage());
+        assertEquals(mockResponse, body.getData());
+    }
+
+    @Test
+    void resumeListing_IllegalState() {
+        // Arrange
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.resumeListing(listingId, "testUser"))
+                .thenThrow(new IllegalStateException("Listing is not paused"));
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.resumeListing(listingId, principal);
+
+        // Assert
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("not paused"));
+    }
+
     @Test
     void archiveListing_Success() {
         // Arrange
-        CarListingResponse archivedResponse = new CarListingResponse();
-        archivedResponse.setId(validListingId);
-        archivedResponse.setTitle("Test Car");
-        archivedResponse.setIsSold(false);
-        archivedResponse.setIsArchived(true);
-        
-        when(carListingStatusService.archiveListing(eq(validListingId), anyString()))
-            .thenReturn(archivedResponse);
-        
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.archiveListing(listingId, "testUser"))
+                .thenReturn(mockResponse);
+
         // Act
-        ResponseEntity<?> response = carListingController.archiveListing(validListingId, mockUserDetails);
-        
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.archiveListing(listingId, principal);
+
         // Assert
-        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody(), "Response body should not be null");
-        assertTrue(response.getBody() instanceof CarListingResponse, "Response body should be a CarListingResponse");
-        
-        CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
-        assertNotNull(returnedResponse, "CarListingResponse should not be null");
-        assertEquals(validListingId, returnedResponse.getId());
-        assertTrue(returnedResponse.getIsArchived());
-        
-        verify(carListingStatusService).archiveListing(eq(validListingId), eq("testuser"));
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Listing archived successfully", body.getMessage());
+        assertEquals(mockResponse, body.getData());
     }
-    
-    @Test
-    void archiveListing_NotFound() {
-        // Arrange
-        Long nonExistentId = 999L;
-        when(carListingStatusService.archiveListing(eq(nonExistentId), anyString()))
-            .thenThrow(new ResourceNotFoundException("CarListing", "id", nonExistentId));
-        
-        // Act
-        ResponseEntity<?> response = carListingController.archiveListing(nonExistentId, mockUserDetails);
-        
-        // Assert
-        assertNotNull(response, "Response should not be null");
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNotNull(response.getBody(), "Response body should not be null");
-        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
-        
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorResponse = (Map<String, String>) response.getBody();
-        assertNotNull(errorResponse, "Error response should not be null");
-        assertTrue(errorResponse.containsKey("message"));
-    }
-    
-    @Test
-    void archiveListing_Forbidden() {
-        // Arrange
-        String errorMessage = "User does not have permission to modify this listing.";
-        when(carListingStatusService.archiveListing(eq(validListingId), anyString()))
-            .thenThrow(new SecurityException(errorMessage));
-        
-        // Act
-        ResponseEntity<?> response = carListingController.archiveListing(validListingId, mockUserDetails);
-        
-        // Assert
-        assertNotNull(response, "Response should not be null");
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNotNull(response.getBody(), "Response body should not be null");
-        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
-        
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorResponse = (Map<String, String>) response.getBody();
-        assertNotNull(errorResponse, "Error response should not be null");
-        assertTrue(errorResponse.containsKey("message"));
-        assertEquals(errorMessage, errorResponse.get("message"));
-    }
-    
+
     @Test
     void unarchiveListing_Success() {
         // Arrange
-        CarListingResponse unarchivedResponse = new CarListingResponse();
-        unarchivedResponse.setId(validListingId);
-        unarchivedResponse.setTitle("Test Car");
-        unarchivedResponse.setIsSold(false);
-        unarchivedResponse.setIsArchived(false);
-        
-        when(carListingStatusService.unarchiveListing(eq(validListingId), anyString()))
-            .thenReturn(unarchivedResponse);
-        
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.unarchiveListing(listingId, "testUser"))
+                .thenReturn(mockResponse);
+
         // Act
-        ResponseEntity<?> response = carListingController.unarchiveListing(validListingId, mockUserDetails);
-        
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.unarchiveListing(listingId, principal);
+
         // Assert
-        assertNotNull(response, "Response should not be null");
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody(), "Response body should not be null");
-        assertTrue(response.getBody() instanceof CarListingResponse, "Response body should be a CarListingResponse");
-        
-        CarListingResponse returnedResponse = (CarListingResponse) response.getBody();
-        assertNotNull(returnedResponse, "CarListingResponse should not be null");
-        assertEquals(validListingId, returnedResponse.getId());
-        assertFalse(returnedResponse.getIsArchived());
-        
-        verify(carListingStatusService).unarchiveListing(eq(validListingId), eq("testuser"));
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Listing unarchived successfully", body.getMessage());
+        assertEquals(mockResponse, body.getData());
     }
+
+    // Error scenarios
     
     @Test
-    void unarchiveListing_Conflict() {
+    void markListingAsSold_AccessDenied() {
         // Arrange
-        String errorMessage = "Listing with ID 1 is not currently archived.";
-        when(carListingStatusService.unarchiveListing(eq(validListingId), anyString()))
-            .thenThrow(new IllegalStateException(errorMessage));
-        
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.markListingAsSold(listingId, "testUser"))
+                .thenThrow(new AccessDeniedException("User does not have permission"));
+
         // Act
-        ResponseEntity<?> response = carListingController.unarchiveListing(validListingId, mockUserDetails);
-        
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.markListingAsSold(listingId, principal);
+
         // Assert
-        assertNotNull(response, "Response should not be null");
-        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody(), "Response body should not be null");
-        assertTrue(response.getBody() instanceof Map, "Response body should be a Map");
-        
-        @SuppressWarnings("unchecked")
-        Map<String, String> errorResponse = (Map<String, String>) response.getBody();
-        assertNotNull(errorResponse, "Error response should not be null");
-        assertTrue(errorResponse.containsKey("message"));
-        assertEquals(errorMessage, errorResponse.get("message"));
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("permission"));
+    }
+
+    @Test
+    void markListingAsSold_ResourceNotFound() {
+        // Arrange
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.markListingAsSold(listingId, "testUser"))
+                .thenThrow(new ResourceNotFoundException("CarListing", "id", listingId));
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.markListingAsSold(listingId, principal);
+
+        // Assert
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("CarListing not found with id : '1'"));
+    }
+
+    @Test
+    void markListingAsSold_UnexpectedError() {
+        // Arrange
+        when(principal.getName()).thenReturn("testUser");
+        when(carListingStatusService.markListingAsSold(listingId, "testUser"))
+                .thenThrow(new RuntimeException("Unexpected error"));
+
+        // Act
+        ResponseEntity<ApiResponse<CarListingResponse>> response = 
+                listingStatusController.markListingAsSold(listingId, principal);
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        ApiResponse<CarListingResponse> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.getMessage().contains("unexpected error"));
     }
 }

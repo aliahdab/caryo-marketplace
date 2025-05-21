@@ -46,12 +46,7 @@ public class CarListingStatusService {
 
     /**
      * Marks a car listing as sold by its owner.
-     * This operation:
-     * - Validates that the listing exists and can be marked as sold
-     * - Verifies that the user owns the listing
-     * - Sets the sold status to true
-     * - Publishes a ListingMarkedAsSoldEvent
-     *
+     * 
      * @param listingId The ID of the listing to mark as sold
      * @param username The username of the user attempting to mark the listing as sold
      * @return Updated car listing response
@@ -80,12 +75,6 @@ public class CarListingStatusService {
 
     /**
      * Marks a car listing as sold by an admin.
-     * This operation:
-     * - Validates that the listing exists and can be marked as sold
-     * - Sets the sold status to true
-     * - Publishes a ListingMarkedAsSoldEvent with isAdminAction=true
-     *
-     * Note: This method bypasses the normal ownership check as it's meant for admin use.
      *
      * @param listingId The ID of the listing to mark as sold
      * @return Updated car listing response with admin-specific fields
@@ -108,12 +97,7 @@ public class CarListingStatusService {
     }
 
     /**
-     * Approves a car listing. This is an admin-only operation.
-     * Approved listings become visible in public searches.
-     * This operation:
-     * - Validates that the listing exists and can be approved
-     * - Sets the approved status to true
-     * - Publishes a ListingApprovedEvent
+     * Approves a car listing
      *
      * @param listingId The ID of the listing to approve
      * @return Updated car listing response
@@ -137,10 +121,6 @@ public class CarListingStatusService {
 
     /**
      * Temporarily pauses (hides) a car listing from public view.
-     * This operation:
-     * - Validates that the listing exists and can be paused
-     * - Verifies that the user owns the listing
-     * - Sets the isUserActive status to false
      *
      * @param listingId The ID of the listing to pause
      * @param username The username of the user attempting to pause the listing
@@ -169,10 +149,6 @@ public class CarListingStatusService {
 
     /**
      * Resumes (unhides) a paused car listing, making it visible in public view again.
-     * This operation:
-     * - Validates that the listing exists and can be resumed
-     * - Verifies that the user owns the listing
-     * - Sets the isUserActive status to true
      *
      * @param listingId The ID of the listing to resume
      * @param username The username of the user attempting to resume the listing
@@ -200,14 +176,8 @@ public class CarListingStatusService {
     }
 
     /**
-     * Archives a car listing by its owner.
-     * Archived listings are completely hidden from public view and cannot be modified
-     * without being unarchived first.
-     * This operation:
-     * - Validates that the listing exists and can be archived
-     * - Verifies that the user owns the listing
-     * - Sets the archived status to true
-     * - Publishes a ListingArchivedEvent
+     * Archives a car listing by its owner. Archived listings are hidden from public view
+     * and cannot be modified without being unarchived first.
      *
      * @param listingId The ID of the listing to archive
      * @param username The username of the user attempting to archive the listing
@@ -236,13 +206,8 @@ public class CarListingStatusService {
     }
 
     /**
-     * Archives a car listing by an admin.
-     * This operation:
-     * - Validates that the listing exists and can be archived
-     * - Sets the archived status to true
-     * - Publishes a ListingArchivedEvent with isAdminAction=true
-     *
-     * Note: This method bypasses the normal ownership check as it's meant for admin use.
+     * Archives a car listing by an admin. Archived listings are hidden from public view
+     * and cannot be modified without being unarchived first.
      *
      * @param listingId The ID of the listing to archive
      * @return Updated car listing response with admin-specific fields
@@ -265,11 +230,7 @@ public class CarListingStatusService {
     }
 
     /**
-     * Unarchives a car listing by its owner.
-     * This operation:
-     * - Validates that the listing exists and can be unarchived
-     * - Verifies that the user owns the listing
-     * - Sets the archived status to false
+     * Unarchives a car listing by its owner. Makes the listing visible and modifiable again.
      *
      * @param listingId The ID of the listing to unarchive
      * @param username The username of the user attempting to unarchive the listing
@@ -297,12 +258,7 @@ public class CarListingStatusService {
     }
 
     /**
-     * Unarchives a car listing by an admin.
-     * This operation:
-     * - Validates that the listing exists and can be unarchived
-     * - Sets the archived status to false
-     *
-     * Note: This method bypasses the normal ownership check as it's meant for admin use.
+     * Unarchives a car listing by an admin. Makes the listing visible and modifiable again.
      *
      * @param listingId The ID of the listing to unarchive
      * @return Updated car listing response with admin-specific fields
@@ -322,8 +278,9 @@ public class CarListingStatusService {
         log.info("Listing {} unarchived by admin", listingId);
         return carListingMapper.toCarListingResponseForAdmin(savedListing);
     }
-    
+
     // Helper methods
+
     /**
      * Finds a user by their username.
      *
@@ -363,12 +320,8 @@ public class CarListingStatusService {
         }
     }
 
-    /**
-     * Validates that a listing can be marked as sold.
-     *
-     * @param listing The listing to validate
-     * @throws IllegalStateException if the listing cannot be marked as sold
-     */
+    // Validation methods
+
     private void validateListingCanBeMarkedAsSold(@NonNull CarListing listing) {
         if (Boolean.TRUE.equals(listing.getSold())) {
             throw new IllegalStateException(String.format("Listing with ID %d is already marked as sold.", listing.getId()));
@@ -378,24 +331,12 @@ public class CarListingStatusService {
         }
     }
 
-    /**
-     * Validates that a listing can be approved.
-     *
-     * @param listing The listing to validate
-     * @throws IllegalStateException if the listing cannot be approved
-     */
     private void validateListingCanBeApproved(@NonNull CarListing listing) {
         if (Boolean.TRUE.equals(listing.getApproved())) {
             throw new IllegalStateException(String.format("Listing with ID %d is already approved.", listing.getId()));
         }
     }
 
-    /**
-     * Validates that a listing can be paused.
-     *
-     * @param listing The listing to validate
-     * @throws IllegalStateException if the listing cannot be paused
-     */
     private void validateListingCanBePaused(@NonNull CarListing listing) {
         if (Boolean.FALSE.equals(listing.getIsUserActive())) {
             throw new IllegalStateException(String.format("Listing with ID %d is already paused.", listing.getId()));
@@ -408,12 +349,6 @@ public class CarListingStatusService {
         }
     }
 
-    /**
-     * Validates that a listing can be resumed.
-     *
-     * @param listing The listing to validate
-     * @throws IllegalStateException if the listing cannot be resumed
-     */
     private void validateListingCanBeResumed(@NonNull CarListing listing) {
         if (Boolean.TRUE.equals(listing.getIsUserActive())) {
             throw new IllegalStateException(String.format("Listing with ID %d is already active.", listing.getId()));
@@ -426,24 +361,12 @@ public class CarListingStatusService {
         }
     }
 
-    /**
-     * Validates that a listing can be archived.
-     *
-     * @param listing The listing to validate
-     * @throws IllegalStateException if the listing cannot be archived
-     */
     private void validateListingCanBeArchived(@NonNull CarListing listing) {
         if (Boolean.TRUE.equals(listing.getArchived())) {
             throw new IllegalStateException(String.format("Listing with ID %d is already archived.", listing.getId()));
         }
     }
 
-    /**
-     * Validates that a listing can be unarchived.
-     *
-     * @param listing The listing to validate
-     * @throws IllegalStateException if the listing cannot be unarchived
-     */
     private void validateListingCanBeUnarchived(@NonNull CarListing listing) {
         if (Boolean.FALSE.equals(listing.getArchived())) {
             throw new IllegalStateException(String.format("Listing with ID %d is not archived.", listing.getId()));
