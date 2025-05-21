@@ -2,52 +2,15 @@ package com.autotrader.autotraderbackend.integration;
 
 import com.autotrader.autotraderbackend.events.ListingExpiredEvent;
 import com.autotrader.autotraderbackend.payload.response.CarListingResponse;
-import com.autotrader.autotraderbackend.mapper.CarListingMapper;
-import com.autotrader.autotraderbackend.model.CarListing;
-import com.autotrader.autotraderbackend.model.User;
-import com.autotrader.autotraderbackend.repository.CarListingRepository;
-import com.autotrader.autotraderbackend.repository.UserRepository;
-import com.autotrader.autotraderbackend.service.CarListingStatusService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
-public class ListingExpiredEventIntegrationTest {
+public class ListingExpiredEventIntegrationTest extends BaseListingEventIntegrationTest {
 
-    @InjectMocks
-    private CarListingStatusService carListingStatusService;
-
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
-
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private CarListingRepository carListingRepository;
-
-    @Mock
-    private CarListingMapper carListingMapper;
-
-    private CarListing mockListing;
-    private User mockUser;
-
-    @BeforeEach
-    public void setUp() {
-        // Setup test user
-        mockUser = new User();
-        mockUser.setId(1L);
-        mockUser.setUsername("testuser");
 
         // Setup test listing
         mockListing = new CarListing();
