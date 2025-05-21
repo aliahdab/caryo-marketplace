@@ -280,6 +280,11 @@ public class CarListingStatusService {
         return carListingMapper.toCarListingResponseForAdmin(savedListing);
     }
 
+<<<<<<< HEAD
+=======
+    // Helper methods
+
+>>>>>>> 0848d33 (Refactor CarListingStatusService and ListingStatusControllerTest)
     /**
      * Marks a car listing as expired. This is typically called by the system
      * when a listing reaches its expiration date.
@@ -352,6 +357,7 @@ public class CarListingStatusService {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Validates that a listing can be marked as sold.
      *
@@ -360,6 +366,12 @@ public class CarListingStatusService {
      */
     private void validateListingCanBeMarkedAsSold(CarListing listing) {
         if (listing.getSold()) {
+=======
+    // Validation methods
+
+    private void validateListingCanBeMarkedAsSold(@NonNull CarListing listing) {
+        if (Boolean.TRUE.equals(listing.getSold())) {
+>>>>>>> 0848d33 (Refactor CarListingStatusService and ListingStatusControllerTest)
             throw new IllegalStateException(String.format("Listing with ID %d is already marked as sold.", listing.getId()));
         }
         if (listing.getArchived()) {
@@ -367,6 +379,7 @@ public class CarListingStatusService {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Validates that a listing can be approved.
      *
@@ -375,6 +388,10 @@ public class CarListingStatusService {
      */
     private void validateListingCanBeApproved(CarListing listing) {
         if (listing.getApproved()) {
+=======
+    private void validateListingCanBeApproved(@NonNull CarListing listing) {
+        if (Boolean.TRUE.equals(listing.getApproved())) {
+>>>>>>> 0848d33 (Refactor CarListingStatusService and ListingStatusControllerTest)
             throw new IllegalStateException(String.format("Listing with ID %d is already approved.", listing.getId()));
         }
         if (listing.getArchived()) {
@@ -385,6 +402,7 @@ public class CarListingStatusService {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Validates that a listing can be paused.
      *
@@ -393,6 +411,10 @@ public class CarListingStatusService {
      */
     private void validateListingCanBePaused(CarListing listing) {
         if (!listing.getIsUserActive()) {
+=======
+    private void validateListingCanBePaused(@NonNull CarListing listing) {
+        if (Boolean.FALSE.equals(listing.getIsUserActive())) {
+>>>>>>> 0848d33 (Refactor CarListingStatusService and ListingStatusControllerTest)
             throw new IllegalStateException(String.format("Listing with ID %d is already paused.", listing.getId()));
         }
         if (listing.getSold()) {
@@ -403,6 +425,7 @@ public class CarListingStatusService {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Validates that a listing can be resumed.
      *
@@ -411,6 +434,10 @@ public class CarListingStatusService {
      */
     private void validateListingCanBeResumed(CarListing listing) {
         if (listing.getIsUserActive()) {
+=======
+    private void validateListingCanBeResumed(@NonNull CarListing listing) {
+        if (Boolean.TRUE.equals(listing.getIsUserActive())) {
+>>>>>>> 0848d33 (Refactor CarListingStatusService and ListingStatusControllerTest)
             throw new IllegalStateException(String.format("Listing with ID %d is already active.", listing.getId()));
         }
         if (listing.getSold()) {
@@ -421,6 +448,7 @@ public class CarListingStatusService {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Validates that a listing can be archived.
      *
@@ -429,10 +457,15 @@ public class CarListingStatusService {
      */
     private void validateListingCanBeArchived(CarListing listing) {
         if (listing.getArchived()) {
+=======
+    private void validateListingCanBeArchived(@NonNull CarListing listing) {
+        if (Boolean.TRUE.equals(listing.getArchived())) {
+>>>>>>> 0848d33 (Refactor CarListingStatusService and ListingStatusControllerTest)
             throw new IllegalStateException(String.format("Listing with ID %d is already archived.", listing.getId()));
         }
     }
 
+<<<<<<< HEAD
     /**
      * Validates that a listing can be unarchived.
      *
@@ -441,6 +474,10 @@ public class CarListingStatusService {
      */
     private void validateListingCanBeUnarchived(CarListing listing) {
         if (!listing.getArchived()) {
+=======
+    private void validateListingCanBeUnarchived(@NonNull CarListing listing) {
+        if (Boolean.FALSE.equals(listing.getArchived())) {
+>>>>>>> 0848d33 (Refactor CarListingStatusService and ListingStatusControllerTest)
             throw new IllegalStateException(String.format("Listing with ID %d is not archived.", listing.getId()));
         }
     }
