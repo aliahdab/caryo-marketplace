@@ -56,14 +56,27 @@ CREATE TABLE car_listings (
     cylinders INTEGER,
     seller_id BIGINT NOT NULL,
     location_id BIGINT,
+    condition_id BIGINT,
+    body_style_id BIGINT,
+    transmission_id BIGINT,
+    fuel_type_id BIGINT,
+    drive_type_id BIGINT,
+    transmission VARCHAR(50),
     approved BOOLEAN DEFAULT FALSE,
     sold BOOLEAN DEFAULT FALSE,
     archived BOOLEAN DEFAULT FALSE,
+    expired BOOLEAN DEFAULT FALSE,
+    is_user_active BOOLEAN DEFAULT TRUE,
     expiration_date TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (seller_id) REFERENCES users (id) ON DELETE CASCADE,
-    FOREIGN KEY (location_id) REFERENCES locations (id) ON DELETE SET NULL
+    FOREIGN KEY (location_id) REFERENCES locations (id) ON DELETE SET NULL,
+    FOREIGN KEY (condition_id) REFERENCES car_conditions (id) ON DELETE SET NULL,
+    FOREIGN KEY (body_style_id) REFERENCES body_styles (id) ON DELETE SET NULL,
+    FOREIGN KEY (transmission_id) REFERENCES transmissions (id) ON DELETE SET NULL,
+    FOREIGN KEY (fuel_type_id) REFERENCES fuel_types (id) ON DELETE SET NULL,
+    FOREIGN KEY (drive_type_id) REFERENCES drive_types (id) ON DELETE SET NULL
 );
 
 CREATE TABLE listing_media (
@@ -218,3 +231,42 @@ CREATE TABLE user_activity_logs (
 -- Default roles
 INSERT INTO roles (name) VALUES ('ROLE_USER');
 INSERT INTO roles (name) VALUES ('ROLE_ADMIN');
+
+-- Function to automatically update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_modified_column()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = now();
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Add update triggers for tables with updated_at column
+CREATE TRIGGER update_users_modtime BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+
+CREATE TRIGGER update_locations_modtime BEFORE UPDATE ON locations
+    FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+
+CREATE TRIGGER update_car_listings_modtime BEFORE UPDATE ON car_listings
+    FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+
+CREATE TRIGGER update_listing_packages_modtime BEFORE UPDATE ON listing_packages
+    FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+
+CREATE TRIGGER update_ad_packages_modtime BEFORE UPDATE ON ad_packages
+    FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+
+CREATE TRIGGER update_ad_services_modtime BEFORE UPDATE ON ad_services
+    FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+
+-- Favorites Table
+CREATE TABLE favorites (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    car_listing_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_favorites_user_car UNIQUE (user_id, car_listing_id),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (car_listing_id) REFERENCES car_listings (id) ON DELETE CASCADE
+);

@@ -12,12 +12,14 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.metamodel.EntityType;
 import jakarta.persistence.metamodel.Attribute;
+import jakarta.persistence.metamodel.EntityType;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -32,9 +34,12 @@ import static org.junit.jupiter.api.Assertions.*;
  * 4. Full CRUD operations testing for each entity
  * 5. Validation of bidirectional relationship behavior
  */
+import org.springframework.transaction.annotation.Transactional;
+
 @DataJpaTest
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Transactional
 public class SchemaValidationTest {
 
     @Autowired
@@ -374,4 +379,25 @@ public class SchemaValidationTest {
         assertEquals(1, updatedListing.getMedia().size());
         assertEquals("secondary-image-key", updatedListing.getMedia().get(0).getFileKey());
     }
+    
+    @Test
+    public void testLocationRepository() {
+        Location location = new Location();
+        location.setDisplayNameEn("Test City");
+        location.setDisplayNameAr("مدينة اختبار");
+        location.setSlug("test-city");
+        location.setLatitude(33.5138);
+        location.setLongitude(36.2765);
+        location.setCountryCode("SY");
+        testEntityManager.persistAndFlush(location);
+
+        Optional<Location> foundOptional = locationRepository.findBySlug("test-city");
+        assertThat(foundOptional).isPresent();
+        Location found = foundOptional.get();
+        assertThat(found.getDisplayNameEn()).isEqualTo("Test City");
+        assertThat(found.getDisplayNameAr()).isEqualTo("مدينة اختبار");
+        assertThat(found.getCountryCode()).isEqualTo("SY");
+    }
+
+    // Add more tests for other entities if needed
 }
