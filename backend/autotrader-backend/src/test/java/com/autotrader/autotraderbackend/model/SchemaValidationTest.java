@@ -74,6 +74,23 @@ public class SchemaValidationTest {
                 .orElseGet(() -> roleRepository.save(new Role(roleName)));
     }
 
+    // Helper method to find or create a location
+    private Location findOrCreateLocation(String slug, String displayNameEn, String displayNameAr, String countryCode, String region, double latitude, double longitude, boolean isActive) {
+        return locationRepository.findBySlug(slug)
+                .orElseGet(() -> {
+                    Location newLocation = new Location();
+                    newLocation.setSlug(slug);
+                    newLocation.setDisplayNameEn(displayNameEn);
+                    newLocation.setDisplayNameAr(displayNameAr);
+                    newLocation.setCountryCode(countryCode);
+                    newLocation.setRegion(region);
+                    newLocation.setLatitude(latitude);
+                    newLocation.setLongitude(longitude);
+                    newLocation.setIsActive(isActive);
+                    return locationRepository.save(newLocation);
+                });
+    }
+
     @Test
     public void testUserEntityMapping() {
         EntityManager entityManager = testEntityManager.getEntityManager();
@@ -193,24 +210,14 @@ public class SchemaValidationTest {
         assertTrue(hasAttribute(locationEntity, "longitude"));
         assertTrue(hasAttribute(locationEntity, "isActive"));
         
-        // Verify Location record creation and retrieval
-        Location location = new Location();
-        location.setDisplayNameEn("Damascus");
-        location.setDisplayNameAr("دمشق");
-        location.setSlug("damascus");
-        location.setCountryCode("SY");
-        location.setRegion("Central Syria");
-        location.setLatitude(33.5138);
-        location.setLongitude(36.2765);
-        location.setIsActive(true);
-        
-        Location savedLocation = locationRepository.save(location);
+        // Verify Location record creation and retrieval using findOrCreateLocation
+        Location location = findOrCreateLocation("damascus", "Damascus", "دمشق", "SY", "Central Syria", 33.5138, 36.2765, true);
         
         testEntityManager.flush();
         testEntityManager.clear();
         
         // Retrieve the location and verify its properties
-        Location retrievedLocation = locationRepository.findById(savedLocation.getId()).orElse(null);
+        Location retrievedLocation = locationRepository.findBySlug("damascus").orElse(null);
         assertNotNull(retrievedLocation);
         assertEquals("Damascus", retrievedLocation.getDisplayNameEn());
         assertEquals("دمشق", retrievedLocation.getDisplayNameAr());
@@ -381,14 +388,8 @@ public class SchemaValidationTest {
     
     @Test
     public void testLocationRepository() {
-        Location location = new Location();
-        location.setDisplayNameEn("Test City");
-        location.setDisplayNameAr("مدينة اختبار");
-        location.setSlug("test-city");
-        location.setLatitude(33.5138);
-        location.setLongitude(36.2765);
-        location.setCountryCode("SY");
-        testEntityManager.persistAndFlush(location);
+        // Use findOrCreateLocation to ensure no duplicates
+        Location location = findOrCreateLocation("test-city", "Test City", "مدينة اختبار", "SY", "Test Region", 33.5138, 36.2765, true);
 
         Optional<Location> foundOptional = locationRepository.findBySlug("test-city");
         assertThat(foundOptional).isPresent();
