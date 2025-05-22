@@ -4,6 +4,8 @@ import com.autotrader.autotraderbackend.repository.ListingMediaRepository;
 import com.autotrader.autotraderbackend.repository.LocationRepository;
 import com.autotrader.autotraderbackend.repository.RoleRepository;
 import com.autotrader.autotraderbackend.repository.UserRepository;
+import com.autotrader.autotraderbackend.repository.FavoriteRepository; // Added import
+import com.autotrader.autotraderbackend.repository.CarListingRepository; // Added import
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -53,6 +55,12 @@ public class SchemaValidationTest {
     
     @Autowired
     private LocationRepository locationRepository;
+
+    @Autowired
+    private FavoriteRepository favoriteRepository; // Injected FavoriteRepository
+
+    @Autowired
+    private CarListingRepository carListingRepository; // Injected CarListingRepository
 
     // Repositories for the relevant entities
     @Autowired 
@@ -397,6 +405,56 @@ public class SchemaValidationTest {
         assertThat(found.getDisplayNameEn()).isEqualTo("Test City");
         assertThat(found.getDisplayNameAr()).isEqualTo("مدينة اختبار");
         assertThat(found.getCountryCode()).isEqualTo("SY");
+    }
+
+    @Test
+    public void testFavoriteEntityMapping() {
+        EntityManager entityManager = testEntityManager.getEntityManager();
+        EntityType<Favorite> favoriteEntity = entityManager.getMetamodel().entity(Favorite.class);
+
+        // Verify table name
+        String actualTableName = favoriteEntity.getJavaType().getAnnotation(jakarta.persistence.Table.class).name();
+        assertEquals("favorites", actualTableName);
+
+        // Verify key attributes
+        assertTrue(hasAttribute(favoriteEntity, "id"));
+        assertTrue(hasAttribute(favoriteEntity, "user"));
+        assertTrue(hasAttribute(favoriteEntity, "carListing"));
+        assertTrue(hasAttribute(favoriteEntity, "createdAt"));
+
+        // Create a User
+        User user = new User("favuser", "favuser@example.com", "password");
+        userRepository.save(user); // Ensure user is persisted
+
+        // Create a CarListing
+        CarListing carListing = new CarListing();
+        carListing.setTitle("Favorite Test Car");
+        carListing.setBrand("TestBrand");
+        carListing.setModel("TestModel");
+        carListing.setModelYear(2023);
+        carListing.setPrice(new java.math.BigDecimal("10000"));
+        carListing.setDescription("A test description for the favorite car listing."); // Added description
+        carListing.setMileage(10000); // Added mileage
+        carListing.setSeller(user); // Assuming seller is the same user for simplicity
+        carListingRepository.save(carListing); // Ensure carListing is persisted
+
+        // Create a Favorite
+        Favorite favorite = new Favorite();
+        favorite.setUser(user);
+        favorite.setCarListing(carListing);
+
+        Favorite savedFavorite = favoriteRepository.save(favorite);
+        testEntityManager.flush();
+        testEntityManager.clear();
+
+        // Retrieve and verify
+        Favorite retrievedFavorite = favoriteRepository.findById(savedFavorite.getId()).orElse(null);
+        assertNotNull(retrievedFavorite);
+        assertNotNull(retrievedFavorite.getUser());
+        assertEquals(user.getId(), retrievedFavorite.getUser().getId());
+        assertNotNull(retrievedFavorite.getCarListing());
+        assertEquals(carListing.getId(), retrievedFavorite.getCarListing().getId());
+        assertNotNull(retrievedFavorite.getCreatedAt());
     }
 
     // Add more tests for other entities if needed
