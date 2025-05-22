@@ -68,6 +68,12 @@ public class SchemaValidationTest {
         }
     }
 
+    // Helper method to find or create a role
+    private Role findOrCreateRole(String roleName) {
+        return roleRepository.findByName(roleName)
+                .orElseGet(() -> roleRepository.save(new Role(roleName)));
+    }
+
     @Test
     public void testUserEntityMapping() {
         EntityManager entityManager = testEntityManager.getEntityManager();
@@ -88,10 +94,7 @@ public class SchemaValidationTest {
         
         // Verify JoinTable for many-to-many relationship with roles
         User user = new User("testuser", "test@example.com", "password");
-        Role role = new Role("ROLE_USER");
-        
-        // Save the role first
-        roleRepository.save(role);
+        Role role = findOrCreateRole("ROLE_USER"); // Use helper method
         
         // Create a set of roles and add the role to it
         Set<Role> roles = new HashSet<>();
@@ -101,7 +104,7 @@ public class SchemaValidationTest {
         // Save the user
         User savedUser = userRepository.save(user);
         
-        // Clear the persistence context to ensure we're getting fresh data
+        // Clear the persistence context to ensure we\'re getting fresh data
         testEntityManager.flush();
         testEntityManager.clear();
         
@@ -126,13 +129,13 @@ public class SchemaValidationTest {
         assertTrue(hasAttribute(roleEntity, "name"));
         
         // Verify role record creation and retrieval
-        Role role = new Role("ROLE_ADMIN");
-        Role savedRole = roleRepository.save(role);
+        Role role = findOrCreateRole("ROLE_ADMIN"); // Use helper method
+        // Role savedRole = roleRepository.save(role); // No need to save again if findOrCreateRole handles it
         
         testEntityManager.flush();
         testEntityManager.clear();
         
-        Role retrievedRole = roleRepository.findById(savedRole.getId()).orElse(null);
+        Role retrievedRole = roleRepository.findByName("ROLE_ADMIN").orElse(null); // Find by name
         assertNotNull(retrievedRole);
         assertEquals("ROLE_ADMIN", retrievedRole.getName());
     }
@@ -141,12 +144,8 @@ public class SchemaValidationTest {
     public void testUserRolesRelationship() {
         // Create user and roles
         User user = new User("relationuser", "relation@example.com", "password");
-        Role userRole = new Role("ROLE_USER");
-        Role adminRole = new Role("ROLE_MODERATOR");
-        
-        // Save roles first
-        roleRepository.save(userRole);
-        roleRepository.save(adminRole);
+        Role userRole = findOrCreateRole("ROLE_USER"); // Use helper method
+        Role adminRole = findOrCreateRole("ROLE_MODERATOR"); // Use helper method
         
         // Assign both roles to user
         Set<Role> roles = new HashSet<>();
@@ -168,7 +167,7 @@ public class SchemaValidationTest {
         
         // Verify role names
         Set<String> roleNames = new HashSet<>();
-        retrievedUser.getRoles().forEach(role -> roleNames.add(role.getName()));
+        retrievedUser.getRoles().forEach(retrievedRole -> roleNames.add(retrievedRole.getName()));
         
         assertTrue(roleNames.contains("ROLE_USER"));
         assertTrue(roleNames.contains("ROLE_MODERATOR"));
