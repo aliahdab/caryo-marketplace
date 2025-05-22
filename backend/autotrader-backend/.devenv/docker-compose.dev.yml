@@ -124,10 +124,11 @@ services:
 
   # Mailhog (mail catching service)
   mailhog:
-    image: mailhog/mailhog:latest
+    image: axllent/mailpit:latest
+    container_name: mailpit
     ports:
-      - "1025:1025" # SMTP port
-      - "8025:8025" # Web UI port
+      - "1025:1025"
+      - "8025:8025"
     networks:
       - backend-network
 
