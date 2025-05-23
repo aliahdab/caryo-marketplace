@@ -34,18 +34,14 @@ jobs:
       run: |
         echo "Running unit tests (excluding integration tests)..."
         
-        # List all test tasks for debugging
-        echo "Available test tasks:"
-        ./gradlew tasks --all | grep -E "test|Test" || true
+        # Set a profile for testing with H2 in-memory database
+        export SPRING_PROFILES_ACTIVE=test
+        
+        # Explicitly disable S3 for unit tests
+        export STORAGE_S3_ENABLED=false
         
         # Run unit tests, properly excluding integration tests
-        if ./gradlew tasks --all | grep -q "integrationTest"; then
-          echo "integrationTest task found, excluding it from test run"
-          ./gradlew test --exclude-task integrationTest
-        else
-          echo "integrationTest task not found, running standard unit tests"
-          ./gradlew test
-        fi
+        ./gradlew test --exclude-task integrationTest --info
 
         # Generate JaCoCo reports if available
         if ./gradlew tasks --all | grep -q "jacocoTestReport"; then
