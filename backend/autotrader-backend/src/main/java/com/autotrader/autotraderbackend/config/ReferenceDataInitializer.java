@@ -43,12 +43,12 @@ public class ReferenceDataInitializer implements CommandLineRunner {
 
     private void initializeCarConditions() {
         List<CarCondition> conditions = Arrays.asList(
-            createCarCondition("new", "New", "جديد"),
-            createCarCondition("like_new", "Like New", "شبه جديد"),
-            createCarCondition("excellent", "Excellent", "ممتاز"),
-            createCarCondition("very_good", "Very Good", "جيد جداً"),
-            createCarCondition("good", "Good", "جيد"),
-            createCarCondition("fair", "Fair", "مقبول")
+            createCarCondition("new", "New", "جديد", "new"),
+            createCarCondition("like_new", "Like New", "شبه جديد", "like-new"),
+            createCarCondition("excellent", "Excellent", "ممتاز", "excellent"),
+            createCarCondition("very_good", "Very Good", "جيد جداً", "very-good"),
+            createCarCondition("good", "Good", "جيد", "good"),
+            createCarCondition("fair", "Fair", "مقبول", "fair")
         );
         
         for (CarCondition condition : conditions) {
@@ -169,11 +169,12 @@ public class ReferenceDataInitializer implements CommandLineRunner {
 
     // Helper methods for creating entities
     
-    private CarCondition createCarCondition(String name, String displayNameEn, String displayNameAr) {
+    private CarCondition createCarCondition(String name, String displayNameEn, String displayNameAr, String slug) {
         CarCondition condition = new CarCondition();
         condition.setName(name);
         condition.setDisplayNameEn(displayNameEn);
         condition.setDisplayNameAr(displayNameAr);
+        condition.setSlug(slug);
         return condition;
     }
     

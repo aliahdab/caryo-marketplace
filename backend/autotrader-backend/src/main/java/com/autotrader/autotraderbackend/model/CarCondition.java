@@ -18,6 +18,9 @@ public class CarCondition {
     @Column(nullable = false, length = 20)
     private String name;
 
+    @Column(nullable = false, unique = true, length = 100)
+    private String slug;
+
     @Column(name = "display_name_en", nullable = false, length = 50)
     private String displayNameEn;
 
