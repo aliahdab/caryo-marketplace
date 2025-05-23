@@ -1,3 +1,19 @@
+-- Add one sample media item for each car listing (dev only)
+INSERT INTO listing_media (
+    listing_id, file_key, file_name, content_type, size, sort_order, is_primary, media_type, created_at
+)
+SELECT
+    id,
+    'listings/' || id || '/main.jpg',
+    'main.jpg',
+    'image/jpeg',
+    123456, -- replace with actual file size if known
+    0,
+    TRUE,
+    'image',
+    NOW()
+FROM car_listings
+ON CONFLICT DO NOTHING;
 -- Basic sample data for testing
 -- Sample Users
 
