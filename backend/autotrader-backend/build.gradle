@@ -73,12 +73,34 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    filter {
+        excludeTestsMatching '*IT*'
+        excludeTestsMatching '*IntegrationTest*'
+    }
     testLogging {
         events "passed", "skipped", "failed"
         exceptionFormat = 'full'
         showStandardStreams = true
     }
 }
+
+// Integration test task
+task integrationTest(type: Test) {
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching '*IT*'
+        includeTestsMatching '*IntegrationTest*'
+    }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat = 'full'
+        showStandardStreams = true
+    }
+    shouldRunAfter test
+}
+check.dependsOn integrationTest
 
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ["-Xlint:deprecation", "-Xlint:unchecked"]
