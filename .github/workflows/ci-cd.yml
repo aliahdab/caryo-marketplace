@@ -21,13 +21,6 @@ jobs:
   # Backend tests are now handled by the dedicated unit-tests.yml workflow
   # which runs on backend changes to both main and develop branches
 
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: backend-test-results
-        path: backend/autotrader-backend/build/reports/tests/
-
   frontend-build-and-test:
     runs-on: ubuntu-latest
     # Only run this job for pull_request events to main branch
