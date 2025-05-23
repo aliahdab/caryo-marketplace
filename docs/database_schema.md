@@ -1,6 +1,6 @@
 # Database Schema
 
-This document outlines the database schema for the AutoTrader Marketplace backend.
+This document outlines the database schema for the AutoTrader Marketplace backend, reflecting the implemented Java entities.
 
 ## Core Tables
 
@@ -24,7 +24,7 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 ## Location Tables
 
 ### Table: locations
-- **id**: BIGINT PRIMARY KEY 
+- **id**: BIGINT PRIMARY KEY
 - **display_name_en**: VARCHAR(100) NOT NULL
 - **display_name_ar**: VARCHAR(100) NOT NULL
 - **slug**: VARCHAR(100) UNIQUE NOT NULL
@@ -60,7 +60,7 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 - **transmission_id**: BIGINT (Foreign Key to transmissions.id)
 - **fuel_type_id**: BIGINT (Foreign Key to fuel_types.id)
 - **drive_type_id**: BIGINT (Foreign Key to drive_types.id)
-- **transmission**: VARCHAR(50)
+- **transmission**: VARCHAR(50)  // Note: This is a direct string field, separate from transmission_id FK
 - **approved**: BOOLEAN DEFAULT FALSE
 - **sold**: BOOLEAN DEFAULT FALSE
 - **archived**: BOOLEAN DEFAULT FALSE
@@ -81,6 +81,15 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 - **is_primary**: BOOLEAN DEFAULT FALSE
 - **media_type**: VARCHAR(20) NOT NULL CHECK (media_type IN ('image', 'video'))
 - **created_at**: TIMESTAMP NOT NULL
+
+## User Feature Tables
+
+### Table: favorites
+- **id**: BIGINT PRIMARY KEY
+- **user_id**: BIGINT NOT NULL (Foreign Key to users.id)
+- **car_listing_id**: BIGINT NOT NULL (Foreign Key to car_listings.id)
+- **created_at**: TIMESTAMP NOT NULL
+- UNIQUE CONSTRAINT on (user_id, car_listing_id)
 
 ## Car Attributes Reference Tables
 
@@ -139,13 +148,7 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 - **display_name_en**: VARCHAR(50) NOT NULL
 - **display_name_ar**: VARCHAR(50) NOT NULL
 
-### Table: seller_types
-- **id**: BIGINT PRIMARY KEY
-- **name**: VARCHAR(20) NOT NULL
-- **display_name_en**: VARCHAR(50) NOT NULL
-- **display_name_ar**: VARCHAR(50) NOT NULL
-
-## Pricing & Ad Services Tables
+## Pricing & Ad Services Tables (Future Implementation)
 
 ### Table: ad_packages
 - **id**: BIGINT PRIMARY KEY
@@ -186,90 +189,69 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 - **price_paid**: DECIMAL(10, 2) NOT NULL
 - **created_at**: TIMESTAMP NOT NULL
 
-## Audit & System Tables
-
-### Table: user_activity_logs
-- **id**: BIGINT PRIMARY KEY
-- **user_id**: BIGINT (Foreign Key to users.id)
-- **action**: VARCHAR(50) NOT NULL
-- **entity_type**: VARCHAR(50) NOT NULL
-- **entity_id**: BIGINT
-- **details**: TEXT
-- **ip_address**: VARCHAR(45)
-- **user_agent**: VARCHAR(255)
-- **created_at**: TIMESTAMP NOT NULL
-
 ## Relationships
 
-- **users** has many **car_listings**
+- **users** has many **car_listings** (via `CarListing.seller`)
 - **users** has many **roles** through **user_roles**
+- **users** has many **favorites** (via `Favorite.user`)
 - **car_listings** belongs to **users** (seller)
-- **car_listings** belongs to **locations**
-- **car_listings** belongs to **car_conditions**
-- **car_listings** belongs to **body_styles**
-- **car_listings** belongs to **transmissions**
-- **car_listings** belongs to **fuel_types**
-- **car_listings** belongs to **drive_types**
-- **car_listings** has many **listing_media**
-- **car_listings** has many **ad_packages** through **listing_packages**
-- **car_listings** has many **ad_services** through **listing_services**
-- **car_brands** has many **car_models**
-- **car_models** has many **car_trims**
+- **car_listings** belongs to **locations** (via `CarListing.location`)
+- **car_listings** belongs to **car_conditions** (via `CarListing.condition`)
+- **car_listings** belongs to **body_styles** (via `CarListing.bodyStyle`)
+- **car_listings** belongs to **transmissions** (via `CarListing.transmissionType` for the entity, `transmission_id` for the FK)
+- **car_listings** belongs to **fuel_types** (via `CarListing.fuelType`)
+- **car_listings** belongs to **drive_types** (via `CarListing.driveType`)
+- **car_listings** has many **listing_media** (via `ListingMedia.carListing` and `CarListing.media`)
+- **car_listings** has many **favorites** (via `Favorite.carListing`)
+- **car_brands** has many **car_models** (via `CarModel.brand` and `CarBrand.models`)
+- **car_models** has many **car_trims** (via `CarTrim.model` and `CarModel.trims`)
 - **car_models** belongs to **car_brands**
 - **car_trims** belongs to **car_models**
+- **car_listings** has many **ad_packages** through **listing_packages** (Future)
+- **car_listings** has many **ad_services** through **listing_services** (Future)
 
-## Entity Relationship Diagram (ERD)
+## Entity Relationship Diagram (ERD) - Simplified based on existing entities
 
 ```
-[users] 1——* [car_listings] *——1 [locations]
-   |                |                
-   |                |——————*——1 [car_conditions]
-   |                |——————*——1 [body_styles]
-   |                |——————*——1 [transmissions]
-   |                |——————*——1 [fuel_types]
-   |                |——————*——1 [drive_types]
-   |                |
-   |                *
-   |         [listing_media]
-   |                |
-   |                |
-[user_roles]        |
-   |                |
-   |                |
-[roles]      [listing_packages]
-                    |
-                    |
-              [ad_packages]
-                    
-[car_brands] 1——* [car_models] 1——* [car_trims]
+[users] 1------* [car_listings] *------1 [locations]
+  |  \              |
+  |   \             +--*--1 [car_conditions]
+  |    \            +--*--1 [body_styles]
+  |     \           +--*--1 [transmissions]
+  |      \          +--*--1 [fuel_types]
+  |       \         +--*--1 [drive_types]
+  |        \        |
+  |         \       *-- [listing_media]
+  |          \      |
+  |           \     |
+[user_roles]    *--[favorites]
+  |              
+  |              
+[roles]        
+
+[car_brands] 1--* [car_models] 1--* [car_trims]
+
+(Pricing & Ad Services tables like ad_packages, listing_packages etc. are future and not shown in this simplified ERD of current entities)
 ```
 
 ## Notes
 
-1. **Indexing Strategy**:
-   - Indexes on foreign keys (e.g., `seller_id`, `location_id` in `car_listings`)
-   - Indexes on commonly filtered fields (e.g., `brand`, `model`, `price` in `car_listings`)
-   - Full-text search indexes on description fields
+1.  **Indexing Strategy**:
+    - Indexes on foreign keys (e.g., `seller_id`, `location_id` in `car_listings`)
+    - Indexes on commonly filtered fields (e.g., `brand`, `model`, `price` in `car_listings`)
+    - Full-text search indexes on description fields
 
-2. **Data Migrations**:
-   - Flyway will be used to manage database schema versioning
-   - Migration scripts will be stored in `src/main/resources/db/migration`
+2.  **Data Migrations**:
+    - Flyway is used to manage database schema versioning.
+    - Migration scripts are stored in `src/main/resources/db/migration`.
+    - Note: The initial migration script (`V1__Initial_Schema.sql`) may contain definitions for tables or columns (e.g., `makes`, `models` with different structures, additional columns in attribute tables like `slug`, `created_at`) that are not reflected in the current Java entities and therefore not in this schema document. This document aims to reflect the Java entity source of truth.
 
-3. **Data Integrity**:
-   - Foreign key constraints ensure referential integrity
-   - Cascade delete for certain relationships (e.g., listing images when a listing is deleted)
+3.  **Data Integrity**:
+    - Foreign key constraints ensure referential integrity.
+    - Cascade delete for certain relationships (e.g., listing images when a listing is deleted) should be handled by JPA configurations or database constraints as appropriate.
 
 ## Database Triggers
 
 ### Timestamp Auto-Update Triggers
-
-The following tables have triggers to automatically update their `updated_at` timestamp whenever a row is updated:
-
-- **users** - `update_users_modtime`
-- **locations** - `update_locations_modtime`
-- **car_listings** - `update_car_listings_modtime`
-- **listing_packages** - `update_listing_packages_modtime`
-- **ad_packages** - `update_ad_packages_modtime`
-- **ad_services** - `update_ad_services_modtime`
-
-All these triggers use the `update_modified_column()` function which sets `NEW.updated_at = now()`.
+The `updated_at` timestamps in tables like `users`, `locations`, `car_listings` etc., are generally handled by JPA's `@PreUpdate` lifecycle callbacks in the entities or by database-level triggers if configured. For example, `CarListing.java` uses a PostgreSQL trigger, while `User.java` and `Location.java` use `@PreUpdate`.
+This schema document does not list specific trigger names unless they are a critical part of the design not covered by entity behavior.
