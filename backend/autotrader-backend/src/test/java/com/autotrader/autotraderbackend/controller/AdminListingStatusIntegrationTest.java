@@ -157,6 +157,7 @@ public class AdminListingStatusIntegrationTest extends IntegrationTestWithS3 {
     }
     
     @Test
+    @Transactional
     public void adminCanArchiveListing() throws Exception {
         // Verify listing is not archived initially
         Optional<CarListing> initialListing = carListingRepository.findById(listingId);
