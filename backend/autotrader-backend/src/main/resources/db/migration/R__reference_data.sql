@@ -4,20 +4,21 @@
 -- Car Conditions
 MERGE INTO car_conditions AS t 
 USING (VALUES 
-    ('new', 'New', 'جديد'),
-    ('excellent', 'Excellent', 'ممتاز'),
-    ('very_good', 'Very Good', 'جيد جداً'),
-    ('good', 'Good', 'جيد'),
-    ('fair', 'Fair', 'مقبول')
-) AS s(name, display_name_en, display_name_ar) 
+    ('new', 'New', 'جديد', 'new'),
+    ('excellent', 'Excellent', 'ممتاز', 'excellent'),
+    ('very_good', 'Very Good', 'جيد جداً', 'very-good'),
+    ('good', 'Good', 'جيد', 'good'),
+    ('fair', 'Fair', 'مقبول', 'fair')
+) AS s(name, display_name_en, display_name_ar, slug) 
 ON t.name = s.name
 WHEN MATCHED THEN 
     UPDATE SET 
         display_name_en = s.display_name_en, 
-        display_name_ar = s.display_name_ar
+        display_name_ar = s.display_name_ar,
+        slug = s.slug
 WHEN NOT MATCHED THEN 
-    INSERT (name, display_name_en, display_name_ar) 
-    VALUES (s.name, s.display_name_en, s.display_name_ar);
+    INSERT (name, display_name_en, display_name_ar, slug) 
+    VALUES (s.name, s.display_name_en, s.display_name_ar, s.slug);
 
 MERGE INTO car_conditions AS t USING (VALUES ('like_new', 'Like New', 'شبه جديد', 'like-new')) AS s(name, display_name_en, display_name_ar, slug) ON t.name = s.name
 WHEN MATCHED THEN UPDATE SET display_name_en = s.display_name_en, display_name_ar = s.display_name_ar, slug = s.slug
