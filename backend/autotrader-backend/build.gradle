@@ -73,6 +73,9 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Only run unit tests by default (exclude integration tests)
+    include '**/*Test.class'
+    exclude '**/*IntegrationTest.class'
     testLogging {
         events "passed", "skipped", "failed"
         exceptionFormat = 'full'
