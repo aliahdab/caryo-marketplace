@@ -278,6 +278,7 @@ export default function SignUpPage() {
                   </div>
                   <input
                     id="password"
+                    data-testid="password-input"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -307,6 +308,7 @@ export default function SignUpPage() {
                   </div>
                   <input
                     id="confirmPassword"
+                    data-testid="confirm-password-input"
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
