@@ -38,14 +38,17 @@ jobs:
         echo "Available test tasks:"
         ./gradlew tasks --all | grep -E "test|Test" || true
         
-        # Only run unit tests, exclude integration tests by pattern
+        # Only run unit tests, exclude integration tests by pattern if the integrationTest task exists
         echo "Excluding integration tests and using H2 database for unit tests only."
-        ./gradlew test --tests "*UnitTest" --tests "*Test" --exclude-task integrationTest
-
-        # Optionally, you can further filter by test class/package if needed
-
-        # Ensure H2 is used (override profile if needed)
         export SPRING_PROFILES_ACTIVE=unit,h2
+
+        if ./gradlew tasks --all | grep -q "integrationTest"; then
+          echo "integrationTest task found, excluding it from test run"
+          ./gradlew test --tests "*UnitTest" --tests "*Test" --exclude-task integrationTest
+        else
+          echo "integrationTest task not found, running standard unit tests"
+          ./gradlew test --tests "*UnitTest" --tests "*Test"
+        fi
 
         # Generate JaCoCo reports if available
         if ./gradlew tasks --all | grep -q "jacocoTestReport"; then
