@@ -99,12 +99,12 @@ jobs:
       with:
         docker-compose-file: "./backend/autotrader-backend/docker-compose.dev.yml"
         services: "db minio createbuckets redis"
-        wait-time: '120'  # Increased wait time
+        wait-time: '5'  # Minimize static wait, rely on health checks
         db-container-name: "autotrader-backend-db-1"
         db-user: "autotrader"
         minio-container-name: "autotrader-backend-minio-1"
         createbuckets-container-name: "autotrader-backend-createbuckets-1"
-        post-minio-ready-wait-seconds: '20'  # Increased post-ready wait time
+        post-minio-ready-wait-seconds: '5'  # Minimize post-ready wait
         minio-root-user: "newuser"  # Custom MinIO user
         minio-root-password: "newpassword"  # Custom MinIO password
 
