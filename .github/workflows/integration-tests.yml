@@ -121,6 +121,11 @@ jobs:
         if ./gradlew tasks --all | grep -q "integrationTest"; then
           echo "integrationTest task found, running integration tests only"
           ./gradlew integrationTest --info
+          # Check the exit code
+          if [ $? -ne 0 ]; then
+            echo "Integration tests failed. Check the logs for details."
+            exit 1
+          fi
         else
           echo "Integration test task not found, looking for alternative integration test tasks..."
           # Try to find other common integration test task names
@@ -128,8 +133,13 @@ jobs:
             echo "intTest task found, running it instead"
             ./gradlew intTest --info
           else
-            echo "ERROR: No integration test tasks found. Please configure an integration test task."
-            echo "Skipping integration tests, but marking as successful to prevent CI failure."
+            # Fall back to running tests with IntegrationTest suffix
+            echo "No dedicated integration test task found. Falling back to pattern matching."
+            ./gradlew test --tests "*IntegrationTest" --info
+            if [ $? -ne 0 ]; then
+              echo "Integration tests failed. Check the logs for details."
+              exit 1
+            fi
           fi
         fi
 
