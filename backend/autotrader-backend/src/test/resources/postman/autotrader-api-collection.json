@@ -149,6 +149,137 @@
               "path": ["api", "reference-data"]
             }
           }
+        },
+        {
+          "name": "Get All Active Car Brands",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test(\"Each brand has required fields\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.length > 0) {",
+                  "        jsonData.forEach(function(brand) {",
+                  "            pm.expect(brand).to.have.property('id');",
+                  "            pm.expect(brand).to.have.property('name');",
+                  "            pm.expect(brand).to.have.property('displayNameEn');",
+                  "            pm.expect(brand).to.have.property('displayNameAr');",
+                  "            pm.expect(brand).to.have.property('isActive');",
+                  "            pm.expect(brand.isActive).to.be.true;",
+                  "        });",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reference-data/brands",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reference-data", "brands"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Active Car Models for Brand",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test(\"Each model has required fields\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.length > 0) {",
+                  "        jsonData.forEach(function(model) {",
+                  "            pm.expect(model).to.have.property('id');",
+                  "            pm.expect(model).to.have.property('name');",
+                  "            pm.expect(model).to.have.property('displayNameEn');",
+                  "            pm.expect(model).to.have.property('displayNameAr');",
+                  "            pm.expect(model).to.have.property('isActive');",
+                  "            pm.expect(model.isActive).to.be.true;",
+                  "            pm.expect(model).to.have.property('brand');",
+                  "            pm.expect(model.brand).to.have.property('id');",
+                  "            pm.expect(model.brand.id).to.equal(Number(pm.variables.get(\"brandId\")));",
+                  "        });",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// If brandId is not set, default to 1",
+                  "if (!pm.variables.get(\"brandId\")) {",
+                  "    pm.variables.set(\"brandId\", \"1\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reference-data/brands/{{brandId}}/models",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reference-data", "brands", "{{brandId}}", "models"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Non-existent Brand Models",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404 for non-existent brand\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reference-data/brands/999999/models",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reference-data", "brands", "999999", "models"]
+            }
+          },
+          "response": []
         }
       ]
     }
