@@ -52,9 +52,24 @@ jobs:
         
         # Display test summary
         echo "Test Summary:"
-        find build/test-results/test -name "TEST-*.xml" | wc -l | xargs -I{} echo "Total Test Classes: {}"
-        grep -r "tests=" build/test-results/test --include="TEST-*.xml" | head -1 | sed 's/.*tests="\([0-9]*\)".*/Total Tests: \1/'
-        grep -r "failures=" build/test-results/test --include="TEST-*.xml" | head -1 | sed 's/.*failures="\([0-9]*\)".*/Failures: \1/'
+        if [ -f "build/reports/tests/test/test-summary.txt" ]; then
+          cat build/reports/tests/test/test-summary.txt
+        else
+          # Fallback to parsing XML files if summary file doesn't exist
+          echo "Using XML parsing fallback for test count:"
+          TEST_FILES=$(find build/test-results/test -name "TEST-*.xml" 2>/dev/null | wc -l)
+          echo "Total Test Classes: $TEST_FILES"
+          
+          # Count total tests across all XML files
+          TOTAL_TESTS=$(grep -r "tests=" build/test-results/test --include="TEST-*.xml" | 
+                         awk -F 'tests="' '{sum += $2+0} END {print sum}')
+          echo "Total Tests: $TOTAL_TESTS"
+          
+          # Count failures across all XML files
+          TOTAL_FAILURES=$(grep -r "failures=" build/test-results/test --include="TEST-*.xml" | 
+                           awk -F 'failures="' '{sum += $2+0} END {print sum}')
+          echo "Failures: $TOTAL_FAILURES"
+        fi
 
     # Upload test results and coverage
     - name: Upload test results
