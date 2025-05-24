@@ -356,7 +356,27 @@ jobs:
           working-directory: './backend/autotrader-backend'      # Action's working-directory
           results-directory: '../../results'                     # Path relative to the action's working-directory for output
           auto-detect-collection: 'true'
-          extra-options: '--bail --export-environment ../../results/updated_environment.json' # Path relative to action's working-directory
+          extra-options: '--bail --export-environment ../../results/updated_environment.json --reporters cli,htmlextra,junit' # Path relative to action's working-directory
+
+      - name: Store test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postman-test-results
+          path: results/
+          retention-days: 14
+          
+      - name: Display test summary
+        if: always()
+        run: |
+          echo "Postman Test Summary:"
+          if [ -f "results/newman-run-report.xml" ]; then
+            echo "Total Tests: $(grep -c "<testcase" results/newman-run-report.xml || echo "0")"
+            echo "Failed Tests: $(grep -c "<failure" results/newman-run-report.xml || echo "0")"
+            echo "Skipped Tests: $(grep -c "<skipped" results/newman-run-report.xml || echo "0")"
+          else
+            echo "No test results found"
+          fi
 
       - name: Run diagnostic scripts if tests fail
         if: steps.postman-tests.outputs.test-status == 'failure'

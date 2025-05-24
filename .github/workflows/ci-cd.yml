@@ -18,6 +18,97 @@ on:
       - 'LICENSE'
 
 jobs:
+  backend-build-and-test:
+    runs-on: ubuntu-latest
+    # Only run this job for pull_request events to main branch
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        lfs: true # Explicitly enable LFS file download
+        
+    # Use the Gradle setup composite action
+    - name: Setup Gradle Environment
+      uses: ./.github/actions/gradle-setup
+      with:
+        working-directory: "./backend/autotrader-backend"
+        java-version: "17"
+        cache: true
+
+    # Ensure Gradle Wrapper exists
+    - name: Ensure Gradle Wrapper
+      working-directory: ./backend/autotrader-backend
+      run: |
+        if [ ! -f "./gradlew" ]; then
+          echo "gradlew script not found! Generating a new one..."
+          # First try to use the Gradle CLI if available
+          if command -v gradle &> /dev/null; then
+            echo "Using gradle CLI to generate wrapper"
+            gradle wrapper --gradle-version=8.5
+          else
+            # If gradle CLI isn't available, use any gradle wrapper in other projects
+            echo "Trying to copy Gradle wrapper from elsewhere"
+            # First look for wrapper jar
+            if [ -f "../gradle/wrapper/gradle-wrapper.jar" ]; then
+              echo "Found ../gradle/wrapper/gradle-wrapper.jar"
+              mkdir -p ./gradle/wrapper/
+              cp ../gradle/wrapper/gradle-wrapper.jar ./gradle/wrapper/
+              cp ../gradle/wrapper/gradle-wrapper.properties ./gradle/wrapper/
+              cp ../gradlew ./
+              cp ../gradlew.bat ./
+              chmod +x ./gradlew
+            else
+              echo "ERROR: Could not generate or find Gradle wrapper!"
+              echo "Current directory structure:"
+              ls -la ./
+              echo "Parent directory structure:"
+              ls -la ../
+              exit 1
+            fi
+          fi
+        fi
+        echo "Verifying gradlew exists:"
+        ls -la ./gradlew || echo "gradlew still not found!"
+
+    - name: Build with Gradle
+      working-directory: ./backend/autotrader-backend
+      run: |
+        echo "DEBUG: Current directory: $(pwd)"
+        echo "DEBUG: Listing ./gradle/wrapper/ before build command:"
+        ls -la ./gradle/wrapper/
+        echo "DEBUG: Verifying ./gradle/wrapper/gradle-wrapper.jar existence and size:"
+        if [ -f ./gradle/wrapper/gradle-wrapper.jar ]; then
+          JAR_SIZE_BUILD=$(stat --format=%s ./gradle/wrapper/gradle-wrapper.jar)
+          echo "DEBUG: ./gradle/wrapper/gradle-wrapper.jar EXISTS. Size: $JAR_SIZE_BUILD bytes."
+        else
+          echo "ERROR: ./gradle/wrapper/gradle-wrapper.jar is MISSING before build command!"
+          exit 1
+        fi
+        ./gradlew build --info
+
+    - name: Run Unit Tests (excluding integration tests)
+      working-directory: ./backend/autotrader-backend
+      run: |
+        echo "Running unit tests only (excludes integration tests)..."
+        export SPRING_PROFILES_ACTIVE=unit,h2
+        
+        # Use the configured test task which already excludes integration tests
+        ./gradlew test --info
+        
+        # Display test summary
+        echo "Test Summary:"
+        find build/test-results/test -name "TEST-*.xml" | wc -l | xargs -I{} echo "Total Test Classes: {}"
+        grep -r "tests=" build/test-results/test --include="TEST-*.xml" | head -1 | sed 's/.*tests="\([0-9]*\)".*/Total Tests: \1/'
+        grep -r "failures=" build/test-results/test --include="TEST-*.xml" | head -1 | sed 's/.*failures="\([0-9]*\)".*/Failures: \1/'
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-test-results
+        path: backend/autotrader-backend/build/reports/tests/
 
   frontend-build-and-test:
     runs-on: ubuntu-latest
