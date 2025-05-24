@@ -9,9 +9,7 @@
       "name": "Reference Data",
       "item": [
         {
-<<<<<<< HEAD
-=======
-          "name": "Register User",
+          "name": "Get All Active Car Brands",
           "event": [
             {
               "listen": "prerequest",
