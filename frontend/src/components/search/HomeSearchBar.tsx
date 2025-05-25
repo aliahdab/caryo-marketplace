@@ -1,192 +1,211 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 
-import { CarMake, CarModel } from '@/types/car'; // Corrected path
+import { CarMake, CarModel } from '@/types/car';
+import { fetchCarBrands, fetchCarModels } from '@/services/api';
 
 const HomeSearchBar: React.FC = () => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const router = useRouter();
   
-  const [selectedMake, setSelectedMake] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [selectedMake, setSelectedMake] = useState<number | null>(null);
+  const [selectedModel, setSelectedModel] = useState<number | null>(null);
   const [location, setLocation] = useState<string>('');
   
+  const [carMakes, setCarMakes] = useState<CarMake[]>([]);
   const [availableModels, setAvailableModels] = useState<CarModel[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  // Mock car data - in a real app, this would come from an API
-  const carMakes: CarMake[] = useMemo(() => [
-    { id: 'toyota', name: 'Toyota' },
-    { id: 'honda', name: 'Honda' },
-    { id: 'bmw', name: 'BMW' },
-    { id: 'mercedes', name: 'Mercedes-Benz' },
-    { id: 'audi', name: 'Audi' },
-  ], []);
+  // Get display name based on current language
+  const getDisplayName = (item: { displayNameEn: string; displayNameAr: string }) => {
+    return i18n.language === 'ar' ? item.displayNameAr : item.displayNameEn;
+  };
   
-  // Use useMemo to prevent recreation of this array on each render
-  const carModels = useMemo(() => [
-    { id: 'camry', name: 'Camry', makeId: 'toyota' },
-    { id: 'corolla', name: 'Corolla', makeId: 'toyota' },
-    { id: 'rav4', name: 'RAV4', makeId: 'toyota' },
-    { id: 'civic', name: 'Civic', makeId: 'honda' },
-    { id: 'accord', name: 'Accord', makeId: 'honda' },
-    { id: 'crv', name: 'CR-V', makeId: 'honda' },
-    { id: '3series', name: '3 Series', makeId: 'bmw' },
-    { id: '5series', name: '5 Series', makeId: 'bmw' },
-    { id: 'x5', name: 'X5', makeId: 'bmw' },
-    { id: 'cclass', name: 'C-Class', makeId: 'mercedes' },
-    { id: 'eclass', name: 'E-Class', makeId: 'mercedes' },
-    { id: 'glc', name: 'GLC', makeId: 'mercedes' },
-    { id: 'a4', name: 'A4', makeId: 'audi' },
-    { id: 'q5', name: 'Q5', makeId: 'audi' },
-    { id: 'a6', name: 'A6', makeId: 'audi' },
-  ], []);
-  
-  const locations = ['Damascus', 'Aleppo', 'Homs', 'Latakia', 'Hama', 'Tartus'];
+  // Fetch car brands on component mount
+  useEffect(() => {
+    const loadBrands = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        console.log('Fetching car brands...');
+        const brands = await fetchCarBrands();
+        console.log('Received brands:', brands);
+        if (!brands || !Array.isArray(brands)) {
+          throw new Error('Invalid response format for brands');
+        }
+        setCarMakes(brands);
+      } catch (err) {
+        console.error('Failed to fetch car brands:', err);
+        setError(t('search.errorLoadingBrands'));
+        setCarMakes([]); // Reset brands on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadBrands();
+  }, [t]);
   
   // Update available models when make changes
   useEffect(() => {
-    if (selectedMake) {
-      // Get models for the selected make
-      const filteredModels = carModels.filter(model => model.makeId === selectedMake);
-      setAvailableModels(filteredModels);
-      setSelectedModel(''); // Reset model when make changes
-    } else {
-      setAvailableModels([]);
-      setSelectedModel('');
-    }
-  }, [selectedMake, carModels]); // Include carModels in the dependency array
+    const loadModels = async () => {
+      if (selectedMake !== null) {
+        try {
+          setIsLoading(true);
+          setError(null);
+          console.log('Fetching models for brand:', selectedMake);
+          const models = await fetchCarModels(selectedMake);
+          console.log('Received models:', models);
+          if (!models || !Array.isArray(models)) {
+            throw new Error('Invalid response format for models');
+          }
+          setAvailableModels(models);
+          setSelectedModel(null); // Reset model when make changes
+        } catch (err) {
+          console.error('Failed to fetch car models:', err);
+          setError(t('search.errorLoadingModels'));
+          setAvailableModels([]);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setAvailableModels([]);
+        setSelectedModel(null);
+      }
+    };
+
+    loadModels();
+  }, [selectedMake, t]);
+  
+  const locations = ['Damascus', 'Aleppo', 'Homs', 'Latakia', 'Hama', 'Tartus'];
   
   const handleSearch = (e?: React.FormEvent) => {
-    // Prevent default form submission behavior if event is provided
     if (e) e.preventDefault();
     
     const params = new URLSearchParams();
     
-    if (selectedMake) {
-      params.append('make', selectedMake);
+    if (selectedMake !== null) {
+      params.append('make', selectedMake.toString());
       
-      // Find the make name for display purposes
-      const makeName = carMakes.find(make => make.id === selectedMake)?.name;
-      if (makeName) {
-        params.append('makeName', makeName);
+      // Find the make for display name
+      const selectedBrand = carMakes.find(make => make.id === selectedMake);
+      if (selectedBrand) {
+        params.append('makeName', getDisplayName(selectedBrand));
       }
     }
     
-    if (selectedModel) {
-      params.append('model', selectedModel);
+    if (selectedModel !== null) {
+      params.append('model', selectedModel.toString());
       
-      // Find the model name for display purposes
-      const modelName = carModels.find(model => model.id === selectedModel)?.name;
-      if (modelName) {
-        params.append('modelName', modelName);
+      // Find the model for display name
+      const selectedCarModel = availableModels.find(model => model.id === selectedModel);
+      if (selectedCarModel) {
+        params.append('modelName', getDisplayName(selectedCarModel));
       }
     }
     
     if (location) {
       params.append('location', location);
     }
-    
+
     router.push(`/listings?${params.toString()}`);
   };
-  
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 max-w-5xl mx-auto">
-      <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
-        {/* Car Brand Dropdown */}
-        <div className="md:col-span-2">
-          <label htmlFor="carMake" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('home.searchBar.carBrand', 'Car Brand')}
-          </label>
-          <select
-            id="carMake"
-            className="w-full border border-gray-300 rounded-md py-3 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            value={selectedMake}
-            onChange={(e) => {
-              const newMake = e.target.value;
-              setSelectedMake(newMake);
-            }}
-          >
-            <option value="">{t('home.searchBar.selectBrand', 'Select Brand')}</option>
-            {carMakes.map((make) => (
-              <option key={make.id} value={make.id}>
-                {make.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        {/* Car Model Dropdown */}
-        <div className="md:col-span-2">
-          <label htmlFor="carModel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('home.searchBar.carModel', 'Car Model')}
-          </label>
-          <select
-            id="carModel"
-            className="w-full border border-gray-300 rounded-md py-3 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            value={selectedModel}
-            onChange={(e) => {
-              const newModel = e.target.value;
-              setSelectedModel(newModel);
-            }}
-            disabled={!selectedMake || availableModels.length === 0}
-          >
-            <option value="">{t('home.searchBar.selectModel', 'Select Model')}</option>
-            {!selectedMake ? (
-              <option value="" disabled>
-                {t('home.searchBar.selectBrandFirst', 'Select brand first')}
-              </option>
-            ) : availableModels.length > 0 ? (
-              availableModels.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}
-                </option>
-              ))
-            ) : (
-              <option value="" disabled>
-                {t('home.searchBar.noModelsAvailable', 'No models available')}
-              </option>
+    <form onSubmit={handleSearch} className="w-full">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
+          {/* Brand Select */}
+          <div className="col-span-1">
+            <label htmlFor="brand" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('search.selectBrand', 'Brand')}
+            </label>
+            <select
+              id="brand"
+              value={selectedMake ?? ''}
+              onChange={(e) => setSelectedMake(e.target.value ? Number(e.target.value) : null)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={isLoading}
+            >
+              <option value="">{t('search.selectBrand', 'Select Brand')}</option>
+              {carMakes.map((make) => (
+                <option key={make.id} value={make.id}>{getDisplayName(make)}</option>
+              ))}
+            </select>
+            {isLoading && !selectedMake && (
+              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('search.loadingBrands', 'Loading brands...')}</div>
             )}
-          </select>
+          </div>
+
+          {/* Model Select */}
+          <div className="col-span-1">
+            <label htmlFor="model" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('search.selectModel', 'Model')}
+            </label>
+            <select
+              id="model"
+              value={selectedModel ?? ''}
+              onChange={(e) => setSelectedModel(e.target.value ? Number(e.target.value) : null)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={!selectedMake || isLoading}
+            >
+              <option value="">{t('search.selectModel', 'Select Model')}</option>
+              {availableModels.map((model) => (
+                <option key={model.id} value={model.id}>{getDisplayName(model)}</option>
+              ))}
+            </select>
+            {isLoading && selectedMake && (
+              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('search.loadingModels', 'Loading models...')}</div>
+            )}
+          </div>
+
+          {/* Location Select */}
+          <div className="col-span-1">
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('search.location', 'Location')}
+            </label>
+            <select
+              id="location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">{t('search.enterLocation', 'Enter Location')}</option>
+              {locations.map((loc) => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Search Button */}
+          <div className="col-span-1 flex items-end">
+            <button
+              type="submit"
+              className="w-full p-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              {t('search.searchButton', 'Search Cars')}
+            </button>
+          </div>
         </div>
-        
-        {/* Location Dropdown */}
-        <div className="md:col-span-2">
-          <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('home.searchBar.city', 'City')}
-          </label>
-          <select
-            id="location"
-            className="w-full border border-gray-300 rounded-md py-3 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          >
-            <option value="">{t('home.searchBar.selectCity', 'Select City')}</option>
-            {locations.map((loc) => (
-              <option key={loc} value={loc}>
-                {loc}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        {/* Search Button */}
-        <div className="md:col-span-1">
-          <button
-            type="submit"
-            className="w-full h-[46px] bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium transition duration-300 flex items-center justify-center rtl:space-x-reverse"
-            aria-label={t('home.searchBar.searchCars', 'Search Cars')}
-          >
-            <svg className="w-5 h-5 mr-2 rtl:ml-2 rtl:mr-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <span>{t('home.searchBar.search', 'Search')}</span>
-          </button>
-        </div>
-      </form>
-    </div>
+
+        {error && (
+          <div className="px-4 pb-4 text-red-500 text-sm flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+            >
+              {t('search.tryAgain', 'Try Again')}
+            </button>
+          </div>
+        )}
+      </div>
+    </form>
   );
 };
 

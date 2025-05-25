@@ -314,5 +314,22 @@
   "learnMore": "Learn More",
   "allRightsReserved": "All rights reserved",
   "all": "All",
-  "date": "Date"
+  "date": "Date",
+  "search": {
+    "selectBrand": "Select Brand",
+    "selectModel": "Select Model",
+    "searchButton": "Search Cars",
+    "location": "Location",
+    "enterLocation": "Enter location",
+    "loadingBrands": "Loading car brands...",
+    "loadingModels": "Loading models...",
+    "noBrandsFound": "No car brands found",
+    "noModelsFound": "No models found for this brand",
+    "brandPlaceholder": "Choose a car brand",
+    "modelPlaceholder": "Choose a model",
+    "locationPlaceholder": "Enter city or region",
+    "errorLoadingBrands": "Failed to load car brands",
+    "errorLoadingModels": "Failed to load car models",
+    "tryAgain": "Try again"
+  }
 }

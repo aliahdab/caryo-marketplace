@@ -1,9 +1,6 @@
 'use client';
 
-// Service for handling API requests
-// This file serves as a central place to manage API requests
-// and handle common functionality like error handling
-
+import { CarMake, CarModel, CarTrim } from '@/types/car';
 import { ApiError } from '@/utils/apiErrorHandler';
 
 // Base URL for the API - will be set from environment variables
@@ -14,6 +11,8 @@ type RequestOptions = {
   headers: Record<string, string>;
   body?: string;
   timeout?: number; // Request timeout in ms
+  credentials?: RequestCredentials;
+  mode?: RequestMode;
 };
 
 // Define a type for request data
@@ -30,13 +29,17 @@ async function apiRequest<T>(
   timeout: number = 15000 // Default timeout: 15 seconds
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
+  console.log(`Making ${method} request to: ${url}`);
   
   const options: RequestOptions = {
     method,
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...customHeaders,
     },
+    mode: 'cors',
+    credentials: 'include',
     timeout
   };
 
@@ -49,6 +52,8 @@ async function apiRequest<T>(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
+    console.log('Request options:', JSON.stringify(options, null, 2));
+    
     const response = await fetch(url, {
       ...options,
       signal: controller.signal,
@@ -57,15 +62,22 @@ async function apiRequest<T>(
     
     clearTimeout(timeoutId);
     
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    
     // Parse the response
     let responseData: unknown;
     
     // Try to parse as JSON first
     const contentType = response.headers.get('content-type');
+    console.log('Response content-type:', contentType);
+    
     if (contentType && contentType.includes('application/json')) {
       responseData = await response.json();
+      console.log('Parsed JSON response:', responseData);
     } else {
       responseData = await response.text();
+      console.log('Text response:', responseData);
     }
 
     // Check for errors
@@ -75,12 +87,13 @@ async function apiRequest<T>(
         ? responseData 
         : (responseData as { message?: string })?.message || `Error ${response.status}: Request failed`;
         
+      console.error('API error:', { status: response.status, message: errorMessage });
       throw new ApiError(errorMessage, response.status, responseData);
     }
 
     return responseData as T;
   } catch (error) {
-    console.error('API request failed:', error);
+    console.error('Request failed:', error);
     
     // Handle timeout/abort errors explicitly
     if (error instanceof DOMException && error.name === 'AbortError') {
@@ -114,3 +127,27 @@ export const api = {
   delete: <T>(endpoint: string, customHeaders?: Record<string, string>) => 
     apiRequest<T>(endpoint, 'DELETE', undefined, customHeaders),
 };
+
+/**
+ * Fetches all car brands
+ */
+export async function fetchCarBrands(): Promise<CarMake[]> {
+  console.log('Fetching car brands from API');
+  return api.get<CarMake[]>('/api/reference-data/brands');
+}
+
+/**
+ * Fetches models for a specific brand
+ */
+export async function fetchCarModels(brandId: number): Promise<CarModel[]> {
+  console.log(`Fetching car models for brand ${brandId} from API`);
+  return api.get<CarModel[]>(`/api/reference-data/brands/${brandId}/models`);
+}
+
+/**
+ * Fetches trims for a specific model
+ */
+export async function fetchCarTrims(brandId: number, modelId: number): Promise<CarTrim[]> {
+  console.log(`Fetching car trims for brand ${brandId} model ${modelId} from API`);
+  return api.get<CarTrim[]>(`/api/reference-data/brands/${brandId}/models/${modelId}/trims`);
+}

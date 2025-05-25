@@ -408,8 +408,8 @@ SELECT
     TRUE as approved,
     FALSE as sold,
     FALSE as archived,
-    (CURRENT_TIMESTAMP - (MOD(ul.id, 30) * INTERVAL '1 day')) as created_at,
-    (CURRENT_TIMESTAMP - (MOD(ul.id, 30) * INTERVAL '1 day')) as updated_at
+    (CURRENT_TIMESTAMP - (MOD(ul.id, 30) * INTERVAL '1 days')) as created_at,
+    (CURRENT_TIMESTAMP - (MOD(ul.id, 30) * INTERVAL '1 days')) as updated_at
 FROM user_list ul
 CROSS JOIN random_make ma
 CROSS JOIN random_model mo

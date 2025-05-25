@@ -404,18 +404,22 @@
       "nameLength": "يجب أن يكون الاسم على الأقل حرفين"
     }
   },
-  "search": "بحث",
-  "searchOptions": {
-    "make": "الشركة المصنعة",
-    "model": "الموديل",
-    "city": "المدينة",
-    "selectMake": "اختر الشركة المصنعة",
+  "search": {
+    "selectBrand": "اختر الماركة",
     "selectModel": "اختر الموديل",
-    "selectCity": "اختر المدينة",
-    "anyMake": "أي شركة مصنعة",
-    "anyModel": "أي موديل",
-    "anyCity": "أي مدينة",
-    "searchCars": "بحث عن سيارات"
+    "searchButton": "ابحث عن سيارات",
+    "location": "الموقع",
+    "enterLocation": "أدخل الموقع",
+    "loadingBrands": "جارٍ تحميل ماركات السيارات...",
+    "loadingModels": "جارٍ تحميل الموديلات...",
+    "noBrandsFound": "لم يتم العثور على ماركات سيارات",
+    "noModelsFound": "لم يتم العثور على موديلات لهذه الماركة",
+    "brandPlaceholder": "اختر ماركة السيارة",
+    "modelPlaceholder": "اختر الموديل",
+    "locationPlaceholder": "أدخل المدينة أو المنطقة",
+    "errorLoadingBrands": "فشل في تحميل ماركات السيارات",
+    "errorLoadingModels": "فشل في تحميل موديلات السيارات",
+    "tryAgain": "حاول مرة أخرى"
   },
   "clearFilters": "مسح الفلاتر",
   "selectAll": "تحديد الكل",
