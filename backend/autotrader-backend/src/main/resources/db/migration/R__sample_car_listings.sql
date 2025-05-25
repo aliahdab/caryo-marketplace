@@ -332,6 +332,29 @@ SELECT 'cvt', 'CVT', 'CVT', 'cvt'
 WHERE NOT EXISTS (SELECT 1 FROM transmissions WHERE name = 'cvt');
 
 -- Create Car Listings with H2-compatible SQL
+WITH user_list AS (
+    SELECT u.id, u.username
+    FROM users u
+    WHERE u.username LIKE 'testuser%'
+    AND NOT EXISTS (
+        SELECT 1 
+        FROM car_listings cl 
+        WHERE cl.seller_id = u.id
+    )
+),
+random_make AS (
+    SELECT ma.id, ma.display_name_en
+    FROM makes ma 
+    ORDER BY ma.id
+    LIMIT 1
+),
+random_model AS (
+    SELECT mo.id, mo.display_name_en
+    FROM models mo
+    WHERE mo.make_id = (SELECT id FROM random_make)
+    ORDER BY mo.id
+    LIMIT 1
+)
 INSERT INTO car_listings (
     id, title, description, price, mileage, model_year, brand, model,
     model_id, exterior_color, doors, cylinders, seller_id, governorate_id,
@@ -340,15 +363,15 @@ INSERT INTO car_listings (
     created_at, updated_at
 )
 SELECT 
-    1000000 + u.id as id,
+    1000000 + ul.id as id,
     CONCAT(
-        EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5),
+        EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(ul.id, 5),
         ' ',
         ma.display_name_en,
         ' ',
         mo.display_name_en,
         ' - Listing ',
-        CAST(u.id as VARCHAR)
+        CAST(ul.id as VARCHAR)
     ) as title,
     CONCAT(
         'This is a sample description for a ',
@@ -357,13 +380,13 @@ SELECT
         mo.display_name_en,
         '. Well-maintained with regular service history. Features include power windows, cruise control, and backup camera. Please contact for more details.'
     ) as description,
-    10000 + MOD(u.id * 2357, 40000) as price,
-    10000 + MOD(u.id * 3571, 50000) as mileage,
-    EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5) as model_year,
+    10000 + MOD(ul.id * 2357, 40000) as price,
+    10000 + MOD(ul.id * 3571, 50000) as mileage,
+    EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(ul.id, 5) as model_year,
     ma.display_name_en as brand,
     mo.display_name_en as model,
     mo.id as model_id,
-    CASE MOD(u.id, 6)
+    CASE MOD(ul.id, 6)
         WHEN 0 THEN 'Black'
         WHEN 1 THEN 'White'
         WHEN 2 THEN 'Silver'
@@ -372,10 +395,10 @@ SELECT
         ELSE 'Red'
     END as exterior_color,
     4 as doors,
-    4 + (MOD(u.id, 3) * 2) as cylinders,
-    u.id as seller_id,
-    1 + MOD(u.id, 14) as governorate_id,
-    CONCAT('Sample City ', CAST(u.id as VARCHAR)) as city,
+    4 + (MOD(ul.id, 3) * 2) as cylinders,
+    ul.id as seller_id,
+    1 + MOD(ul.id, 14) as governorate_id,
+    CONCAT('Sample City ', CAST(ul.id as VARCHAR)) as city,
     cc.id as condition_id,
     bs.id as body_style_id,
     tr.id as transmission_id,
@@ -385,27 +408,16 @@ SELECT
     TRUE as approved,
     FALSE as sold,
     FALSE as archived,
-    DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as created_at,
-    DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as updated_at
-FROM users u
-JOIN (
-    SELECT MIN(id) as id
-    FROM makes
-) rmk
-JOIN makes ma ON ma.id >= rmk.id
-JOIN models mo ON mo.make_id = ma.id
-JOIN (SELECT id FROM car_conditions WHERE name = 'new' LIMIT 1) cc ON 1=1
-JOIN (SELECT id FROM body_styles WHERE name = 'sedan' LIMIT 1) bs ON 1=1
-JOIN (SELECT id FROM transmissions WHERE name = 'automatic' LIMIT 1) tr ON 1=1
-JOIN (SELECT id FROM fuel_types WHERE name = 'gasoline' LIMIT 1) ft ON 1=1
-JOIN (SELECT id FROM drive_types WHERE name = 'fwd' LIMIT 1) dt ON 1=1
-WHERE u.username LIKE 'testuser%'
-AND NOT EXISTS (
-    SELECT 1 
-    FROM car_listings cl 
-    WHERE cl.seller_id = u.id
-)
-GROUP BY u.id, u.username
+    DATEADD('DAY', -MOD(ul.id, 30), CURRENT_TIMESTAMP) as created_at,
+    DATEADD('DAY', -MOD(ul.id, 30), CURRENT_TIMESTAMP) as updated_at
+FROM user_list ul
+CROSS JOIN random_make ma
+CROSS JOIN random_model mo
+CROSS JOIN (SELECT id FROM car_conditions WHERE name = 'new' LIMIT 1) cc
+CROSS JOIN (SELECT id FROM body_styles WHERE name = 'sedan' LIMIT 1) bs
+CROSS JOIN (SELECT id FROM transmissions WHERE name = 'automatic' LIMIT 1) tr
+CROSS JOIN (SELECT id FROM fuel_types WHERE name = 'gasoline' LIMIT 1) ft
+CROSS JOIN (SELECT id FROM drive_types WHERE name = 'fwd' LIMIT 1) dt
 LIMIT 20;
 
 -- Create Listing Media with simplified H2-compatible SQL
