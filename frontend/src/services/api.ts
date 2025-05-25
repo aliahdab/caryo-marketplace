@@ -185,7 +185,7 @@ export interface Governorate {
  */
 export async function fetchGovernorates(): Promise<Governorate[]> {
   console.log('Fetching governorates from API');
-  return api.get<Governorate[]>('/api/governorates');
+  return api.get<Governorate[]>('/api/reference-data/governorates');
 }
 
 /**
