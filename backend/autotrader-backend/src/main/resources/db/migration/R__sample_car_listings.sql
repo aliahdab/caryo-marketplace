@@ -1,10 +1,5 @@
 -- Seed sample data for development
 -- Note: This repeatable migration inserts sample data for frontend development
--- Fixed on May 25, 2025: 
--- 1. Added is_active column to makes table inserts
--- 2. Added is_active column to models table inserts
--- 3. Modified car_listings INSERT to use dynamic SQL with explicit high ID values (1,000,000+) to avoid duplicate key errors
--- 4. Modified listing_media INSERT to use dynamic SQL with explicit high ID values (3,000,000+) that include the listing ID in the calculation
 
 -- Seed Users (passwords are placeholders, e.g., 'password123' hashed)
 -- Using a common placeholder bcrypt hash: $2a$10$abcdefghijklmnopqrstuvwxyzABCDEF
@@ -489,3 +484,78 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+-- Replace complex PL/pgSQL with simple INSERT statements
+-- Sample car listings with explicit IDs
+INSERT INTO car_listings (
+    id, title, description, price, mileage, model_year, brand, model,
+    seller_id, condition_id, body_style_id, transmission_id, fuel_type_id, drive_type_id,
+    approved, created_at, updated_at
+)
+SELECT 
+    1000000 + ROW_NUMBER() OVER (ORDER BY u.id),
+    'Sample Car ' || ROW_NUMBER() OVER (ORDER BY u.id),
+    'This is a sample car listing for testing purposes.',
+    CAST(20000 + (RAND() * 30000) AS DECIMAL(10,2)),
+    CAST(1000 + (RAND() * 50000) AS INTEGER),
+    2020 + CAST(RAND() * 3 AS INTEGER),
+    CASE MOD(CAST(RAND() * 4 AS INTEGER), 4) 
+        WHEN 0 THEN 'Toyota'
+        WHEN 1 THEN 'Honda'
+        WHEN 2 THEN 'BMW'
+        ELSE 'Mercedes-Benz'
+    END,
+    CASE MOD(CAST(RAND() * 3 AS INTEGER), 3)
+        WHEN 0 THEN 'Camry'
+        WHEN 1 THEN 'Civic'
+        ELSE '3 Series'
+    END,
+    u.id,
+    c.id,
+    b.id,
+    t.id,
+    f.id,
+    d.id,
+    TRUE,
+    NOW(),
+    NOW()
+FROM users u
+CROSS JOIN car_conditions c
+CROSS JOIN body_styles b
+CROSS JOIN transmissions t
+CROSS JOIN fuel_types f
+CROSS JOIN drive_types d
+WHERE u.username LIKE 'testuser%'
+  AND c.name = 'new'
+  AND b.name = 'sedan'
+  AND t.name = 'automatic'
+  AND f.name = 'gasoline'
+  AND d.name = 'fwd'
+  AND NOT EXISTS (
+    SELECT 1 FROM car_listings 
+    WHERE seller_id = u.id
+  )
+LIMIT 20;
+
+-- Sample listing media with explicit IDs
+INSERT INTO listing_media (
+    id, listing_id, file_key, file_name, content_type, size, 
+    sort_order, is_primary, media_type, created_at
+)
+SELECT 
+    3000000 + ROW_NUMBER() OVER (ORDER BY cl.id),
+    cl.id,
+    'sample/car-' || cl.id || '-1.jpg',
+    'car-' || cl.id || '-1.jpg',
+    'image/jpeg',
+    102400,
+    0,
+    TRUE,
+    'IMAGE',
+    NOW()
+FROM car_listings cl
+WHERE cl.id >= 1000000
+  AND NOT EXISTS (
+    SELECT 1 FROM listing_media 
+    WHERE listing_id = cl.id
+  );
