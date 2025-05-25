@@ -316,7 +316,6 @@
   "all": "All",
   "date": "Date",
   "search": {
-<<<<<<< HEAD
     "selectBrand": "Brand",
     "selectModel": "Model",
     "governorate": "Governorate",
@@ -328,52 +327,6 @@
     "errorLoadingModels": "Error loading models. Please try again.",
     "errorLoadingGovernorates": "Error loading governorates. Please try again.",
     "searchButton": "Search Cars",
-    "tryAgain": "Try Again",
-    "advancedSearch": "Advanced Search",
-    "advancedFilters": "Advanced Filters",
-    "priceRange": "Price Range",
-    "yearRange": "Year Range",
-    "filterByFeatures": "Filter by Features",
-    "resetFilters": "Reset Filters",
-    "noResults": "No results found",
-    "searchResults": "Search Results",
-    "sortBy": "Sort By",
-    "newest": "Newest First",
-    "oldest": "Oldest First",
-    "priceLowHigh": "Price: Low to High",
-    "priceHighLow": "Price: High to Low"
-  },
-  "common": {
-    "errorLoadingData": "Error loading data. Please try again.",
-    "success": "Success",
-    "error": "Error",
-    "loading": "Loading...",
-    "somethingWentWrong": "Something went wrong",
-    "refreshPage": "Please refresh the page and try again",
-    "contactSupport": "If the problem persists, please contact support",
-    "serverError": "Server error",
-    "networkError": "Network error",
-    "timeoutError": "Request timed out",
-    "unauthorizedError": "Unauthorized access",
-    "pageNotFound": "Page not found",
-    "goBack": "Go back",
-    "goHome": "Go to home page"
-=======
-    "selectBrand": "Select Brand",
-    "selectModel": "Select Model",
-    "searchButton": "Search Cars",
-    "location": "Location",
-    "enterLocation": "Enter location",
-    "loadingBrands": "Loading car brands...",
-    "loadingModels": "Loading models...",
-    "noBrandsFound": "No car brands found",
-    "noModelsFound": "No models found for this brand",
-    "brandPlaceholder": "Choose a car brand",
-    "modelPlaceholder": "Choose a model",
-    "locationPlaceholder": "Enter city or region",
-    "errorLoadingBrands": "Failed to load car brands",
-    "errorLoadingModels": "Failed to load car models",
-    "tryAgain": "Try again"
->>>>>>> def829d9bb2e90bd28e7e128fe3725b769baad37
+    "tryAgain": "Try Again"
   }
 }

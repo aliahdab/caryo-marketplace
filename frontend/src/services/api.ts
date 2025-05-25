@@ -103,13 +103,8 @@ async function apiRequest<T>(
          detailedErrorMessage = `Error ${response.status}: ${response.statusText}`;
       }
         
-<<<<<<< HEAD
       console.error('API error details:', { status: response.status, message: detailedErrorMessage, rawResponse: responseData });
       throw new ApiError(detailedErrorMessage, response.status, responseData);
-=======
-      console.error('API error:', { status: response.status, message: errorMessage });
-      throw new ApiError(errorMessage, response.status, responseData);
->>>>>>> def829d9bb2e90bd28e7e128fe3725b769baad37
     }
 
     return responseData as T;
@@ -172,7 +167,6 @@ export async function fetchCarTrims(brandId: number, modelId: number): Promise<C
   console.log(`Fetching car trims for brand ${brandId} model ${modelId} from API`);
   return api.get<CarTrim[]>(`/api/reference-data/brands/${brandId}/models/${modelId}/trims`);
 }
-<<<<<<< HEAD
 
 /**
  * Fetches available governorates
@@ -297,5 +291,3 @@ export function clearApiCache(endpoint?: string): void {
     console.log('Cleared entire API cache');
   }
 }
-=======
->>>>>>> def829d9bb2e90bd28e7e128fe3725b769baad37
