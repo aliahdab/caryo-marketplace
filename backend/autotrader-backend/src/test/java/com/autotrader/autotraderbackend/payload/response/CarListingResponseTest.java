@@ -22,6 +22,8 @@ class CarListingResponseTest {
         assertNull(response.getModelYear());
         assertNull(response.getMileage());
         assertNull(response.getPrice());
+        assertNull(response.getBrandNameEn()); // New field
+        assertNull(response.getBrandNameAr()); // New field
         assertNull(response.getLocationDetails());
         assertNull(response.getDescription());
         assertNotNull(response.getMedia()); // Should be initialized as empty list
@@ -45,6 +47,8 @@ class CarListingResponseTest {
         Integer modelYear = 2022;
         Integer mileage = 5000;
         BigDecimal price = new BigDecimal("25000.00");
+        String brandNameEn = "Toyota"; // New field
+        String brandNameAr = "تويوتا"; // New field
         LocationResponse locationDetails = new LocationResponse();
         String description = "Test Description";
         List<ListingMediaResponse> media = new ArrayList<>();
@@ -60,6 +64,7 @@ class CarListingResponseTest {
         // Create response with all args constructor
         CarListingResponse response = new CarListingResponse(
                 id, title, brand, model, modelYear, mileage, price,
+                brandNameEn, brandNameAr, // New fields
                 locationDetails, description, media, approved, sellerId,
                 sellerUsername, createdAt, isSold, isArchived, isUserActive,
                 isExpired // Added isExpired argument
@@ -73,6 +78,8 @@ class CarListingResponseTest {
         assertEquals(modelYear, response.getModelYear());
         assertEquals(mileage, response.getMileage());
         assertEquals(price, response.getPrice());
+        assertEquals(brandNameEn, response.getBrandNameEn()); // New field
+        assertEquals(brandNameAr, response.getBrandNameAr()); // New field
         assertEquals(locationDetails, response.getLocationDetails());
         assertEquals(description, response.getDescription());
         assertEquals(media, response.getMedia());
@@ -83,6 +90,7 @@ class CarListingResponseTest {
         assertEquals(isSold, response.getIsSold());
         assertEquals(isArchived, response.getIsArchived());
         assertEquals(isUserActive, response.getIsUserActive()); // Added assertion
+        assertEquals(isExpired, response.getIsExpired()); // Added assertion
     }
 
     @Test
@@ -98,6 +106,8 @@ class CarListingResponseTest {
         response.setModelYear(2022);
         response.setMileage(5000);
         response.setPrice(new BigDecimal("25000.00"));
+        response.setBrandNameEn("Toyota"); // New field
+        response.setBrandNameAr("تويوتا"); // New field
         
         LocationResponse locationDetails = new LocationResponse();
         locationDetails.setId(1L);
@@ -123,6 +133,7 @@ class CarListingResponseTest {
         response.setIsSold(false);
         response.setIsArchived(false);
         response.setIsUserActive(true); // Added setter call
+        response.setIsExpired(false); // Added setter call for isExpired
         
         // Verify properties
         assertEquals(1L, response.getId());
@@ -132,6 +143,8 @@ class CarListingResponseTest {
         assertEquals(Integer.valueOf(2022), response.getModelYear());
         assertEquals(Integer.valueOf(5000), response.getMileage());
         assertEquals(new BigDecimal("25000.00"), response.getPrice());
+        assertEquals("Toyota", response.getBrandNameEn()); // New field
+        assertEquals("تويوتا", response.getBrandNameAr()); // New field
         assertEquals(locationDetails, response.getLocationDetails());
         assertEquals("Test Location", response.getLocationDetails().getDisplayNameEn());
         assertEquals("Test Description", response.getDescription());
@@ -144,5 +157,6 @@ class CarListingResponseTest {
         assertFalse(response.getIsSold());
         assertFalse(response.getIsArchived());
         assertTrue(response.getIsUserActive()); // Added assertion
+        assertFalse(response.getIsExpired()); // Added assertion for isExpired
     }
 }

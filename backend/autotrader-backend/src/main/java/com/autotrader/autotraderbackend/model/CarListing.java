@@ -75,6 +75,14 @@ public class CarListing {
     @JoinColumn(name = "location_id")
     private Location location;
     
+    @Size(max = 100)
+    @Column(name = "brand_name_en", length = 100)
+    private String brandNameEn;
+    
+    @Size(max = 100)
+    @Column(name = "brand_name_ar", length = 100)
+    private String brandNameAr;
+    
     @NotBlank
     @Column(name = "description", columnDefinition = "TEXT", nullable = false)
     private String description;

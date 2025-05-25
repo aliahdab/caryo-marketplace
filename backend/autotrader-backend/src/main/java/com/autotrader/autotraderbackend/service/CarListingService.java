@@ -320,6 +320,10 @@ public class CarListingService {
         }
         if (request.getBrand() != null) {
             existingListing.setBrand(request.getBrand());
+            // Update the denormalized brand name fields when brand changes
+            // In a real implementation, these would be populated from a brand lookup service
+            existingListing.setBrandNameEn(request.getBrand());
+            existingListing.setBrandNameAr(request.getBrand());
         }
         if (request.getModel() != null) {
             existingListing.setModel(request.getModel());
@@ -487,6 +491,12 @@ public class CarListingService {
         carListing.setPrice(request.getPrice());
         carListing.setMileage(request.getMileage());
         carListing.setDescription(request.getDescription());
+        
+        // Set denormalized brand name fields (English/Arabic)
+        // Since we don't have direct access to translations, we'll set them same as brand for now
+        // In a real implementation, these would be populated from a brand lookup service or similar
+        carListing.setBrandNameEn(request.getBrand());
+        carListing.setBrandNameAr(request.getBrand());
         
         // Handle location - only use locationId
         if (request.getLocationId() != null) {

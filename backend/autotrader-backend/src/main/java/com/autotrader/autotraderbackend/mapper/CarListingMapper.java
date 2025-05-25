@@ -47,6 +47,10 @@ public class CarListingMapper {
             response.setMileage(carListing.getMileage());
             response.setDescription(carListing.getDescription());
             
+            // Set denormalized brand name fields
+            response.setBrandNameEn(carListing.getBrandNameEn());
+            response.setBrandNameAr(carListing.getBrandNameAr());
+            
             // Use location
             if (carListing.getLocation() != null) {
                 response.setLocationDetails(LocationResponse.fromEntity(carListing.getLocation()));
@@ -133,6 +137,13 @@ public class CarListingMapper {
             
             try { response.setDescription(carListing.getDescription()); } 
             catch (Exception e) { log.warn("Error setting description for listing ID {}", carListing.getId()); }
+            
+            // Set denormalized brand name fields
+            try { response.setBrandNameEn(carListing.getBrandNameEn()); } 
+            catch (Exception e) { log.warn("Error setting brandNameEn for listing ID {}", carListing.getId()); }
+            
+            try { response.setBrandNameAr(carListing.getBrandNameAr()); } 
+            catch (Exception e) { log.warn("Error setting brandNameAr for listing ID {}", carListing.getId()); }
             
             // Set location safely
             try {

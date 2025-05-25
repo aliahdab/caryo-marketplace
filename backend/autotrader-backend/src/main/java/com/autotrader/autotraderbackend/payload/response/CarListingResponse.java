@@ -28,6 +28,16 @@ public class CarListingResponse {
     private BigDecimal price;
     
     /**
+     * Denormalized brand name in English for efficient search
+     */
+    private String brandNameEn;
+    
+    /**
+     * Denormalized brand name in Arabic for efficient search
+     */
+    private String brandNameAr;
+    
+    /**
      * Location details object
      */
     private LocationResponse locationDetails;
@@ -57,6 +67,9 @@ public class CarListingResponse {
     public Integer getMileage() { return mileage; }
     public BigDecimal getPrice() { return price; }
     
+    public String getBrandNameEn() { return brandNameEn; }
+    public String getBrandNameAr() { return brandNameAr; }
+    
     public LocationResponse getLocationDetails() { return locationDetails; }
     
     public String getDescription() { return description; }
@@ -78,6 +91,9 @@ public class CarListingResponse {
     public void setModelYear(Integer modelYear) { this.modelYear = modelYear; }
     public void setMileage(Integer mileage) { this.mileage = mileage; }
     public void setPrice(BigDecimal price) { this.price = price; }
+    
+    public void setBrandNameEn(String brandNameEn) { this.brandNameEn = brandNameEn; }
+    public void setBrandNameAr(String brandNameAr) { this.brandNameAr = brandNameAr; }
     
     public void setLocationDetails(LocationResponse locationDetails) { this.locationDetails = locationDetails; }
     
