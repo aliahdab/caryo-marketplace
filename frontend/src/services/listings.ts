@@ -86,17 +86,24 @@ function mapApiResponseToListings(apiResponse: ListingApiResponse): { listings: 
       isPrimary: m.isPrimary || false
     })) || [];
     
+    // Debug log to see what location data is actually coming from the API
+    console.log('Listing location details:', item.id, item.locationDetails);
+    
+    // Extract location information with better fallbacks
+    const locationCity = item.locationDetails?.displayNameEn || item.locationDetails?.name || '';
+    const locationCityAr = item.locationDetails?.displayNameAr || item.locationDetails?.name || '';
+    
     return {
       id: item.id.toString(),
-      title: `${item.brand} ${item.model} ${item.modelYear}`,
+      title: item.title, // Use the title directly from the API response
       price: item.price,
       year: item.modelYear,
       mileage: item.mileage,
-      brand: item.brand,
-      model: item.model,
+      brand: item.brand, // Still map brand for other potential uses (filtering, details page)
+      model: item.model, // Still map model for other potential uses
       location: {
-        city: item.locationDetails?.displayNameEn || '',
-        cityAr: item.locationDetails?.displayNameAr || '',
+        city: locationCity,
+        cityAr: locationCityAr,
         country: 'Syria',
         countryCode: item.locationDetails?.countryCode || 'SY'
       },
@@ -141,6 +148,10 @@ export async function getListings(filters: ListingFilters = {}): Promise<{ listi
     
     // Call the real API
     const response = await api.get<ListingApiResponse>(`/api/listings/filter?${params.toString()}`);
+    
+    // Debug log to see the full API response structure
+    console.log('API Response:', response);
+    
     return mapApiResponseToListings(response);
   } catch (error) {
     console.error('Error fetching listings:', error);
