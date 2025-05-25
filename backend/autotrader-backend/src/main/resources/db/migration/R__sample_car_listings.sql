@@ -331,312 +331,144 @@ INSERT INTO transmissions (name, display_name_en, display_name_ar, slug)
 SELECT 'cvt', 'CVT', 'CVT', 'cvt'
 WHERE NOT EXISTS (SELECT 1 FROM transmissions WHERE name = 'cvt');
 
--- Seed Car Listings - Create a function to handle this
-DO $$
-DECLARE
-  user_record RECORD;
-  model_record RECORD;
-  condition_id_var INTEGER;
-  body_style_id_var INTEGER;
-  transmission_id_var INTEGER;
-  fuel_type_id_var INTEGER;
-  drive_type_id_VAR INTEGER;
-  listing_count INTEGER := 0;
-  brand_var TEXT;
-  model_var TEXT;
-  brand_model_map JSONB := '{
-    "Toyota": ["Camry", "Corolla", "RAV4"],
-    "Honda": ["Civic", "Accord", "CR-V"],
-    "Ford": ["F-150", "Explorer", "Mustang"],
-    "BMW": ["3 Series", "5 Series", "X5"],
-    "Mercedes-Benz": ["C-Class", "E-Class", "GLC"],
-    "Hyundai": ["Elantra", "Sonata", "Tucson"],
-    "Kia": ["Optima", "K5", "Sportage", "Sorento"]
-  }';
-  all_users CURSOR FOR 
-    SELECT id, username FROM users 
-    WHERE username LIKE 'testuser%'
-    ORDER BY id;
-  
-  current_model_id BIGINT; -- Variable to store the fetched model_id
-
-BEGIN
-  -- Get reference data IDs
-  SELECT id INTO condition_id_var FROM car_conditions WHERE name = 'new' LIMIT 1;
-  SELECT id INTO body_style_id_var FROM body_styles WHERE name = 'sedan' LIMIT 1;
-  SELECT id INTO transmission_id_var FROM transmissions WHERE name = 'automatic' LIMIT 1;
-  SELECT id INTO fuel_type_id_var FROM fuel_types WHERE name = 'gasoline' LIMIT 1;
-  SELECT id INTO drive_type_id_var FROM drive_types WHERE name = 'fwd' LIMIT 1;
-  
-  -- Create a car listing for each test user if they don't have one
-  OPEN all_users;
-  LOOP
-    FETCH all_users INTO user_record;
-    EXIT WHEN NOT FOUND OR listing_count >= 20;
-    
-    -- Skip if user already has a listing
-    IF NOT EXISTS (SELECT 1 FROM car_listings WHERE seller_id = user_record.id) THEN
-      -- Select a random brand and model
-      SELECT m.name as make_name, mo.name as model_name, mo.id as model_id
-      INTO brand_var, model_var, current_model_id
-      FROM models mo
-      JOIN makes m ON mo.make_id = m.id
-      ORDER BY random()
-      LIMIT 1;
-      
-      -- Let the database auto-generate the ID to avoid conflicts
-      -- We'll use a direct VALUES clause with no ID
-      EXECUTE format('
-        INSERT INTO car_listings (
-          id,
-          title, 
-          description, 
-          price, 
-          mileage, 
-          model_year, 
-          brand, 
-          model,
-          model_id, -- Added model_id column
-          exterior_color, 
-          doors, 
-          cylinders, 
-          seller_id, 
-          governorate_id, 
-          city, 
-          condition_id, 
-          body_style_id, 
-          transmission_id, 
-          fuel_type_id, 
-          drive_type_id, 
-          transmission, 
-          approved, 
-          sold, 
-          archived,
-          created_at, 
-          updated_at
-        ) VALUES (
-          %s,
-          %L,
-          %L,
-          %s,
-          %s,
-          %s,
-          %L,
-          %L,
-          %s, -- Placeholder for model_id
-          %L,
-          %s,
-          %s,
-          %s,
-          %s,
-          %L,
-          %s,
-          %s,
-          %s,
-          %s,
-          %s,
-          %L,
-          TRUE,
-          FALSE,
-          FALSE,
-          NOW() - interval ''%s days'',
-          NOW() - interval ''%s days''
-        )',
-        1000000 + user_record.id, -- Use a very high ID range (1,000,000+) to avoid conflicts
-        (EXTRACT(YEAR FROM NOW()) - floor(random() * 5)::int)::text || ' ' || brand_var || ' ' || model_var || ' - Listing ' || user_record.id,
-        'This is a sample description for a ' || brand_var || ' ' || model_var || '. Well-maintained with regular service history. Features include power windows, cruise control, and backup camera. Please contact for more details.',
-        10000 + floor(random() * 40000),
-        10000 + floor(random() * 50000),
-        EXTRACT(YEAR FROM NOW()) - floor(random() * 5)::int,
-        brand_var,
-        model_var,
-        current_model_id, -- Use the fetched model_id
-        (ARRAY['Black', 'White', 'Silver', 'Gray', 'Blue', 'Red'])[1 + floor(random() * 6)],
-        4,
-        4 + (floor(random() * 2) * 2), -- 4, 6, or 8 cylinders
-        user_record.id,
-        1 + floor(random() * 14), -- Random governorate ID (1-14)
-        'Sample City ' || user_record.id,
-        condition_id_var,
-        body_style_id_var,
-        transmission_id_var,
-        fuel_type_id_var,
-        drive_type_id_var,
-        'Automatic',
-        floor(random() * 30)::text,
-        floor(random() * 30)::text
-      );
-      
-      listing_count := listing_count + 1;
-    END IF;
-  END LOOP;
-  CLOSE all_users;
-  
-END $$;
-
--- Seed Listing Media (placeholder images for each listing)
-DO $$
-DECLARE
-  listing_record RECORD;
-  media_count INTEGER;
-BEGIN
-  -- For each car listing
-  FOR listing_record IN SELECT id, brand, model FROM car_listings LOOP
-    -- Check if listing already has images
-    SELECT COUNT(*) INTO media_count FROM listing_media WHERE listing_id = listing_record.id;
-    
-    -- Only add images if the listing doesn't have any
-    IF media_count = 0 THEN
-      -- Add at least one primary image
-      EXECUTE format('
-        INSERT INTO listing_media (
-          id,
-          listing_id, 
-          file_key, 
-          file_name, 
-          content_type, 
-          size, 
-          sort_order, 
-          is_primary, 
-          media_type, 
-          created_at
-        ) 
-        VALUES (
-          %s,
-          %s,
-          %L,
-          %L,
-          %L,
-          %s,
-          %s,
-          %L,
-          %L,
-          NOW()
-        )',
-        3000000 + (listing_record.id * 100), -- Use listing_record.id to make each ID unique
-        listing_record.id,
-        'listings/' || listing_record.id || '/primary.jpg',
-        lower(replace(listing_record.brand, ' ', '-')) || '-' || lower(replace(listing_record.model, ' ', '-')) || '-' || listing_record.id || '.jpg',
-        'image/jpeg',
-        1000000 + floor(random() * 500000),
-        1,
-        'TRUE',
-        'image'
-      );
-      
-      -- Add 1-3 additional images randomly
-      FOR i IN 1..floor(random() * 3 + 1)::int LOOP
-        EXECUTE format('
-          INSERT INTO listing_media (
-            id,
-            listing_id, 
-            file_key, 
-            file_name, 
-            content_type, 
-            size, 
-            sort_order, 
-            is_primary, 
-            media_type, 
-            created_at
-          ) 
-          VALUES (
-            %s,
-            %s,
-            %L,
-            %L,
-            %L,
-            %s,
-            %s,
-            %L,
-            %L,
-            NOW()
-          )',
-          3000000 + (listing_record.id * 100) + i, -- Create a sequence within the listing's ID range
-          listing_record.id,
-          'listings/' || listing_record.id || '/image' || i || '.jpg',
-          lower(replace(listing_record.brand, ' ', '-')) || '-' || lower(replace(listing_record.model, ' ', '-')) || '-' || listing_record.id || '-' || i || '.jpg',
-          'image/jpeg',
-          800000 + floor(random() * 500000),
-          i + 1,
-          'FALSE',
-          'image'
-        );
-      END LOOP;
-    END IF;
-  END LOOP;
-END $$;
-
--- Replace complex PL/pgSQL with simple INSERT statements
--- Sample car listings with explicit IDs
+-- Create Car Listings with H2-compatible SQL
+-- We'll create listings for each user with randomized but consistent data
+WITH RECURSIVE numbers AS (
+    SELECT 1 as n
+    UNION ALL
+    SELECT n + 1 FROM numbers WHERE n < 20
+),
+listing_data AS (
+    SELECT 
+        1000000 + u.id as id,
+        CONCAT(
+            EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5),
+            ' ',
+            m.display_name_en,
+            ' ',
+            mo.display_name_en,
+            ' - Listing ',
+            u.id
+        ) as title,
+        CONCAT(
+            'This is a sample description for a ',
+            m.display_name_en,
+            ' ',
+            mo.display_name_en,
+            '. Well-maintained with regular service history. Features include power windows, cruise control, and backup camera. Please contact for more details.'
+        ) as description,
+        10000 + MOD(u.id * 2357, 40000) as price,
+        10000 + MOD(u.id * 3571, 50000) as mileage,
+        EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5) as model_year,
+        m.display_name_en as brand,
+        mo.display_name_en as model,
+        mo.id as model_id,
+        (ARRAY['Black', 'White', 'Silver', 'Gray', 'Blue', 'Red'])[1 + MOD(u.id, 6)] as exterior_color,
+        4 as doors,
+        4 + (MOD(u.id, 3) * 2) as cylinders,
+        u.id as seller_id,
+        1 + MOD(u.id, 14) as governorate_id,
+        CONCAT('Sample City ', u.id) as city,
+        c.id as condition_id,
+        b.id as body_style_id,
+        t.id as transmission_id,
+        f.id as fuel_type_id,
+        d.id as drive_type_id,
+        'Automatic' as transmission,
+        TRUE as approved,
+        FALSE as sold,
+        FALSE as archived,
+        CURRENT_TIMESTAMP - INTERVAL '1' DAY * MOD(u.id, 30) as created_at,
+        CURRENT_TIMESTAMP - INTERVAL '1' DAY * MOD(u.id, 30) as updated_at
+    FROM users u
+    CROSS JOIN (
+        SELECT id, display_name_en 
+        FROM makes 
+        ORDER BY RAND() 
+        LIMIT 1
+    ) m
+    CROSS JOIN (
+        SELECT mo.id, mo.display_name_en 
+        FROM models mo 
+        INNER JOIN makes ma ON mo.make_id = ma.id 
+        WHERE ma.id = m.id
+        ORDER BY RAND() 
+        LIMIT 1
+    ) mo
+    CROSS JOIN (SELECT id FROM car_conditions WHERE name = 'new' LIMIT 1) c
+    CROSS JOIN (SELECT id FROM body_styles WHERE name = 'sedan' LIMIT 1) b
+    CROSS JOIN (SELECT id FROM transmissions WHERE name = 'automatic' LIMIT 1) t
+    CROSS JOIN (SELECT id FROM fuel_types WHERE name = 'gasoline' LIMIT 1) f
+    CROSS JOIN (SELECT id FROM drive_types WHERE name = 'fwd' LIMIT 1) d
+    WHERE u.username LIKE 'testuser%'
+    AND NOT EXISTS (
+        SELECT 1 
+        FROM car_listings cl 
+        WHERE cl.seller_id = u.id
+    )
+)
 INSERT INTO car_listings (
     id, title, description, price, mileage, model_year, brand, model,
-    seller_id, condition_id, body_style_id, transmission_id, fuel_type_id, drive_type_id,
-    approved, created_at, updated_at
+    model_id, exterior_color, doors, cylinders, seller_id, governorate_id,
+    city, condition_id, body_style_id, transmission_id, fuel_type_id,
+    drive_type_id, transmission, approved, sold, archived,
+    created_at, updated_at
 )
 SELECT 
-    1000000 + ROW_NUMBER() OVER (ORDER BY u.id),
-    'Sample Car ' || ROW_NUMBER() OVER (ORDER BY u.id),
-    'This is a sample car listing for testing purposes.',
-    CAST(20000 + (RAND() * 30000) AS DECIMAL(10,2)),
-    CAST(1000 + (RAND() * 50000) AS INTEGER),
-    2020 + CAST(RAND() * 3 AS INTEGER),
-    CASE MOD(CAST(RAND() * 4 AS INTEGER), 4) 
-        WHEN 0 THEN 'Toyota'
-        WHEN 1 THEN 'Honda'
-        WHEN 2 THEN 'BMW'
-        ELSE 'Mercedes-Benz'
-    END,
-    CASE MOD(CAST(RAND() * 3 AS INTEGER), 3)
-        WHEN 0 THEN 'Camry'
-        WHEN 1 THEN 'Civic'
-        ELSE '3 Series'
-    END,
-    u.id,
-    c.id,
-    b.id,
-    t.id,
-    f.id,
-    d.id,
-    TRUE,
-    NOW(),
-    NOW()
-FROM users u
-CROSS JOIN car_conditions c
-CROSS JOIN body_styles b
-CROSS JOIN transmissions t
-CROSS JOIN fuel_types f
-CROSS JOIN drive_types d
-WHERE u.username LIKE 'testuser%'
-  AND c.name = 'new'
-  AND b.name = 'sedan'
-  AND t.name = 'automatic'
-  AND f.name = 'gasoline'
-  AND d.name = 'fwd'
-  AND NOT EXISTS (
-    SELECT 1 FROM car_listings 
-    WHERE seller_id = u.id
-  )
-LIMIT 20;
+    id, title, description, price, mileage, model_year, brand, model,
+    model_id, exterior_color, doors, cylinders, seller_id, governorate_id,
+    city, condition_id, body_style_id, transmission_id, fuel_type_id,
+    drive_type_id, transmission, approved, sold, archived,
+    created_at, updated_at
+FROM listing_data;
 
--- Sample listing media with explicit IDs
+-- Create Listing Media with H2-compatible SQL
+WITH RECURSIVE listing_images AS (
+    SELECT 
+        cl.id as listing_id,
+        cl.brand,
+        cl.model,
+        3000000 + (cl.id * 100) as base_media_id,
+        1 as image_number,
+        TRUE as is_primary
+    FROM car_listings cl
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM listing_media lm 
+        WHERE lm.listing_id = cl.id
+    )
+    UNION ALL
+    SELECT 
+        listing_id,
+        brand,
+        model,
+        base_media_id,
+        image_number + 1,
+        FALSE as is_primary
+    FROM listing_images
+    WHERE image_number < 1 + MOD(listing_id, 3)
+)
 INSERT INTO listing_media (
-    id, listing_id, file_key, file_name, content_type, size, 
+    id, listing_id, file_key, file_name, content_type, size,
     sort_order, is_primary, media_type, created_at
 )
 SELECT 
-    3000000 + ROW_NUMBER() OVER (ORDER BY cl.id),
-    cl.id,
-    'sample/car-' || cl.id || '-1.jpg',
-    'car-' || cl.id || '-1.jpg',
-    'image/jpeg',
-    102400,
-    0,
-    TRUE,
-    'IMAGE',
-    NOW()
-FROM car_listings cl
-WHERE cl.id >= 1000000
-  AND NOT EXISTS (
-    SELECT 1 FROM listing_media 
-    WHERE listing_id = cl.id
-  );
+    base_media_id + image_number as id,
+    listing_id,
+    CONCAT('listings/', listing_id, '/', CASE WHEN is_primary THEN 'primary' ELSE CONCAT('image', image_number) END, '.jpg') as file_key,
+    CONCAT(
+        LOWER(REPLACE(brand, ' ', '-')), 
+        '-',
+        LOWER(REPLACE(model, ' ', '-')),
+        '-',
+        listing_id,
+        CASE WHEN NOT is_primary THEN CONCAT('-', image_number) ELSE '' END,
+        '.jpg'
+    ) as file_name,
+    'image/jpeg' as content_type,
+    800000 + MOD(listing_id * image_number * 7919, 500000) as size,
+    image_number as sort_order,
+    is_primary,
+    'image' as media_type,
+    CURRENT_TIMESTAMP as created_at
+FROM listing_images;
