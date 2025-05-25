@@ -71,9 +71,16 @@ public class JwtUtils {
     }
 
     public boolean validateJwtToken(String authToken) {
+        // Check for null, empty, or whitespace tokens
         if (StringUtils.isBlank(authToken)) {
             log.error("JWT token is null or empty");
             throw new MalformedJwtTokenException("JWT token is null or empty");
+        }
+        
+        // Additional check for null characters which StringUtils.isBlank doesn't catch
+        if (authToken.indexOf('\u0000') >= 0) {
+            log.error("JWT token contains null characters");
+            throw new MalformedJwtTokenException("JWT token contains null characters");
         }
 
         try {
