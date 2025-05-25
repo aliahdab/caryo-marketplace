@@ -59,7 +59,7 @@ public class SocialLoginIntegrationTest extends IntegrationTestWithS3 {
         baseUrl = "http://localhost:" + port;
         
         // Clean up database - delete car listings first due to foreign key constraints
-        carListingRepository.deleteAll();
+        // carListingRepository.deleteAll(); // Temporarily commented out
         userRepository.deleteAll();
         
         // Ensure we have the USER role available

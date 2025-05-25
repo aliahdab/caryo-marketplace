@@ -172,7 +172,12 @@ public class SearchIntegrationTest {
                 .thenReturn(new PageImpl<>(aleppoListings));
     }
 
+    /**
+     * Tests the quick search endpoint with a brand term filter.
+     * Verifies that results match the specified brand.
+     */
     @Test
+    @DisplayName("Quick search should return listings matching the brand term")
     @WithMockUser(username = "testuser")
     void quickSearch_withBrandTerm_shouldReturnMatchingListings() throws Exception {
         // Perform the request
@@ -188,14 +193,20 @@ public class SearchIntegrationTest {
         QuickSearchResponse response = objectMapper.readValue(content, QuickSearchResponse.class);
 
         // Verify the response
-        assertNotNull(response);
-        assertEquals("toyota", response.getSearchTerm());
-        assertEquals(2, response.getListings().size());
+        assertNotNull(response, "Response should not be null");
+        assertEquals("toyota", response.getSearchTerm(), "Search term should match the requested term");
+        assertEquals(2, response.getListings().size(), "Should return exactly 2 Toyota listings");
         assertTrue(response.getListings().stream()
-                .allMatch(listing -> listing.getBrand().toLowerCase().contains("toyota")));
+                .allMatch(listing -> listing.getBrand().toLowerCase().contains("toyota")),
+                "All returned listings should be Toyota brand");
     }
 
+    /**
+     * Tests the quick search endpoint with a governorate ID filter.
+     * Verifies that results match the specified governorate.
+     */
     @Test
+    @DisplayName("Quick search should return listings in the specified governorate")
     @WithMockUser(username = "testuser")
     void quickSearch_withGovernorateId_shouldReturnListingsInGovernorate() throws Exception {
         // Perform the request
@@ -212,14 +223,18 @@ public class SearchIntegrationTest {
         QuickSearchResponse response = objectMapper.readValue(content, QuickSearchResponse.class);
 
         // Verify the response
-        assertNotNull(response);
-        assertEquals(damascusGovernorate.getId(), response.getGovernorateId());
-        assertEquals(3, response.getListings().size(), "Should find 3 listings in Damascus");
+        assertNotNull(response, "Response should not be null");
+        assertEquals(damascusGovernorate.getId(), response.getGovernorateId(), 
+                "Response governorate ID should match the requested ID");
+        assertEquals(3, response.getListings().size(), 
+                "Should find 3 listings in Damascus");
 
         // Detailed check for each listing
         for (CarListingResponse listing : response.getListings()) {
-            assertNotNull(listing.getLocationDetails(), "LocationDetails should not be null for listing with title: " + listing.getTitle());
-            assertEquals("Damascus", listing.getLocationDetails().getDisplayNameEn(), "Listing should be in Damascus, title: " + listing.getTitle());
+            assertNotNull(listing.getLocationDetails(), 
+                    "LocationDetails should not be null for listing with title: " + listing.getTitle());
+            assertEquals("Damascus", listing.getLocationDetails().getDisplayNameEn(), 
+                    "Listing should be in Damascus, title: " + listing.getTitle());
         }
     }
 
