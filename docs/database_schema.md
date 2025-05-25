@@ -36,6 +36,19 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 - **created_at**: TIMESTAMP NOT NULL
 - **updated_at**: TIMESTAMP NOT NULL
 
+### Table: governorates
+- **id**: BIGINT PRIMARY KEY 
+- **display_name_en**: VARCHAR(100) NOT NULL
+- **display_name_ar**: VARCHAR(100) NOT NULL
+- **slug**: VARCHAR(100) UNIQUE NOT NULL
+- **country_code**: VARCHAR(2) NOT NULL
+- **region**: VARCHAR(100)
+- **latitude**: DOUBLE PRECISION
+- **longitude**: DOUBLE PRECISION
+- **is_active**: BOOLEAN DEFAULT TRUE
+- **created_at**: TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+- **updated_at**: TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+
 ## Listing Tables
 
 ### Table: car_listings
@@ -54,6 +67,13 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 - **cylinders**: INTEGER
 - **seller_id**: BIGINT NOT NULL (Foreign Key to users.id)
 - **location_id**: BIGINT (Foreign Key to locations.id)
+- **governorate_id**: BIGINT (Foreign Key to governorates.id)
+- **governorate_name_en**: VARCHAR(100)
+- **governorate_name_ar**: VARCHAR(100)
+- **brand_name_en**: VARCHAR(100)
+- **brand_name_ar**: VARCHAR(100)
+- **model_name_en**: VARCHAR(100)
+- **model_name_ar**: VARCHAR(100)
 - **condition_id**: BIGINT (Foreign Key to car_conditions.id)
 - **body_style_id**: BIGINT (Foreign Key to body_styles.id)
 - **transmission_id**: BIGINT (Foreign Key to transmissions.id)
@@ -204,6 +224,7 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 - **users** has many **roles** through **user_roles**
 - **car_listings** belongs to **users** (seller)
 - **car_listings** belongs to **locations**
+- **car_listings** belongs to **governorates**
 - **car_listings** belongs to **car_conditions**
 - **car_listings** belongs to **body_styles**
 - **car_listings** belongs to **transmissions**
@@ -222,6 +243,7 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 ```
 [users] 1——* [car_listings] *——1 [locations]
    |                |                
+   |                |——————*——1 [governorates]
    |                |——————*——1 [car_conditions]
    |                |——————*——1 [body_styles]
    |                |——————*——1 [transmissions]
@@ -246,8 +268,9 @@ This document outlines the database schema for the AutoTrader Marketplace backen
 ## Notes
 
 1. **Indexing Strategy**:
-   - Indexes on foreign keys (e.g., `seller_id`, `location_id` in `car_listings`)
+   - Indexes on foreign keys (e.g., `seller_id`, `location_id`, `governorate_id` in `car_listings`)
    - Indexes on commonly filtered fields (e.g., `brand`, `model`, `price` in `car_listings`)
+   - Indexes on denormalized search fields (e.g., `brand_name_en`, `brand_name_ar`, `model_name_en`, `model_name_ar`, `governorate_name_en`, `governorate_name_ar`)
    - Full-text search indexes on description fields
 
 2. **Data Migrations**:
@@ -266,9 +289,44 @@ The following tables have triggers to automatically update their `updated_at` ti
 
 - **users** - `update_users_modtime`
 - **locations** - `update_locations_modtime`
+- **governorates** - `update_governorates_modtime`
 - **car_listings** - `update_car_listings_modtime`
 - **listing_packages** - `update_listing_packages_modtime`
 - **ad_packages** - `update_ad_packages_modtime`
 - **ad_services** - `update_ad_services_modtime`
 
 All these triggers use the `update_modified_column()` function which sets `NEW.updated_at = now()`.
+
+### Denormalized Field Maintenance Triggers
+
+The following triggers maintain denormalized fields for optimized search:
+
+- **car_listing_before_insert_update** - Updates denormalized fields in car_listings (brand_name_en, brand_name_ar, model_name_en, model_name_ar, governorate_name_en, governorate_name_ar) before insert or update.
+
+- **governorate_after_update** - Updates denormalized governorate names in car_listings when a governorate's name changes.
+
+## Search Optimization Strategy
+
+The database schema has been optimized for high-performance search operations through strategic denormalization and indexing:
+
+1. **Denormalized Fields**:
+   - The `car_listings` table includes denormalized fields for brand, model, and governorate names in both English and Arabic.
+   - These fields eliminate the need for joins during common search operations, significantly improving query performance.
+   - Data integrity is maintained through database triggers and application-level hooks.
+
+2. **Optimized Indexes**:
+   - Specialized indexes support various search patterns:
+     - `idx_car_listings_brand_name_en` and `idx_car_listings_brand_name_ar` for brand searches
+     - `idx_car_listings_model_name_en` and `idx_car_listings_model_name_ar` for model searches
+     - `idx_car_listings_governorate_name_en` and `idx_car_listings_governorate_name_ar` for location searches
+     - Composite indexes for common search combinations
+
+3. **Bilingual Support**:
+   - All search-related fields have both English (`_en`) and Arabic (`_ar`) versions.
+   - Language-specific indexing ensures optimal performance regardless of the user's language preference.
+
+4. **Hybrid Approach**:
+   - The schema maintains standard relational integrity through foreign keys while leveraging denormalization for performance.
+   - This hybrid approach provides the benefits of a NoSQL-like performance for searches while maintaining the data integrity of a relational database.
+
+This optimization strategy is specifically designed for the most common search patterns in the car marketplace application: quick search by brand, model, and location (governorate).
