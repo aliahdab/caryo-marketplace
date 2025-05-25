@@ -332,82 +332,6 @@ SELECT 'cvt', 'CVT', 'CVT', 'cvt'
 WHERE NOT EXISTS (SELECT 1 FROM transmissions WHERE name = 'cvt');
 
 -- Create Car Listings with simplified H2-compatible SQL
-WITH listing_data AS (
-    SELECT 
-        1000000 + u.id as id,
-        CONCAT(
-            EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5),
-            ' ',
-            m.display_name_en,
-            ' ',
-            mo.display_name_en,
-            ' - Listing ',
-            CAST(u.id as VARCHAR)
-        ) as title,
-        CONCAT(
-            'This is a sample description for a ',
-            m.display_name_en,
-            ' ',
-            mo.display_name_en,
-            '. Well-maintained with regular service history. Features include power windows, cruise control, and backup camera. Please contact for more details.'
-        ) as description,
-        10000 + MOD(u.id * 2357, 40000) as price,
-        10000 + MOD(u.id * 3571, 50000) as mileage,
-        EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5) as model_year,
-        m.display_name_en as brand,
-        mo.display_name_en as model,
-        mo.id as model_id,
-        CASE MOD(u.id, 6)
-            WHEN 0 THEN 'Black'
-            WHEN 1 THEN 'White'
-            WHEN 2 THEN 'Silver'
-            WHEN 3 THEN 'Gray'
-            WHEN 4 THEN 'Blue'
-            ELSE 'Red'
-        END as exterior_color,
-        4 as doors,
-        4 + (MOD(u.id, 3) * 2) as cylinders,
-        u.id as seller_id,
-        1 + MOD(u.id, 14) as governorate_id,
-        CONCAT('Sample City ', CAST(u.id as VARCHAR)) as city,
-        c.id as condition_id,
-        b.id as body_style_id,
-        t.id as transmission_id,
-        f.id as fuel_type_id,
-        d.id as drive_type_id,
-        'Automatic' as transmission,
-        TRUE as approved,
-        FALSE as sold,
-        FALSE as archived,
-        DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as created_at,
-        DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as updated_at
-    FROM users u
-    CROSS JOIN (
-        SELECT id, display_name_en 
-        FROM makes 
-        ORDER BY RAND() 
-        LIMIT 1
-    ) m
-    CROSS JOIN (
-        SELECT mo.id, mo.display_name_en 
-        FROM models mo 
-        INNER JOIN makes ma ON mo.make_id = ma.id 
-        WHERE ma.id = m.id
-        ORDER BY RAND() 
-        LIMIT 1
-    ) mo
-    CROSS JOIN (SELECT id FROM car_conditions WHERE name = 'new' LIMIT 1) c
-    CROSS JOIN (SELECT id FROM body_styles WHERE name = 'sedan' LIMIT 1) b
-    CROSS JOIN (SELECT id FROM transmissions WHERE name = 'automatic' LIMIT 1) t
-    CROSS JOIN (SELECT id FROM fuel_types WHERE name = 'gasoline' LIMIT 1) f
-    CROSS JOIN (SELECT id FROM drive_types WHERE name = 'fwd' LIMIT 1) d
-    WHERE u.username LIKE 'testuser%'
-    AND NOT EXISTS (
-        SELECT 1 
-        FROM car_listings cl 
-        WHERE cl.seller_id = u.id
-    )
-)
 INSERT INTO car_listings (
     id, title, description, price, mileage, model_year, brand, model,
     model_id, exterior_color, doors, cylinders, seller_id, governorate_id,
@@ -416,12 +340,86 @@ INSERT INTO car_listings (
     created_at, updated_at
 )
 SELECT 
-    id, title, description, price, mileage, model_year, brand, model,
-    model_id, exterior_color, doors, cylinders, seller_id, governorate_id,
-    city, condition_id, body_style_id, transmission_id, fuel_type_id,
-    drive_type_id, transmission, approved, sold, archived,
-    created_at, updated_at
-FROM listing_data;
+    1000000 + u.id as id,
+    CONCAT(
+        EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5),
+        ' ',
+        mk.display_name_en,
+        ' ',
+        md.display_name_en,
+        ' - Listing ',
+        CAST(u.id as VARCHAR)
+    ) as title,
+    CONCAT(
+        'This is a sample description for a ',
+        mk.display_name_en,
+        ' ',
+        md.display_name_en,
+        '. Well-maintained with regular service history. Features include power windows, cruise control, and backup camera. Please contact for more details.'
+    ) as description,
+    10000 + MOD(u.id * 2357, 40000) as price,
+    10000 + MOD(u.id * 3571, 50000) as mileage,
+    EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5) as model_year,
+    mk.display_name_en as brand,
+    md.display_name_en as model,
+    md.id as model_id,
+    CASE MOD(u.id, 6)
+        WHEN 0 THEN 'Black'
+        WHEN 1 THEN 'White'
+        WHEN 2 THEN 'Silver'
+        WHEN 3 THEN 'Gray'
+        WHEN 4 THEN 'Blue'
+        ELSE 'Red'
+    END as exterior_color,
+    4 as doors,
+    4 + (MOD(u.id, 3) * 2) as cylinders,
+    u.id as seller_id,
+    1 + MOD(u.id, 14) as governorate_id,
+    CONCAT('Sample City ', CAST(u.id as VARCHAR)) as city,
+    cc.id as condition_id,
+    bs.id as body_style_id,
+    tr.id as transmission_id,
+    ft.id as fuel_type_id,
+    dt.id as drive_type_id,
+    'Automatic' as transmission,
+    TRUE as approved,
+    FALSE as sold,
+    FALSE as archived,
+    DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as created_at,
+    DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as updated_at
+FROM users u
+CROSS JOIN (
+    SELECT mk.id, mk.display_name_en
+    FROM (
+        SELECT id 
+        FROM makes 
+        ORDER BY RAND()
+        LIMIT 1
+    ) r
+    JOIN makes mk ON mk.id = r.id
+) mk
+CROSS JOIN (
+    SELECT md.id, md.display_name_en
+    FROM (
+        SELECT id 
+        FROM models 
+        WHERE make_id = mk.id
+        ORDER BY RAND()
+        LIMIT 1
+    ) r
+    JOIN models md ON md.id = r.id
+) md
+CROSS JOIN (SELECT id FROM car_conditions WHERE name = 'new' LIMIT 1) cc
+CROSS JOIN (SELECT id FROM body_styles WHERE name = 'sedan' LIMIT 1) bs
+CROSS JOIN (SELECT id FROM transmissions WHERE name = 'automatic' LIMIT 1) tr
+CROSS JOIN (SELECT id FROM fuel_types WHERE name = 'gasoline' LIMIT 1) ft
+CROSS JOIN (SELECT id FROM drive_types WHERE name = 'fwd' LIMIT 1) dt
+WHERE u.username LIKE 'testuser%'
+AND NOT EXISTS (
+    SELECT 1 
+    FROM car_listings cl 
+    WHERE cl.seller_id = u.id
+);
 
 -- Create Listing Media with simplified H2-compatible SQL
 INSERT INTO listing_media (
@@ -459,9 +457,9 @@ INSERT INTO listing_media (
     sort_order, is_primary, media_type, created_at
 )
 SELECT 
-    3000000 + (cl.id * 100) + i.idx as id,
+    3000000 + (cl.id * 100) + v.n as id,
     cl.id as listing_id,
-    CONCAT('listings/', cl.id, '/image', i.idx, '.jpg') as file_key,
+    CONCAT('listings/', cl.id, '/image', v.n, '.jpg') as file_key,
     CONCAT(
         LOWER(REPLACE(cl.brand, ' ', '-')), 
         '-',
@@ -469,20 +467,22 @@ SELECT
         '-',
         CAST(cl.id as VARCHAR),
         '-',
-        CAST(i.idx as VARCHAR),
+        CAST(v.n as VARCHAR),
         '.jpg'
     ) as file_name,
     'image/jpeg' as content_type,
-    800000 + MOD((cl.id + i.idx) * 7919, 500000) as size,
-    i.idx + 1 as sort_order,
+    800000 + MOD((cl.id + v.n) * 7919, 500000) as size,
+    v.n + 1 as sort_order,
     FALSE as is_primary,
     'image' as media_type,
     cl.created_at as created_at
 FROM car_listings cl
-CROSS JOIN (VALUES (1), (2)) i(idx)
+CROSS JOIN (
+    SELECT 1 as n UNION ALL SELECT 2
+) v
 WHERE NOT EXISTS (
     SELECT 1 
     FROM listing_media lm 
     WHERE lm.listing_id = cl.id 
-    AND lm.sort_order = i.idx + 1
+    AND lm.sort_order = v.n + 1
 );
