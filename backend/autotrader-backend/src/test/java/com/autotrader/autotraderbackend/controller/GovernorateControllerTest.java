@@ -2,11 +2,10 @@ package com.autotrader.autotraderbackend.controller;
 
 import com.autotrader.autotraderbackend.payload.response.GovernorateResponse;
 import com.autotrader.autotraderbackend.service.GovernorateService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -26,7 +25,7 @@ import java.util.Objects;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
+
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -60,8 +59,7 @@ class GovernorateControllerTest {
     @MockBean
     private com.autotrader.autotraderbackend.security.services.UserDetailsServiceImpl userDetailsService;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+
 
     private GovernorateResponse damascusGovernorate;
     private GovernorateResponse aleppoGovernorate;
@@ -184,17 +182,25 @@ class GovernorateControllerTest {
 
     @ParameterizedTest
     @WithMockUser
-    @NullAndEmptySource
     @ValueSource(strings = {" ", "XXX", "A"})
     void getGovernoratesByCountry_shouldHandleInvalidCountryCodes(String countryCode) throws Exception {
-        String url = StringUtils.hasText(countryCode) 
-            ? BASE_URL + "/country/" + countryCode
-            : BASE_URL + "/country/";
-
-        given(governorateService.getGovernoratesByCountry(any()))
+        given(governorateService.getGovernoratesByCountry(anyString()))
             .willReturn(Collections.emptyList());
 
-        mockMvc.perform(get(url))
+        mockMvc.perform(get(BASE_URL + "/country/" + countryCode))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+    
+    @Test
+    @WithMockUser
+    void getGovernoratesByEmptyCountryCode_shouldReturn200WithEmptyList() throws Exception {
+        given(governorateService.getGovernoratesByCountry(""))
+            .willReturn(Collections.emptyList());
+            
+        mockMvc.perform(get(BASE_URL + "/country/{countryCode}", ""))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -218,17 +224,23 @@ class GovernorateControllerTest {
 
     @ParameterizedTest
     @WithMockUser
-    @NullAndEmptySource
     @ValueSource(strings = {" ", "unknown-slug", "invalid-governorate"})
     void getGovernorateBySlug_shouldHandleInvalidSlugs(String slug) throws Exception {
-        String url = StringUtils.hasText(slug) 
-            ? BASE_URL + "/" + slug
-            : BASE_URL + "/";
-
         given(governorateService.getGovernorateBySlug(anyString()))
             .willReturn(null);
 
-        mockMvc.perform(get(url))
+        mockMvc.perform(get(BASE_URL + "/" + slug))
+                .andDo(print())
+                .andExpect(status().isNotFound());
+    }
+    
+    @Test
+    @WithMockUser
+    void getGovernorateByEmptySlug_shouldReturn404() throws Exception {
+        given(governorateService.getGovernorateBySlug(""))
+            .willReturn(null);
+            
+        mockMvc.perform(get(BASE_URL + "/{slug}", ""))
                 .andDo(print())
                 .andExpect(status().isNotFound());
     }
