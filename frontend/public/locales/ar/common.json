@@ -405,6 +405,7 @@
     }
   },
   "search": {
+<<<<<<< HEAD
     "selectBrand": "الماركة",
     "selectModel": "الموديل",
     "governorate": "المحافظة",
@@ -446,6 +447,23 @@
     "pageNotFound": "الصفحة غير موجودة",
     "goBack": "الرجوع للخلف",
     "goHome": "الذهاب إلى الصفحة الرئيسية"
+=======
+    "selectBrand": "اختر الماركة",
+    "selectModel": "اختر الموديل",
+    "searchButton": "ابحث عن سيارات",
+    "location": "الموقع",
+    "enterLocation": "أدخل الموقع",
+    "loadingBrands": "جارٍ تحميل ماركات السيارات...",
+    "loadingModels": "جارٍ تحميل الموديلات...",
+    "noBrandsFound": "لم يتم العثور على ماركات سيارات",
+    "noModelsFound": "لم يتم العثور على موديلات لهذه الماركة",
+    "brandPlaceholder": "اختر ماركة السيارة",
+    "modelPlaceholder": "اختر الموديل",
+    "locationPlaceholder": "أدخل المدينة أو المنطقة",
+    "errorLoadingBrands": "فشل في تحميل ماركات السيارات",
+    "errorLoadingModels": "فشل في تحميل موديلات السيارات",
+    "tryAgain": "حاول مرة أخرى"
+>>>>>>> def829d9bb2e90bd28e7e128fe3725b769baad37
   },
   "clearFilters": "مسح الفلاتر",
   "selectAll": "تحديد الكل",
