@@ -102,98 +102,179 @@ AND NOT EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role_
 -- For testing purposes, these two inserts should be sufficient
 
 -- Seed Makes (Car Brands) - Only if they don't already exist
-DO $$
-DECLARE
-  brands_array TEXT[] := ARRAY['toyota', 'honda', 'ford', 'bmw', 'mercedes-benz', 'hyundai', 'kia'];
-  brand_name TEXT;
-  brand_display_en TEXT;
-  brand_display_ar TEXT;
-  brand_country TEXT;
-  brand_id BIGINT;
-BEGIN
-  FOREACH brand_name IN ARRAY brands_array LOOP
-    -- Set display name and country based on brand
-    CASE brand_name
-      WHEN 'toyota' THEN
-        brand_display_en := 'Toyota';
-        brand_display_ar := 'تويوتا';
-        brand_country := 'Japan';
-      WHEN 'honda' THEN
-        brand_display_en := 'Honda';
-        brand_display_ar := 'هوندا';
-        brand_country := 'Japan';
-      WHEN 'ford' THEN
-        brand_display_en := 'Ford';
-        brand_display_ar := 'فورد';
-        brand_country := 'USA';
-      WHEN 'bmw' THEN
-        brand_display_en := 'BMW';
-        brand_display_ar := 'بي إم دبليو';
-        brand_country := 'Germany';
-      WHEN 'mercedes-benz' THEN
-        brand_display_en := 'Mercedes-Benz';
-        brand_display_ar := 'مرسيدس بنز';
-        brand_country := 'Germany';
-      WHEN 'hyundai' THEN
-        brand_display_en := 'Hyundai';
-        brand_display_ar := 'هيونداي';
-        brand_country := 'South Korea';
-      WHEN 'kia' THEN
-        brand_display_en := 'Kia';
-        brand_display_ar := 'كيا';
-        brand_country := 'South Korea';
-    END CASE;      -- Check if brand exists, if not insert it
-    IF NOT EXISTS (SELECT 1 FROM makes WHERE name = brand_name) THEN
-      INSERT INTO makes (name, display_name_en, display_name_ar, slug, country_of_origin, logo_url, is_active, created_at, updated_at)
-      VALUES (brand_name, brand_display_en, brand_display_ar, brand_name, brand_country, NULL, TRUE, NOW(), NOW())
-      RETURNING id INTO brand_id;        -- Insert models for this brand
-        IF brand_name = 'toyota' THEN
-          INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
-          VALUES 
-            (brand_id, 'camry', 'Camry', 'كامري', 'toyota-camry', 2018, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'corolla', 'Corolla', 'كورولا', 'toyota-corolla', 2019, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'rav4', 'RAV4', 'راف فور', 'toyota-rav4', 2019, NULL, TRUE, NOW(), NOW());
-        ELSIF brand_name = 'honda' THEN
-          INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
-          VALUES 
-            (brand_id, 'civic', 'Civic', 'سيفيك', 'honda-civic', 2016, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'accord', 'Accord', 'أكورد', 'honda-accord', 2018, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'crv', 'CR-V', 'سي آر في', 'honda-crv', 2017, NULL, TRUE, NOW(), NOW());
-        ELSIF brand_name = 'ford' THEN
-          INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
-          VALUES 
-            (brand_id, 'f150', 'F-150', 'إف-150', 'ford-f150', 2021, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'explorer', 'Explorer', 'اكسبلورر', 'ford-explorer', 2020, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'mustang', 'Mustang', 'موستانج', 'ford-mustang', 2015, NULL, TRUE, NOW(), NOW());
-        ELSIF brand_name = 'bmw' THEN
-          INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
-          VALUES 
-            (brand_id, '3series', '3 Series', 'الفئة الثالثة', 'bmw-3series', 2019, NULL, TRUE, NOW(), NOW()),
-            (brand_id, '5series', '5 Series', 'الفئة الخامسة', 'bmw-5series', 2017, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'x5', 'X5', 'إكس 5', 'bmw-x5', 2019, NULL, TRUE, NOW(), NOW());
-        ELSIF brand_name = 'mercedes-benz' THEN
-          INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
-          VALUES 
-            (brand_id, 'cclass', 'C-Class', 'الفئة سي', 'mercedes-cclass', 2022, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'eclass', 'E-Class', 'الفئة إي', 'mercedes-eclass', 2021, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'glc', 'GLC', 'جي إل سي', 'mercedes-glc', 2020, NULL, TRUE, NOW(), NOW());
-        ELSIF brand_name = 'hyundai' THEN
-          INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
-          VALUES 
-            (brand_id, 'elantra', 'Elantra', 'إلنترا', 'hyundai-elantra', 2021, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'sonata', 'Sonata', 'سوناتا', 'hyundai-sonata', 2020, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'tucson', 'Tucson', 'توسان', 'hyundai-tucson', 2022, NULL, TRUE, NOW(), NOW());
-        ELSIF brand_name = 'kia' THEN
-          INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
-          VALUES 
-            (brand_id, 'optima', 'Optima', 'أوبتيما', 'kia-optima', 2016, 2020, TRUE, NOW(), NOW()),
-            (brand_id, 'k5', 'K5', 'كي 5', 'kia-k5', 2021, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'sorento', 'Sorento', 'سورينتو', 'kia-sorento', 2021, NULL, TRUE, NOW(), NOW()),
-            (brand_id, 'sportage', 'Sportage', 'سبورتاج', 'kia-sportage', 2023, NULL, TRUE, NOW(), NOW());
-      END IF;
-    END IF;
-  END LOOP;
-END $$;
+-- Toyota
+INSERT INTO makes (name, display_name_en, display_name_ar, slug, country_of_origin, logo_url, is_active, created_at, updated_at)
+SELECT 'toyota', 'Toyota', 'تويوتا', 'toyota', 'Japan', NULL, TRUE, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM makes WHERE name = 'toyota');
+
+-- Honda
+INSERT INTO makes (name, display_name_en, display_name_ar, slug, country_of_origin, logo_url, is_active, created_at, updated_at)
+SELECT 'honda', 'Honda', 'هوندا', 'honda', 'Japan', NULL, TRUE, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM makes WHERE name = 'honda');
+
+-- Ford
+INSERT INTO makes (name, display_name_en, display_name_ar, slug, country_of_origin, logo_url, is_active, created_at, updated_at)
+SELECT 'ford', 'Ford', 'فورد', 'ford', 'USA', NULL, TRUE, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM makes WHERE name = 'ford');
+
+-- BMW
+INSERT INTO makes (name, display_name_en, display_name_ar, slug, country_of_origin, logo_url, is_active, created_at, updated_at)
+SELECT 'bmw', 'BMW', 'بي إم دبليو', 'bmw', 'Germany', NULL, TRUE, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM makes WHERE name = 'bmw');
+
+-- Mercedes-Benz
+INSERT INTO makes (name, display_name_en, display_name_ar, slug, country_of_origin, logo_url, is_active, created_at, updated_at)
+SELECT 'mercedes-benz', 'Mercedes-Benz', 'مرسيدس بنز', 'mercedes-benz', 'Germany', NULL, TRUE, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM makes WHERE name = 'mercedes-benz');
+
+-- Hyundai
+INSERT INTO makes (name, display_name_en, display_name_ar, slug, country_of_origin, logo_url, is_active, created_at, updated_at)
+SELECT 'hyundai', 'Hyundai', 'هيونداي', 'hyundai', 'South Korea', NULL, TRUE, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM makes WHERE name = 'hyundai');
+
+-- Kia
+INSERT INTO makes (name, display_name_en, display_name_ar, slug, country_of_origin, logo_url, is_active, created_at, updated_at)
+SELECT 'kia', 'Kia', 'كيا', 'kia', 'South Korea', NULL, TRUE, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM makes WHERE name = 'kia');
+
+-- Insert models for Toyota
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'camry', 'Camry', 'كامري', 'toyota-camry', 2018, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'toyota' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'camry' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'corolla', 'Corolla', 'كورولا', 'toyota-corolla', 2019, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'toyota' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'corolla' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'rav4', 'RAV4', 'راف فور', 'toyota-rav4', 2019, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'toyota' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'rav4' AND make_id = m.id
+);
+
+-- Insert models for Honda
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'civic', 'Civic', 'سيفيك', 'honda-civic', 2016, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'honda' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'civic' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'accord', 'Accord', 'أكورد', 'honda-accord', 2018, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'honda' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'accord' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'crv', 'CR-V', 'سي آر في', 'honda-crv', 2017, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'honda' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'crv' AND make_id = m.id
+);
+
+-- Insert models for Ford
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'f150', 'F-150', 'إف-150', 'ford-f150', 2021, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'ford' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'f150' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'explorer', 'Explorer', 'اكسبلورر', 'ford-explorer', 2020, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'ford' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'explorer' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'mustang', 'Mustang', 'موستانج', 'ford-mustang', 2015, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'ford' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'mustang' AND make_id = m.id
+);
+
+-- Insert models for BMW
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, '3series', '3 Series', 'الفئة الثالثة', 'bmw-3series', 2019, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'bmw' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = '3series' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, '5series', '5 Series', 'الفئة الخامسة', 'bmw-5series', 2017, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'bmw' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = '5series' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'x5', 'X5', 'إكس 5', 'bmw-x5', 2019, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'bmw' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'x5' AND make_id = m.id
+);
+
+-- Insert models for Mercedes-Benz
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'cclass', 'C-Class', 'الفئة سي', 'mercedes-cclass', 2022, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'mercedes-benz' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'cclass' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'eclass', 'E-Class', 'الفئة إي', 'mercedes-eclass', 2021, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'mercedes-benz' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'eclass' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'glc', 'GLC', 'جي إل سي', 'mercedes-glc', 2020, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'mercedes-benz' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'glc' AND make_id = m.id
+);
+
+-- Insert models for Hyundai
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'elantra', 'Elantra', 'إلنترا', 'hyundai-elantra', 2021, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'hyundai' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'elantra' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'sonata', 'Sonata', 'سوناتا', 'hyundai-sonata', 2020, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'hyundai' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'sonata' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'tucson', 'Tucson', 'توسان', 'hyundai-tucson', 2022, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'hyundai' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'tucson' AND make_id = m.id
+);
+
+-- Insert models for Kia
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'optima', 'Optima', 'أوبتيما', 'kia-optima', 2016, 2020, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'kia' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'optima' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'k5', 'K5', 'كي 5', 'kia-k5', 2021, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'kia' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'k5' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'sorento', 'Sorento', 'سورينتو', 'kia-sorento', 2021, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'kia' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'sorento' AND make_id = m.id
+);
+
+INSERT INTO models (make_id, name, display_name_en, display_name_ar, slug, year_start, year_end, is_active, created_at, updated_at)
+SELECT m.id, 'sportage', 'Sportage', 'سبورتاج', 'kia-sportage', 2023, NULL, TRUE, NOW(), NOW()
+FROM makes m WHERE m.name = 'kia' AND NOT EXISTS (
+    SELECT 1 FROM models WHERE name = 'sportage' AND make_id = m.id
+);
 
 -- Seed Body Styles - Only if they don't already exist
 INSERT INTO body_styles (name, display_name_en, display_name_ar, slug)
@@ -259,7 +340,7 @@ DECLARE
   body_style_id_var INTEGER;
   transmission_id_var INTEGER;
   fuel_type_id_var INTEGER;
-  drive_type_id_var INTEGER;
+  drive_type_id_VAR INTEGER;
   listing_count INTEGER := 0;
   brand_var TEXT;
   model_var TEXT;
