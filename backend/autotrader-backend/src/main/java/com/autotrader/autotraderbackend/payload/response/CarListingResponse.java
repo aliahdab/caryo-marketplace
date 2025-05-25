@@ -21,8 +21,7 @@ public class CarListingResponse {
 
     private Long id;
     private String title;
-    private String brand;
-    private String model;
+    // Removed brand and model fields; use denormalized fields below
     private Integer modelYear;
     private Integer mileage;
     private BigDecimal price;
@@ -31,11 +30,18 @@ public class CarListingResponse {
      * Denormalized brand name in English for efficient search
      */
     private String brandNameEn;
-    
     /**
      * Denormalized brand name in Arabic for efficient search
      */
     private String brandNameAr;
+    /**
+     * Denormalized model name in English for efficient search
+     */
+    private String modelNameEn;
+    /**
+     * Denormalized model name in Arabic for efficient search
+     */
+    private String modelNameAr;
     
     /**
      * Location details object
@@ -61,14 +67,14 @@ public class CarListingResponse {
     // Explicit Getters
     public Long getId() { return id; }
     public String getTitle() { return title; }
-    public String getBrand() { return brand; }
-    public String getModel() { return model; }
+    // Removed getBrand and getModel; use denormalized fields below
+    public String getBrandNameEn() { return brandNameEn; }
+    public String getBrandNameAr() { return brandNameAr; }
+    public String getModelNameEn() { return modelNameEn; }
+    public String getModelNameAr() { return modelNameAr; }
     public Integer getModelYear() { return modelYear; }
     public Integer getMileage() { return mileage; }
     public BigDecimal getPrice() { return price; }
-    
-    public String getBrandNameEn() { return brandNameEn; }
-    public String getBrandNameAr() { return brandNameAr; }
     
     public LocationResponse getLocationDetails() { return locationDetails; }
     
@@ -86,14 +92,14 @@ public class CarListingResponse {
     // Explicit Setters (Add if needed, currently only getters seem required by errors)
     public void setId(Long id) { this.id = id; }
     public void setTitle(String title) { this.title = title; }
-    public void setBrand(String brand) { this.brand = brand; }
-    public void setModel(String model) { this.model = model; }
+    // Removed setBrand and setModel; use denormalized fields below
+    public void setBrandNameEn(String brandNameEn) { this.brandNameEn = brandNameEn; }
+    public void setBrandNameAr(String brandNameAr) { this.brandNameAr = brandNameAr; }
+    public void setModelNameEn(String modelNameEn) { this.modelNameEn = modelNameEn; }
+    public void setModelNameAr(String modelNameAr) { this.modelNameAr = modelNameAr; }
     public void setModelYear(Integer modelYear) { this.modelYear = modelYear; }
     public void setMileage(Integer mileage) { this.mileage = mileage; }
     public void setPrice(BigDecimal price) { this.price = price; }
-    
-    public void setBrandNameEn(String brandNameEn) { this.brandNameEn = brandNameEn; }
-    public void setBrandNameAr(String brandNameAr) { this.brandNameAr = brandNameAr; }
     
     public void setLocationDetails(LocationResponse locationDetails) { this.locationDetails = locationDetails; }
     
