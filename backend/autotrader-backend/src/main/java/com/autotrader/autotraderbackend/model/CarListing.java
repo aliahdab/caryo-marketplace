@@ -65,8 +65,8 @@ public class CarListing {
     @Column(name = "cylinders")
     private Integer cylinders;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "location_id")
+    @ManyToOne(fetch = FetchType.EAGER) // Changed from LAZY to EAGER
+    @JoinColumn(name = "location_id", nullable = false) // Enforce that a listing must have a location
     private Location location;
     
     @ManyToOne(fetch = FetchType.LAZY)
