@@ -61,6 +61,30 @@ public class ListingFilterRequest {
      * Use this for precise filtering by a unique location identifier.
      */
     private Long locationId;
+    
+    /**
+     * Filter by governorate ID. Optional.
+     * Use this for precise filtering by a unique governorate identifier.
+     */
+    private Long governorateId;
+    
+    /**
+     * Filter by governorate slug (string). Optional.
+     * This is typically a human-readable identifier for the governorate.
+     */
+    private String governorate;
+    
+    /**
+     * Search term for quick search functionality. Optional.
+     * Used to search across brand, model, and title fields.
+     */
+    private String searchTerm;
+    
+    /**
+     * Language preference for search results. Optional.
+     * Defaults to "en" if not specified. Acceptable values: "en", "ar"
+     */
+    private String language = "en";
 
     /**
      * Minimum price for filtering. Optional. Must be positive or zero.

@@ -436,6 +436,103 @@ public class CarListingService {
         log.info("Admin successfully deleted listing with ID: {}", id);
     }
     
+    /**
+     * Quick search for car listings by search term and governorate.
+     * This method utilizes denormalized fields for optimal performance.
+     * 
+     * @param searchTerm Optional search term for brand, model, or title
+     * @param governorateId Optional governorate ID to filter by
+     * @param language Language preference ("en" or "ar")
+     * @param pageable Pagination and sorting information
+     * @return Page of car listings matching the search criteria
+     */
+    @Transactional(readOnly = true)
+    public Page<CarListingResponse> quickSearch(String searchTerm, Long governorateId, String language, Pageable pageable) {
+        log.debug("Performing quick search with term: '{}', governorateId: {}, language: {}", 
+                 searchTerm, governorateId, language);
+        
+        // Normalize language parameter
+        String normalizedLanguage = "ar".equals(language) ? "ar" : "en";
+        
+        // Create the specification for the quick search
+        Specification<CarListing> spec = CarListingSpecification.quickSearch(searchTerm, governorateId, normalizedLanguage);
+        
+        Page<CarListing> listingPage = carListingRepository.findAll(spec, pageable);
+        log.info("Quick search found {} listings matching criteria on page {}", 
+                listingPage.getNumberOfElements(), pageable.getPageNumber());
+        
+        return listingPage.map(carListingMapper::toCarListingResponse);
+    }
+    
+    /**
+     * Search for car listings by brand using denormalized fields.
+     */
+    @Transactional(readOnly = true)
+    public Page<CarListingResponse> searchByBrand(String brand, String language, Pageable pageable) {
+        log.debug("Searching by brand: '{}', language: {}", brand, language);
+        
+        // Normalize language parameter
+        String normalizedLanguage = "ar".equals(language) ? "ar" : "en";
+        
+        Specification<CarListing> spec = Specification.where(CarListingSpecification.isApproved())
+                .and(CarListingSpecification.isNotSold())
+                .and(CarListingSpecification.isNotArchived())
+                .and(CarListingSpecification.isUserActive())
+                .and(CarListingSpecification.byBrand(brand, normalizedLanguage));
+        
+        Page<CarListing> listingPage = carListingRepository.findAll(spec, pageable);
+        log.info("Brand search found {} listings for brand '{}' on page {}", 
+                listingPage.getNumberOfElements(), brand, pageable.getPageNumber());
+        
+        return listingPage.map(carListingMapper::toCarListingResponse);
+    }
+    
+    /**
+     * Search for car listings by model using denormalized fields.
+     */
+    @Transactional(readOnly = true)
+    public Page<CarListingResponse> searchByModel(String model, String language, Pageable pageable) {
+        log.debug("Searching by model: '{}', language: {}", model, language);
+        
+        // Normalize language parameter
+        String normalizedLanguage = "ar".equals(language) ? "ar" : "en";
+        
+        Specification<CarListing> spec = Specification.where(CarListingSpecification.isApproved())
+                .and(CarListingSpecification.isNotSold())
+                .and(CarListingSpecification.isNotArchived())
+                .and(CarListingSpecification.isUserActive())
+                .and(CarListingSpecification.byModel(model, normalizedLanguage));
+        
+        Page<CarListing> listingPage = carListingRepository.findAll(spec, pageable);
+        log.info("Model search found {} listings for model '{}' on page {}", 
+                listingPage.getNumberOfElements(), model, pageable.getPageNumber());
+        
+        return listingPage.map(carListingMapper::toCarListingResponse);
+    }
+    
+    /**
+     * Search for car listings by governorate using denormalized fields.
+     */
+    @Transactional(readOnly = true)
+    public Page<CarListingResponse> searchByGovernorate(String governorate, String language, Pageable pageable) {
+        log.debug("Searching by governorate: '{}', language: {}", governorate, language);
+        
+        // Normalize language parameter
+        String normalizedLanguage = "ar".equals(language) ? "ar" : "en";
+        
+        Specification<CarListing> spec = Specification.where(CarListingSpecification.isApproved())
+                .and(CarListingSpecification.isNotSold())
+                .and(CarListingSpecification.isNotArchived())
+                .and(CarListingSpecification.isUserActive())
+                .and(CarListingSpecification.byGovernorate(governorate, normalizedLanguage));
+        
+        Page<CarListing> listingPage = carListingRepository.findAll(spec, pageable);
+        log.info("Governorate search found {} listings for governorate '{}' on page {}", 
+                listingPage.getNumberOfElements(), governorate, pageable.getPageNumber());
+        
+        return listingPage.map(carListingMapper::toCarListingResponse);
+    }
+    
     // --- Helper Methods ---
     
     private User findUserByUsername(String username) {

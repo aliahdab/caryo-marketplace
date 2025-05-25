@@ -4,16 +4,16 @@ import com.autotrader.autotraderbackend.validation.CurrentYearOrEarlier;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "car_listings")
@@ -134,6 +134,58 @@ public class CarListing {
     @OneToMany(mappedBy = "carListing", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ListingMedia> media = new ArrayList<>();
     
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "governorate_id")
+    private Governorate governorate;
+    
+    @Column(name = "governorate_name_en", length = 100)
+    private String governorateNameEn;
+    
+    @Column(name = "governorate_name_ar", length = 100)
+    private String governorateNameAr;
+    
+    @Column(name = "brand_name_en", length = 100)
+    private String brandNameEn;
+    
+    @Column(name = "brand_name_ar", length = 100)
+    private String brandNameAr;
+    
+    @Column(name = "model_name_en", length = 100)
+    private String modelNameEn;
+    
+    @Column(name = "model_name_ar", length = 100)
+    private String modelNameAr;
+
+    /**
+     * Update the denormalized fields from their respective entities.
+     * This method should be called before saving a car listing when brand, model, or governorate changes.
+     */
+    public void updateDenormalizedFields() {
+        // Update brand and model names
+        this.brandNameEn = this.brand; // Assumes this.brand is the English version
+        // Only set brandNameAr from this.brand if brandNameAr is not already set
+        // This allows tests or other logic to set a specific Arabic name
+        if (this.brandNameAr == null) {
+            this.brandNameAr = this.brand; 
+        }
+        
+        this.modelNameEn = this.model; // Assumes this.model is the English version
+        // Only set modelNameAr from this.model if modelNameAr is not already set
+        if (this.modelNameAr == null) {
+            this.modelNameAr = this.model;
+        }
+        
+        // Update governorate names if governorate is set
+        if (this.governorate != null) {
+            this.governorateNameEn = this.governorate.getDisplayNameEn();
+            this.governorateNameAr = this.governorate.getDisplayNameAr();
+        } else {
+            // If governorate is null, clear denormalized governorate names
+            this.governorateNameEn = null;
+            this.governorateNameAr = null;
+        }
+    }
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -143,6 +195,9 @@ public class CarListing {
         if (updatedAt == null) {
             updatedAt = now;
         }
+        
+        // Update denormalized fields before persist
+        updateDenormalizedFields();
     }
 
     /**
@@ -154,6 +209,9 @@ public class CarListing {
      * @PreUpdate
      * protected void onUpdate() {
      *     updatedAt = LocalDateTime.now();
+     *     
+     *     // Update denormalized fields before update
+     *     updateDenormalizedFields();
      * }
      */
     

@@ -1,6 +1,7 @@
 package com.autotrader.autotraderbackend.repository.specification;
 
 import com.autotrader.autotraderbackend.model.CarListing;
+import com.autotrader.autotraderbackend.model.Governorate;
 import com.autotrader.autotraderbackend.model.Location;
 import com.autotrader.autotraderbackend.payload.request.ListingFilterRequest;
 import jakarta.persistence.criteria.Predicate;
@@ -50,6 +51,11 @@ public class CarListingSpecification {
                 predicates.add(criteriaBuilder.equal(root.get("location"), locationEntity));
             }
 
+            // Add filter for governorate if provided
+            if (filter.getGovernorateId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("governorate").get("id"), filter.getGovernorateId()));
+            }
+
             // Add filter for isSold status if provided
             if (filter.getIsSold() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("sold"), filter.getIsSold()));
@@ -61,6 +67,105 @@ public class CarListingSpecification {
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    /**
+     * Quick search specification using denormalized fields for optimal performance
+     */
+    public static Specification<CarListing> quickSearch(String searchTerm, Long governorateId, String language) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // Always include active listings only
+            predicates.add(criteriaBuilder.isTrue(root.get("approved")));
+            predicates.add(criteriaBuilder.isFalse(root.get("sold")));
+            predicates.add(criteriaBuilder.isFalse(root.get("archived")));
+            predicates.add(criteriaBuilder.isFalse(root.get("expired")));
+            predicates.add(criteriaBuilder.isTrue(root.get("isUserActive")));
+            
+            // Add governorate filter if provided
+            if (governorateId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("governorate").get("id"), governorateId));
+            }
+            
+            // Add search term filter if provided
+            if (StringUtils.hasText(searchTerm)) {
+                String search = "%" + searchTerm.toLowerCase() + "%";
+                
+                // Use language-specific denormalized fields for better performance
+                if ("ar".equals(language)) {
+                    predicates.add(
+                        criteriaBuilder.or(
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("brandNameAr")), search),
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("modelNameAr")), search),
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), search)
+                        )
+                    );
+                } else {
+                    // Default to English
+                    predicates.add(
+                        criteriaBuilder.or(
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("brandNameEn")), search),
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("modelNameEn")), search),
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), search)
+                        )
+                    );
+                }
+            }
+            
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+    
+    // Search by brand using denormalized fields
+    public static Specification<CarListing> byBrand(String brand, String language) {
+        return (root, query, criteriaBuilder) -> {
+            if (!StringUtils.hasText(brand)) {
+                return criteriaBuilder.conjunction();
+            }
+            
+            String search = "%" + brand.toLowerCase() + "%";
+            
+            if ("ar".equals(language)) {
+                return criteriaBuilder.like(criteriaBuilder.lower(root.get("brandNameAr")), search);
+            } else {
+                return criteriaBuilder.like(criteriaBuilder.lower(root.get("brandNameEn")), search);
+            }
+        };
+    }
+    
+    // Search by model using denormalized fields
+    public static Specification<CarListing> byModel(String model, String language) {
+        return (root, query, criteriaBuilder) -> {
+            if (!StringUtils.hasText(model)) {
+                return criteriaBuilder.conjunction();
+            }
+            
+            String search = "%" + model.toLowerCase() + "%";
+            
+            if ("ar".equals(language)) {
+                return criteriaBuilder.like(criteriaBuilder.lower(root.get("modelNameAr")), search);
+            } else {
+                return criteriaBuilder.like(criteriaBuilder.lower(root.get("modelNameEn")), search);
+            }
+        };
+    }
+    
+    // Search by governorate using denormalized fields
+    public static Specification<CarListing> byGovernorate(String governorate, String language) {
+        return (root, query, criteriaBuilder) -> {
+            if (!StringUtils.hasText(governorate)) {
+                return criteriaBuilder.conjunction();
+            }
+            
+            String search = "%" + governorate.toLowerCase() + "%";
+            
+            if ("ar".equals(language)) {
+                return criteriaBuilder.like(criteriaBuilder.lower(root.get("governorateNameAr")), search);
+            } else {
+                return criteriaBuilder.like(criteriaBuilder.lower(root.get("governorateNameEn")), search);
+            }
         };
     }
 
