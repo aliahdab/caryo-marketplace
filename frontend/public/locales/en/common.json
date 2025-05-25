@@ -316,6 +316,7 @@
   "all": "All",
   "date": "Date",
   "search": {
+<<<<<<< HEAD
     "selectBrand": "Brand",
     "selectModel": "Model",
     "governorate": "Governorate",
@@ -357,5 +358,22 @@
     "pageNotFound": "Page not found",
     "goBack": "Go back",
     "goHome": "Go to home page"
+=======
+    "selectBrand": "Select Brand",
+    "selectModel": "Select Model",
+    "searchButton": "Search Cars",
+    "location": "Location",
+    "enterLocation": "Enter location",
+    "loadingBrands": "Loading car brands...",
+    "loadingModels": "Loading models...",
+    "noBrandsFound": "No car brands found",
+    "noModelsFound": "No models found for this brand",
+    "brandPlaceholder": "Choose a car brand",
+    "modelPlaceholder": "Choose a model",
+    "locationPlaceholder": "Enter city or region",
+    "errorLoadingBrands": "Failed to load car brands",
+    "errorLoadingModels": "Failed to load car models",
+    "tryAgain": "Try again"
+>>>>>>> def829d9bb2e90bd28e7e128fe3725b769baad37
   }
 }
