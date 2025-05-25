@@ -75,7 +75,7 @@ jobs:
           chmod +x mc
           
           # Configure MinIO client with default minioadmin credentials
-          ./mc config host add myminio http://localhost:9000 minioadmin minioadmin
+          ./mc alias set myminio http://localhost:9000 minioadmin minioadmin
           
           # List buckets to check if our bucket exists
           if ./mc ls myminio | grep -q "autotrader-assets"; then
