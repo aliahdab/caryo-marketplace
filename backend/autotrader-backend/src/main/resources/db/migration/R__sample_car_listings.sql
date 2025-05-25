@@ -331,14 +331,8 @@ INSERT INTO transmissions (name, display_name_en, display_name_ar, slug)
 SELECT 'cvt', 'CVT', 'CVT', 'cvt'
 WHERE NOT EXISTS (SELECT 1 FROM transmissions WHERE name = 'cvt');
 
--- Create Car Listings with H2-compatible SQL
--- We'll create listings for each user with randomized but consistent data
-WITH RECURSIVE numbers AS (
-    SELECT 1 as n
-    UNION ALL
-    SELECT n + 1 FROM numbers WHERE n < 20
-),
-listing_data AS (
+-- Create Car Listings with simplified H2-compatible SQL
+WITH listing_data AS (
     SELECT 
         1000000 + u.id as id,
         CONCAT(
@@ -348,7 +342,7 @@ listing_data AS (
             ' ',
             mo.display_name_en,
             ' - Listing ',
-            u.id
+            CAST(u.id as VARCHAR)
         ) as title,
         CONCAT(
             'This is a sample description for a ',
@@ -363,12 +357,19 @@ listing_data AS (
         m.display_name_en as brand,
         mo.display_name_en as model,
         mo.id as model_id,
-        (ARRAY['Black', 'White', 'Silver', 'Gray', 'Blue', 'Red'])[1 + MOD(u.id, 6)] as exterior_color,
+        CASE MOD(u.id, 6)
+            WHEN 0 THEN 'Black'
+            WHEN 1 THEN 'White'
+            WHEN 2 THEN 'Silver'
+            WHEN 3 THEN 'Gray'
+            WHEN 4 THEN 'Blue'
+            ELSE 'Red'
+        END as exterior_color,
         4 as doors,
         4 + (MOD(u.id, 3) * 2) as cylinders,
         u.id as seller_id,
         1 + MOD(u.id, 14) as governorate_id,
-        CONCAT('Sample City ', u.id) as city,
+        CONCAT('Sample City ', CAST(u.id as VARCHAR)) as city,
         c.id as condition_id,
         b.id as body_style_id,
         t.id as transmission_id,
@@ -378,8 +379,8 @@ listing_data AS (
         TRUE as approved,
         FALSE as sold,
         FALSE as archived,
-        CURRENT_TIMESTAMP - INTERVAL '1' DAY * MOD(u.id, 30) as created_at,
-        CURRENT_TIMESTAMP - INTERVAL '1' DAY * MOD(u.id, 30) as updated_at
+        DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as created_at,
+        DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as updated_at
     FROM users u
     CROSS JOIN (
         SELECT id, display_name_en 
@@ -422,53 +423,66 @@ SELECT
     created_at, updated_at
 FROM listing_data;
 
--- Create Listing Media with H2-compatible SQL
-WITH RECURSIVE listing_images AS (
-    SELECT 
-        cl.id as listing_id,
-        cl.brand,
-        cl.model,
-        3000000 + (cl.id * 100) as base_media_id,
-        1 as image_number,
-        TRUE as is_primary
-    FROM car_listings cl
-    WHERE NOT EXISTS (
-        SELECT 1 
-        FROM listing_media lm 
-        WHERE lm.listing_id = cl.id
-    )
-    UNION ALL
-    SELECT 
-        listing_id,
-        brand,
-        model,
-        base_media_id,
-        image_number + 1,
-        FALSE as is_primary
-    FROM listing_images
-    WHERE image_number < 1 + MOD(listing_id, 3)
-)
+-- Create Listing Media with simplified H2-compatible SQL
 INSERT INTO listing_media (
     id, listing_id, file_key, file_name, content_type, size,
     sort_order, is_primary, media_type, created_at
 )
 SELECT 
-    base_media_id + image_number as id,
-    listing_id,
-    CONCAT('listings/', listing_id, '/', CASE WHEN is_primary THEN 'primary' ELSE CONCAT('image', image_number) END, '.jpg') as file_key,
+    3000000 + (cl.id * 100) as id,
+    cl.id as listing_id,
+    CONCAT('listings/', cl.id, '/primary.jpg') as file_key,
     CONCAT(
-        LOWER(REPLACE(brand, ' ', '-')), 
+        LOWER(REPLACE(cl.brand, ' ', '-')), 
         '-',
-        LOWER(REPLACE(model, ' ', '-')),
+        LOWER(REPLACE(cl.model, ' ', '-')),
         '-',
-        listing_id,
-        CASE WHEN NOT is_primary THEN CONCAT('-', image_number) ELSE '' END,
+        CAST(cl.id as VARCHAR),
         '.jpg'
     ) as file_name,
     'image/jpeg' as content_type,
-    800000 + MOD(listing_id * image_number * 7919, 500000) as size,
-    image_number as sort_order,
-    is_primary,
+    800000 + MOD(cl.id * 7919, 500000) as size,
+    1 as sort_order,
+    TRUE as is_primary,
     'image' as media_type,
-    CURRENT_TIMESTAMP as created_at
-FROM listing_images;
+    cl.created_at as created_at
+FROM car_listings cl
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM listing_media lm 
+    WHERE lm.listing_id = cl.id
+);
+
+-- Add additional images
+INSERT INTO listing_media (
+    id, listing_id, file_key, file_name, content_type, size,
+    sort_order, is_primary, media_type, created_at
+)
+SELECT 
+    3000000 + (cl.id * 100) + i.idx as id,
+    cl.id as listing_id,
+    CONCAT('listings/', cl.id, '/image', i.idx, '.jpg') as file_key,
+    CONCAT(
+        LOWER(REPLACE(cl.brand, ' ', '-')), 
+        '-',
+        LOWER(REPLACE(cl.model, ' ', '-')),
+        '-',
+        CAST(cl.id as VARCHAR),
+        '-',
+        CAST(i.idx as VARCHAR),
+        '.jpg'
+    ) as file_name,
+    'image/jpeg' as content_type,
+    800000 + MOD((cl.id + i.idx) * 7919, 500000) as size,
+    i.idx + 1 as sort_order,
+    FALSE as is_primary,
+    'image' as media_type,
+    cl.created_at as created_at
+FROM car_listings cl
+CROSS JOIN (VALUES (1), (2)) i(idx)
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM listing_media lm 
+    WHERE lm.listing_id = cl.id 
+    AND lm.sort_order = i.idx + 1
+);
