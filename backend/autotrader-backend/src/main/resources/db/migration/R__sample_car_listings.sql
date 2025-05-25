@@ -331,7 +331,7 @@ INSERT INTO transmissions (name, display_name_en, display_name_ar, slug)
 SELECT 'cvt', 'CVT', 'CVT', 'cvt'
 WHERE NOT EXISTS (SELECT 1 FROM transmissions WHERE name = 'cvt');
 
--- Create Car Listings with simplified H2-compatible SQL
+-- Create Car Listings with H2-compatible SQL
 INSERT INTO car_listings (
     id, title, description, price, mileage, model_year, brand, model,
     model_id, exterior_color, doors, cylinders, seller_id, governorate_id,
@@ -344,25 +344,25 @@ SELECT
     CONCAT(
         EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5),
         ' ',
-        mk.display_name_en,
+        ma.display_name_en,
         ' ',
-        md.display_name_en,
+        mo.display_name_en,
         ' - Listing ',
         CAST(u.id as VARCHAR)
     ) as title,
     CONCAT(
         'This is a sample description for a ',
-        mk.display_name_en,
+        ma.display_name_en,
         ' ',
-        md.display_name_en,
+        mo.display_name_en,
         '. Well-maintained with regular service history. Features include power windows, cruise control, and backup camera. Please contact for more details.'
     ) as description,
     10000 + MOD(u.id * 2357, 40000) as price,
     10000 + MOD(u.id * 3571, 50000) as mileage,
     EXTRACT(YEAR FROM CURRENT_TIMESTAMP) - MOD(u.id, 5) as model_year,
-    mk.display_name_en as brand,
-    md.display_name_en as model,
-    md.id as model_id,
+    ma.display_name_en as brand,
+    mo.display_name_en as model,
+    mo.id as model_id,
     CASE MOD(u.id, 6)
         WHEN 0 THEN 'Black'
         WHEN 1 THEN 'White'
@@ -388,38 +388,25 @@ SELECT
     DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as created_at,
     DATEADD('DAY', -MOD(u.id, 30), CURRENT_TIMESTAMP) as updated_at
 FROM users u
-CROSS JOIN (
-    SELECT mk.id, mk.display_name_en
-    FROM (
-        SELECT id 
-        FROM makes 
-        ORDER BY RAND()
-        LIMIT 1
-    ) r
-    JOIN makes mk ON mk.id = r.id
-) mk
-CROSS JOIN (
-    SELECT md.id, md.display_name_en
-    FROM (
-        SELECT id 
-        FROM models 
-        WHERE make_id = mk.id
-        ORDER BY RAND()
-        LIMIT 1
-    ) r
-    JOIN models md ON md.id = r.id
-) md
-CROSS JOIN (SELECT id FROM car_conditions WHERE name = 'new' LIMIT 1) cc
-CROSS JOIN (SELECT id FROM body_styles WHERE name = 'sedan' LIMIT 1) bs
-CROSS JOIN (SELECT id FROM transmissions WHERE name = 'automatic' LIMIT 1) tr
-CROSS JOIN (SELECT id FROM fuel_types WHERE name = 'gasoline' LIMIT 1) ft
-CROSS JOIN (SELECT id FROM drive_types WHERE name = 'fwd' LIMIT 1) dt
+JOIN (
+    SELECT MIN(id) as id
+    FROM makes
+) rmk
+JOIN makes ma ON ma.id >= rmk.id
+JOIN models mo ON mo.make_id = ma.id
+JOIN (SELECT id FROM car_conditions WHERE name = 'new' LIMIT 1) cc ON 1=1
+JOIN (SELECT id FROM body_styles WHERE name = 'sedan' LIMIT 1) bs ON 1=1
+JOIN (SELECT id FROM transmissions WHERE name = 'automatic' LIMIT 1) tr ON 1=1
+JOIN (SELECT id FROM fuel_types WHERE name = 'gasoline' LIMIT 1) ft ON 1=1
+JOIN (SELECT id FROM drive_types WHERE name = 'fwd' LIMIT 1) dt ON 1=1
 WHERE u.username LIKE 'testuser%'
 AND NOT EXISTS (
     SELECT 1 
     FROM car_listings cl 
     WHERE cl.seller_id = u.id
-);
+)
+GROUP BY u.id, u.username
+LIMIT 20;
 
 -- Create Listing Media with simplified H2-compatible SQL
 INSERT INTO listing_media (
@@ -478,8 +465,8 @@ SELECT
     cl.created_at as created_at
 FROM car_listings cl
 CROSS JOIN (
-    SELECT 1 as n UNION ALL SELECT 2
-) v
+    VALUES (1), (2)
+) v(n)
 WHERE NOT EXISTS (
     SELECT 1 
     FROM listing_media lm 
