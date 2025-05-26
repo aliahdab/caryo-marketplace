@@ -1,5 +1,6 @@
 -- Seed sample data for development
 -- Note: This repeatable migration inserts sample data for frontend development
+-- This file is compatible with both PostgreSQL and H2 databases
 
 -- Seed Users (passwords are placeholders, e.g., 'password123' hashed)
 -- Using a common placeholder bcrypt hash: $2a$10$abcdefghijklmnopqrstuvwxyzABCDEF
@@ -331,7 +332,7 @@ INSERT INTO transmissions (name, display_name_en, display_name_ar, slug)
 SELECT 'cvt', 'CVT', 'CVT', 'cvt'
 WHERE NOT EXISTS (SELECT 1 FROM transmissions WHERE name = 'cvt');
 
--- Create Car Listings with H2-compatible SQL
+-- Create Car Listings with PostgreSQL and H2-compatible SQL
 WITH user_list AS (
     SELECT u.id, u.username
     FROM users u
@@ -408,8 +409,9 @@ SELECT
     TRUE as approved,
     FALSE as sold,
     FALSE as archived,
-    TIMESTAMPADD(SQL_TSI_DAY, -MOD(ul.id, 30), CURRENT_TIMESTAMP) as created_at,
-    TIMESTAMPADD(SQL_TSI_DAY, -MOD(ul.id, 30), CURRENT_TIMESTAMP) as updated_at
+    -- Function that works in both PostgreSQL and H2
+    CURRENT_TIMESTAMP - CAST(MOD(ul.id, 30) || ' days' AS INTERVAL) as created_at,
+    CURRENT_TIMESTAMP - CAST(MOD(ul.id, 30) || ' days' AS INTERVAL) as updated_at
 FROM user_list ul
 CROSS JOIN random_make ma
 CROSS JOIN random_model mo
@@ -420,7 +422,7 @@ CROSS JOIN (SELECT id FROM fuel_types WHERE name = 'gasoline' LIMIT 1) ft
 CROSS JOIN (SELECT id FROM drive_types WHERE name = 'fwd' LIMIT 1) dt
 LIMIT 20;
 
--- Create Listing Media with simplified H2-compatible SQL
+-- Create Listing Media with PostgreSQL and H2-compatible SQL
 INSERT INTO listing_media (
     id, listing_id, file_key, file_name, content_type, size,
     sort_order, is_primary, media_type, created_at
