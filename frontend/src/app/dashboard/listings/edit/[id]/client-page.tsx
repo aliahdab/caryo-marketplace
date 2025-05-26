@@ -13,6 +13,7 @@ import { ListingFormData } from '@/types/listings';
 // Mock data for a listing (in a real app, this would come from an API fetch)
 const MOCK_LISTING: ListingFormData = {
   id: "1",
+  governorateId: "", // Added missing governorateId
   title: "Toyota Camry 2020",
   description: "Well maintained Toyota Camry with low mileage. One owner, service history available.",
   make: "Toyota",

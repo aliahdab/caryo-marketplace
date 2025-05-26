@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
+import type { Governorate } from "@/services/api";
+import { fetchGovernorates } from "@/services/api";
 
 export default function NewListingPage() {
   const router = useRouter();
   const { t } = useTranslation('common');
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [governorates, setGovernorates] = useState<Governorate[]>([]);
+  const [isLoadingGovernorates, setIsLoadingGovernorates] = useState(true);
   
   // Form state (in a real app, use React Hook Form for validation)
   const [formData, setFormData] = useState({
@@ -31,13 +35,30 @@ export default function NewListingPage() {
     features: [] as string[],
     
     // Step 3: Location & Contact
-    location: "",
+    location: "", // Made optional
+    governorateId: "", // Added as required
     city: "",
     contactPreference: "both",
     
     // Step 4: Images
     images: [] as File[]
   });
+  
+  // Fetch governorates on component mount
+  useEffect(() => {
+    const loadGovernorates = async () => {
+      try {
+        const data = await fetchGovernorates();
+        setGovernorates(data);
+      } catch (error) {
+        console.error("Error fetching governorates:", error);
+      } finally {
+        setIsLoadingGovernorates(false);
+      }
+    };
+
+    loadGovernorates();
+  }, []);
   
   // Available car features
   const carFeatures = [
@@ -412,7 +433,6 @@ export default function NewListingPage() {
                     name="location"
                     value={formData.location}
                     onChange={handleChange}
-                    required
                     className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                     placeholder={t('listings.locationPlaceholder')}
                   />
