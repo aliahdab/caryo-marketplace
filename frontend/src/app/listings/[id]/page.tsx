@@ -8,12 +8,6 @@ import { formatDate, formatNumber } from '../../../utils/localization';
 import { getListingById } from '@/services/listings';
 import { Listing } from '@/types/listings';
 
-interface SellerInfo {
-  name: string;
-  phone: string;
-  email: string;
-}
-
 export default function ListingDetailPage() {
   const { t, i18n } = useTranslation('common');
   const params = useParams();
@@ -134,16 +128,16 @@ export default function ListingDetailPage() {
           </div>
           
           <div className="mb-6 sm:mb-8 border-b border-gray-200 dark:border-gray-700 pb-4 sm:pb-6">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{listing.title}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{listing?.title}</h1>
             <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between mt-2 sm:mt-3 gap-2">
               <h2 className="text-xl sm:text-2xl text-blue-600 dark:text-blue-400 font-bold">
-                {formatNumber(listing.price, i18n.language, { currency: listing.currency, style: 'currency' })}
+                {listing?.price && formatNumber(listing.price, i18n.language, { currency: listing?.currency || 'USD', style: 'currency' })}
               </h2>
               <div className="flex items-center bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium self-start xs:self-auto">
                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 rtl:mr-0 rtl:ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                {listing.createdAt ? (
+                {listing?.createdAt ? (
                   formatDate(listing.createdAt, i18n.language, { dateStyle: 'medium' }) || t('listings.addedRecently')
                 ) : t('listings.addedRecently')}
               </div>
@@ -158,7 +152,7 @@ export default function ListingDetailPage() {
               {t('listings.description')}
             </h2>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-              <p className="text-gray-700 dark:text-gray-300 text-sm sm:text-base leading-relaxed">{listing.description}</p>
+              <p className="text-gray-700 dark:text-gray-300 text-sm sm:text-base leading-relaxed">{listing?.description}</p>
             </div>
           </div>
           
@@ -206,7 +200,7 @@ export default function ListingDetailPage() {
                     </svg>
                     <span className="text-sm text-gray-600 dark:text-gray-300">{t('year')}:</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">{listing.year}</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{listing?.year}</span>
                 </div>
                 <div className="flex justify-between items-center p-2 sm:p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="flex items-center">
@@ -216,7 +210,7 @@ export default function ListingDetailPage() {
                     <span className="text-sm text-gray-600 dark:text-gray-300">{t('mileage')}:</span>
                   </div>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {formatNumber(listing.mileage, i18n.language)} {t('km')}
+                    {listing?.mileage ? `${formatNumber(listing.mileage, i18n.language)} ${t('km')}` : '-'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-2 sm:p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
