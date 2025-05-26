@@ -70,7 +70,8 @@ export interface ListingFormData {
   transmission: string;
   fuelType: string;
   features: string[];
-  location: string;
+  location?: string; // Made optional as per previous logic, governorate is now key
+  governorateId: string; // Added and made mandatory
   city: string;
   contactPreference: string;
   images: File[];
