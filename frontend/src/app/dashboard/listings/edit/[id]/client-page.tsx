@@ -2,27 +2,22 @@
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { ListingFormData, Governorate } from '@/types/listings';
-import { fetchGovernorates } from '@/services/api';
+import Image from "next/image";
+import { ListingFormData } from '@/types/listings';
+import { Governorate, fetchGovernorates } from '@/services/api';
 import ListingExpiry from "../../components/ListingExpiry";
-import { formatNumber } from '../../../../../utils/localization';
 
 // Mock data for a listing (in a real app, this would come from an API fetch)
 const MOCK_LISTING: ListingFormData = {
   id: "1",
-  governorateId: "", // Added missing governorateId
+  governorateId: "1", // String ID as expected by ListingFormData
   title: "Toyota Camry 2020",
   description: "Well maintained Toyota Camry with low mileage. One owner, service history available.",
   make: "Toyota",
   model: "Camry",
   year: "2020",
   price: "25000",
-  currency: "USD", // Added currency
+  currency: "USD", 
   condition: "used",
   mileage: "45000",
   exteriorColor: "Silver",
@@ -32,25 +27,42 @@ const MOCK_LISTING: ListingFormData = {
   features: ["airConditioning", "bluetoothConnectivity", "cruiseControl", "alloyWheels"],
   location: "Dubai Marina",
   city: "Dubai",
+  contactName: "John Doe", 
+  contactPhone: "+123456789",
+  contactEmail: "john@example.com",
   contactPreference: "both",
-  images: [], // This empty array is assignable to File[]
+  images: [], 
   status: "active",
   created: "2023-05-15",
   expires: "2023-08-15",
-  views: 120
+  views: 120,
+  categoryId: "",
+  attributes: {}
 };
 
 // Client component
 export default function EditListingPageClient({ id }: { id: string }) {
   const router = useRouter();
   const [formData, setFormData] = useState<ListingFormData>({
-    ...MOCK_LISTING, // Assuming MOCK_LISTING is the initial data for the form
-    governorateId: MOCK_LISTING.governorateId || "", // Ensure governorateId is initialized
+    ...MOCK_LISTING,
+    governorateId: MOCK_LISTING.governorateId || "",
   });
   const [governorates, setGovernorates] = useState<Governorate[]>([]);
   const [isLoadingGovernorates, setIsLoadingGovernorates] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+
+  // Store image object URLs for preview
+  useEffect(() => {
+    const newUrls = formData.images.map(file => URL.createObjectURL(file));
+    setImagePreviewUrls(newUrls);
+
+    // Cleanup function to revoke object URLs when component unmounts or images change
+    return () => {
+      newUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [formData.images]);
 
   // Available car features
   const carFeatures = [
@@ -61,26 +73,21 @@ export default function EditListingPageClient({ id }: { id: string }) {
 
   useEffect(() => {
     // In a real app, fetch the listing data based on listingId
-    // For now, we're using MOCK_LISTING, but we'll ensure governorateId is part of the form state
-    // and potentially update it if the fetched listing has one.
-    console.log("Fetching listing data for ID:", id);
-    // Simulate fetching and setting data
-    // setFormData(MOCK_LISTING); // This is already done in useState initialization
-
-    const loadGovernorates = async () => {
+    console.log("Fetching listing data for ID:", id);        const loadGovernorates = async () => {
       try {
         setIsLoadingGovernorates(true);
         const fetchedGovernorates = await fetchGovernorates();
+        // Pass the governorates directly without trying to modify their structure
         setGovernorates(fetchedGovernorates);
       } catch (err) {
         console.error("Failed to fetch governorates", err);
-        // Optionally set an error state to display to the user
+        setError("Failed to load governorates. Please try again.");
       } finally {
         setIsLoadingGovernorates(false);
       }
     };
     loadGovernorates();
-  }, [id]); // listingId dependency is for fetching the listing itself, governorates are fetched once
+  }, [id]);
 
   // Handle input change
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -88,13 +95,6 @@ export default function EditListingPageClient({ id }: { id: string }) {
     setFormData(prev => ({
       ...prev,
       [name]: value
-    }));
-  };
-
-  const handleSelectChange = (value: string, fieldName: keyof ListingFormData) => {
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: value
     }));
   };
 
@@ -142,7 +142,6 @@ export default function EditListingPageClient({ id }: { id: string }) {
     // In a real app, perform API call to update listing
     console.log("Updating listing data:", formData);
 
-    // Simulate API call
     try {
       setTimeout(() => {
         setIsLoading(false);
@@ -173,8 +172,6 @@ export default function EditListingPageClient({ id }: { id: string }) {
   };
 
   if (!formData.id) {
-    // This check might be too simple if MOCK_LISTING always has an ID.
-    // In a real scenario, you'd have a loading state for the listing fetch.
     return <div>Loading listing data...</div>;
   }
 
@@ -185,99 +182,103 @@ export default function EditListingPageClient({ id }: { id: string }) {
 
       {/* Title */}
       <div>
-        <Label htmlFor="title">Title</Label>
-        <Input
+        <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+        <input
           id="title"
           name="title"
+          type="text"
           value={formData.title}
           onChange={handleChange}
           placeholder="e.g., Toyota Camry 2020"
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       {/* Description */}
       <div>
-        <Label htmlFor="description">Description</Label>
-        <Textarea
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+        <textarea
           id="description"
           name="description"
           value={formData.description}
           onChange={handleChange}
           placeholder="Detailed description of the car"
           required
+          rows={4}
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       {/* Governorate and Location */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="governorateId">Governorate</Label>
-          <Select
+          <label htmlFor="governorateId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Governorate</label>
+          <select
+            id="governorateId"
             name="governorateId"
             value={formData.governorateId}
-            onValueChange={(value) => handleSelectChange(value, 'governorateId')}
+            onChange={handleChange}
             required
+            disabled={isLoadingGovernorates}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
-            <SelectTrigger id="governorateId">
-              <SelectValue placeholder={isLoadingGovernorates ? "Loading governorates..." : "Select Governorate"} />
-            </SelectTrigger>
-            <SelectContent>
-              {isLoadingGovernorates ? (
-                <SelectItem value="loading" disabled>Loading...</SelectItem>
-              ) : (
-                governorates.map((gov) => (
-                  <SelectItem key={gov.id} value={String(gov.id)}>
-                    {gov.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+            <option value="">{isLoadingGovernorates ? "Loading governorates..." : "Select Governorate"}</option>
+            {governorates.map((gov) => (
+              <option key={gov.id} value={String(gov.id)}>
+                {gov.displayNameEn}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
-          <Label htmlFor="location">Specific Location / Address</Label>
-          <Input
+          <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specific Location / Address</label>
+          <input
             id="location"
             name="location"
+            type="text"
             value={formData.location || ''}
             onChange={handleChange}
             placeholder="e.g., Street Name, Building No."
-            // Not required anymore
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           />
         </div>
       </div>
       
       {/* Make */}
       <div>
-        <Label htmlFor="make">Make</Label>
-        <Input
+        <label htmlFor="make" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Make</label>
+        <input
           id="make"
           name="make"
+          type="text"
           value={formData.make}
           onChange={handleChange}
           placeholder="e.g., Toyota"
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       {/* Model */}
       <div>
-        <Label htmlFor="model">Model</Label>
-        <Input
+        <label htmlFor="model" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
+        <input
           id="model"
           name="model"
+          type="text"
           value={formData.model}
           onChange={handleChange}
           placeholder="e.g., Camry"
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       {/* Year */}
       <div>
-        <Label htmlFor="year">Year</Label>
-        <Input
+        <label htmlFor="year" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Year</label>
+        <input
           id="year"
           name="year"
           type="number"
@@ -285,146 +286,141 @@ export default function EditListingPageClient({ id }: { id: string }) {
           onChange={handleChange}
           placeholder="e.g., 2020"
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       {/* Price */}
       <div>
-        <Label htmlFor="price">Price</Label>
-        <Input
+        <label htmlFor="price" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Price</label>
+        <input
           id="price"
           name="price"
-          type="number"
+          type="text"
           value={formData.price}
           onChange={handleChange}
           placeholder="e.g., 25000"
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       {/* Currency */}
       <div>
-        <Label htmlFor="currency">Currency</Label>
-        <Select
+        <label htmlFor="currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+        <select
+          id="currency"
           name="currency"
           value={formData.currency}
-          onValueChange={(value) => handleSelectChange(value, 'currency')}
+          onChange={handleChange}
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         >
-          <SelectTrigger id="currency">
-            <SelectValue placeholder="Select Currency" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="USD">USD</SelectItem>
-            <SelectItem value="EUR">EUR</SelectItem>
-            <SelectItem value="AED">AED</SelectItem>
-            {/* Add more currencies as needed */}
-          </SelectContent>
-        </Select>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="AED">AED</option>
+          {/* Add more currencies as needed */}
+        </select>
       </div>
 
       {/* Condition */}
       <div>
-        <Label htmlFor="condition">Condition</Label>
-        <Select
+        <label htmlFor="condition" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Condition</label>
+        <select
+          id="condition"
           name="condition"
           value={formData.condition}
-          onValueChange={(value) => handleSelectChange(value, 'condition')}
+          onChange={handleChange}
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         >
-          <SelectTrigger id="condition">
-            <SelectValue placeholder="Select Condition" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="new">New</SelectItem>
-            <SelectItem value="used">Used</SelectItem>
-          </SelectContent>
-        </Select>
+          <option value="new">New</option>
+          <option value="used">Used</option>
+        </select>
       </div>
 
       {/* Mileage */}
       <div>
-        <Label htmlFor="mileage">Mileage (km)</Label>
-        <Input
+        <label htmlFor="mileage" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mileage (km)</label>
+        <input
           id="mileage"
           name="mileage"
-          type="number"
+          type="text"
           value={formData.mileage}
           onChange={handleChange}
           placeholder="e.g., 45000"
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       {/* Exterior Color */}
       <div>
-        <Label htmlFor="exteriorColor">Exterior Color</Label>
-        <Input
+        <label htmlFor="exteriorColor" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Exterior Color</label>
+        <input
           id="exteriorColor"
           name="exteriorColor"
+          type="text"
           value={formData.exteriorColor}
           onChange={handleChange}
           placeholder="e.g., Silver"
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       {/* Interior Color */}
       <div>
-        <Label htmlFor="interiorColor">Interior Color</Label>
-        <Input
+        <label htmlFor="interiorColor" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Interior Color</label>
+        <input
           id="interiorColor"
           name="interiorColor"
+          type="text"
           value={formData.interiorColor}
           onChange={handleChange}
           placeholder="e.g., Black"
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       {/* Transmission */}
       <div>
-        <Label htmlFor="transmission">Transmission</Label>
-        <Select
+        <label htmlFor="transmission" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Transmission</label>
+        <select
+          id="transmission"
           name="transmission"
           value={formData.transmission}
-          onValueChange={(value) => handleSelectChange(value, 'transmission')}
+          onChange={handleChange}
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         >
-          <SelectTrigger id="transmission">
-            <SelectValue placeholder="Select Transmission" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="automatic">Automatic</SelectItem>
-            <SelectItem value="manual">Manual</SelectItem>
-          </SelectContent>
-        </Select>
+          <option value="automatic">Automatic</option>
+          <option value="manual">Manual</option>
+        </select>
       </div>
 
       {/* Fuel Type */}
       <div>
-        <Label htmlFor="fuelType">Fuel Type</Label>
-        <Select
+        <label htmlFor="fuelType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fuel Type</label>
+        <select
+          id="fuelType"
           name="fuelType"
           value={formData.fuelType}
-          onValueChange={(value) => handleSelectChange(value, 'fuelType')}
+          onChange={handleChange}
           required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         >
-          <SelectTrigger id="fuelType">
-            <SelectValue placeholder="Select Fuel Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="gasoline">Gasoline</SelectItem>
-            <SelectItem value="diesel">Diesel</SelectItem>
-            <SelectItem value="electric">Electric</SelectItem>
-            <SelectItem value="hybrid">Hybrid</SelectItem>
-          </SelectContent>
-        </Select>
+          <option value="gasoline">Gasoline</option>
+          <option value="diesel">Diesel</option>
+          <option value="electric">Electric</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
       </div>
 
       {/* Features */}
       <div>
-        <Label>Features</Label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Features</label>
         <div className="grid grid-cols-2 gap-4">
           {carFeatures.map((feature) => (
             <div key={feature} className="flex items-center">
@@ -443,18 +439,24 @@ export default function EditListingPageClient({ id }: { id: string }) {
 
       {/* Images */}
       <div>
-        <Label>Images</Label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Images</label>
         <input
           type="file"
           accept="image/*"
           multiple
           onChange={handleImageUpload}
-          className="mt-1 block w-full text-sm"
+          className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-700 dark:file:text-primary-50 dark:hover:file:bg-primary-600"
         />
         <div className="mt-2 grid grid-cols-3 gap-2">
-          {formData.images.map((image, index) => (
+          {imagePreviewUrls.map((url, index) => (
             <div key={index} className="relative">
-              <img src={URL.createObjectURL(image)} alt={`Uploaded image ${index + 1}`} className="w-full h-auto rounded-md" />
+              <Image 
+                src={url} 
+                alt={`Uploaded image ${index + 1}`} 
+                width={150}
+                height={100}
+                className="w-full h-auto rounded-md" 
+              />
               <button
                 type="button"
                 onClick={() => removeImage(index)}
@@ -470,7 +472,7 @@ export default function EditListingPageClient({ id }: { id: string }) {
       {/* Section for Listing Status and Expiry */}
       <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 shadow">
         <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Listing Status & Expiry</h3>
-        {formData.expires && formData.expires.trim() !== "" ? (
+        {formData.expires ? (
           <ListingExpiry
             listingId={id}
             expiryDate={formData.expires}
@@ -484,22 +486,22 @@ export default function EditListingPageClient({ id }: { id: string }) {
         )}
       </div>
 
+      {/* Submit and Cancel buttons */}
       <div className="flex justify-end space-x-3">
-        <Button
+        <button
           type="button"
           onClick={() => router.push('/dashboard/listings')}
-          variant="outline"
-          className="px-4 py-2 text-sm"
+          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:border-gray-500 dark:hover:bg-gray-700"
         >
           Cancel
-        </Button>
-        <Button
+        </button>
+        <button
           type="submit"
-          isLoading={isLoading}
-          className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-dark"
+          disabled={isLoading}
+          className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
         >
-          Save Changes
-        </Button>
+          {isLoading ? "Saving..." : "Save Changes"}
+        </button>
       </div>
     </form>
   );
