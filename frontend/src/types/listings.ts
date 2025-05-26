@@ -98,5 +98,13 @@ export interface ListingApiResponse {
 export interface ListingExpiryProps {
   expires: string;
   status: string;
-  className?: string;
+}
+
+/**
+ * Interface for Governorate
+ */
+export interface Governorate {
+  id: number;
+  name: string;
+  nameAr: string;
 }
