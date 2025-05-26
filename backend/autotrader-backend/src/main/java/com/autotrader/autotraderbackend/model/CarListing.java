@@ -65,12 +65,12 @@ public class CarListing {
     @Column(name = "cylinders")
     private Integer cylinders;
     
-    @ManyToOne(fetch = FetchType.EAGER) // Changed from LAZY to EAGER
-    @JoinColumn(name = "location_id", nullable = false) // Enforce that a listing must have a location
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "location_id") // Made nullable
     private Location location;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "governorate_id")
+    @JoinColumn(name = "governorate_id", nullable = false) // Enforce that a listing must have a governorate
     private Governorate governorate;
     
     @Size(max = 100)

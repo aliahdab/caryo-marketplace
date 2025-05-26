@@ -408,8 +408,8 @@ SELECT
     TRUE as approved,
     FALSE as sold,
     FALSE as archived,
-    DATEADD('DAY', -MOD(ul.id, 30), CURRENT_TIMESTAMP) as created_at,
-    DATEADD('DAY', -MOD(ul.id, 30), CURRENT_TIMESTAMP) as updated_at
+    TIMESTAMPADD(SQL_TSI_DAY, -MOD(ul.id, 30), CURRENT_TIMESTAMP) as created_at,
+    TIMESTAMPADD(SQL_TSI_DAY, -MOD(ul.id, 30), CURRENT_TIMESTAMP) as updated_at
 FROM user_list ul
 CROSS JOIN random_make ma
 CROSS JOIN random_model mo

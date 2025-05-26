@@ -8,6 +8,7 @@ import com.autotrader.autotraderbackend.repository.FavoriteRepository;
 import com.autotrader.autotraderbackend.repository.CarListingRepository;
 import com.autotrader.autotraderbackend.repository.CarBrandRepository; // Added
 import com.autotrader.autotraderbackend.repository.CarModelRepository; // Added
+import com.autotrader.autotraderbackend.repository.GovernorateRepository; // Added
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -70,6 +71,9 @@ public class SchemaValidationTest {
     @Autowired
     private CarModelRepository carModelRepository; // Added
 
+    @Autowired
+    private GovernorateRepository governorateRepository; // Added
+
     // Repositories for the relevant entities
     @Autowired 
     private ListingMediaRepository listingMediaRepository;
@@ -104,6 +108,19 @@ public class SchemaValidationTest {
                     newLocation.setLongitude(longitude);
                     newLocation.setIsActive(isActive);
                     return locationRepository.save(newLocation);
+                });
+    }
+
+    // Helper method to find or create a governorate
+    private Governorate findOrCreateGovernorate(String slug, String displayNameEn, String displayNameAr, String countryCode) {
+        return governorateRepository.findBySlug(slug)
+                .orElseGet(() -> {
+                    Governorate newGovernorate = new Governorate();
+                    newGovernorate.setSlug(slug);
+                    newGovernorate.setDisplayNameEn(displayNameEn);
+                    newGovernorate.setDisplayNameAr(displayNameAr);
+                    newGovernorate.setCountryCode(countryCode);
+                    return governorateRepository.save(newGovernorate);
                 });
     }
 
@@ -341,6 +358,9 @@ public class SchemaValidationTest {
         testModel.setSlug("camry-media-test");
         carModelRepository.save(testModel);
         
+        // Create a governorate
+        Governorate testGovernorate = findOrCreateGovernorate("damascus-gov", "Damascus Governorate", "محافظة دمشق", "SY");
+
         // Create a car listing
         CarListing carListing = new CarListing();
         carListing.setTitle("Test Car with Media");
@@ -354,6 +374,7 @@ public class SchemaValidationTest {
         carListing.setMileage(15000);
         carListing.setPrice(new java.math.BigDecimal("25000.00"));
         carListing.setSeller(seller);
+        carListing.setGovernorate(testGovernorate); // Set governorate
         
         // Save the car listing
         testEntityManager.persist(carListing);
@@ -471,6 +492,9 @@ public class SchemaValidationTest {
         favTestModel.setSlug("test-model-fav");
         carModelRepository.save(favTestModel);
 
+        // Create a governorate
+        Governorate favTestGovernorate = findOrCreateGovernorate("aleppo-gov", "Aleppo Governorate", "محافظة حلب", "SY");
+
         // Create a CarListing
         CarListing carListing = new CarListing();
         carListing.setTitle("Favorite Test Car");
@@ -484,6 +508,7 @@ public class SchemaValidationTest {
         carListing.setDescription("A test description for the favorite car listing."); // Added description
         carListing.setMileage(10000); // Added mileage
         carListing.setSeller(user); // Assuming seller is the same user for simplicity
+        carListing.setGovernorate(favTestGovernorate); // Set governorate
         carListingRepository.save(carListing); // Ensure carListing is persisted
 
         // Create a Favorite
