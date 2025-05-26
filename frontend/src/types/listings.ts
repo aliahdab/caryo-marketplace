@@ -22,6 +22,10 @@ export interface Listing {
     countryCode?: string;
     address?: string;
   };
+  governorate?: {
+    nameEn: string;
+    nameAr: string;
+  };
   media?: { 
     url: string; 
     type?: string; 

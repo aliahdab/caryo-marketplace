@@ -214,3 +214,69 @@ export async function getListings(filters: ListingFilters = {}): Promise<{ listi
     throw new Error('An unexpected error occurred while fetching listings');
   }
 }
+
+export async function getListingById(id: string | number): Promise<Listing> {
+  try {
+    const response = await api.get<ApiListingItem>(`/api/listings/${id}`);
+    
+    // Transform the single API listing item to our frontend Listing type
+    const { mainImageUrl, mediaItems } = getMediaUrls(response.media || []);
+    const location = extractLocationInfo(response.locationDetails);
+    const governorate = extractGovernorateInfo(
+      response.governorateDetails,
+      response.governorateNameEn,
+      response.governorateNameAr
+    );
+
+    return {
+      id: response.id.toString(),
+      title: response.title,
+      price: response.price,
+      year: response.modelYear,
+      mileage: response.mileage,
+      brand: response.brand,
+      model: response.model,
+      location,
+      governorate,
+      image: mainImageUrl,
+      media: mediaItems,
+      fuelType: '',
+      transmission: '',
+      createdAt: response.createdAt,
+      description: response.description,
+      status: determineListingStatus(response),
+      approved: response.approved,
+      expired: response.isExpired,
+      seller: {
+        id: response.sellerId.toString(),
+        name: response.sellerUsername,
+        type: 'private' as const
+      },
+      currency: 'SAR' // Default currency
+    };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      const errorContext = {
+        status: error.status,
+        message: error.message,
+        data: error.data,
+        id
+      };
+      
+      console.error('[Listing] API Error:', errorContext);
+
+      switch (error.status) {
+        case 404:
+          throw new Error('Listing not found');
+        case 401:
+        case 403:
+          throw new Error('You do not have permission to access this listing');
+        default:
+          throw new Error('Failed to fetch listing. Please try again later.');
+      }
+    }
+
+    console.error('[Listing] Unexpected error:', error instanceof Error ? error.message : 'Unknown error');
+    throw new Error('An unexpected error occurred while fetching the listing');
+  }
+}
