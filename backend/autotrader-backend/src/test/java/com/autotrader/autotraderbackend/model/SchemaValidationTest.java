@@ -136,12 +136,14 @@ public class SchemaValidationTest {
     
     // Helper method to find or create a country
     private Country findOrCreateCountry(String countryCode) {
-        return countryRepository.findByCountryCode(countryCode)
+        // For now, always use Syria
+        final String syriaCountryCode = "SY";
+        return countryRepository.findByCountryCode(syriaCountryCode)
                 .orElseGet(() -> {
                     Country newCountry = new Country();
-                    newCountry.setCountryCode(countryCode);
-                    newCountry.setDisplayNameEn("Test Country " + countryCode);
-                    newCountry.setDisplayNameAr("بلد الاختبار " + countryCode);
+                    newCountry.setCountryCode(syriaCountryCode);
+                    newCountry.setDisplayNameEn("Syria"); // Standardized name
+                    newCountry.setDisplayNameAr("سوريا");    // Standardized name
                     newCountry.setIsActive(true);
                     return countryRepository.save(newCountry);
                 });
@@ -605,8 +607,8 @@ public class SchemaValidationTest {
     @Test
     public void testCarListing_DenormalizedGovernorateNamesPopulation() {
         User seller = userRepository.save(new User("sellerdenorm", "sellerdenorm@example.com", "password"));
-        Country country = findOrCreateCountry("DN"); // DN for DeNormalized
-        Governorate governorate = findOrCreateGovernorate("denorm-gov", "Denorm Governorate EN", "محافظة دنورم AR", country);
+        Country country = findOrCreateCountry("SY"); // Country is Syria
+        Governorate governorate = findOrCreateGovernorate("denorm-gov-sy", "Denorm Governorate EN (SY)", "محافظة دنورم العربية (SY)", country);
         // Location is nullable on CarListing, but let's create one for completeness if TestDataGenerator needs it
         Location location = TestDataGenerator.createTestLocation(governorate);
         location = locationRepository.save(location);

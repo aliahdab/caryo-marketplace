@@ -33,17 +33,17 @@ public class Country {
     @NotNull
     @Size(min = 2, max = 2)
     @Column(name = "country_code", nullable = false, unique = true, length = 2)
-    private String countryCode; // ISO 3166-1 alpha-2 country code (e.g., "SY" for Syria)
+    private String countryCode = "SY"; // ISO 3166-1 alpha-2 country code (e.g., "SY" for Syria)
 
     @NotNull
     @Size(max = 100)
     @Column(name = "display_name_en", nullable = false, length = 100)
-    private String displayNameEn;
+    private String displayNameEn = "Syria";
 
     @NotNull
     @Size(max = 100)
     @Column(name = "display_name_ar", nullable = false, length = 100)
-    private String displayNameAr;
+    private String displayNameAr = "سوريا";
 
     @NotNull
     @Column(name = "is_active", nullable = false)
