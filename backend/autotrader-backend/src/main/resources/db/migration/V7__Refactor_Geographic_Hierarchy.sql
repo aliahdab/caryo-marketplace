@@ -15,20 +15,20 @@ VALUES ('SY', 'Syria', 'سوريا', TRUE);
 
 -- Alter governorates table
 ALTER TABLE governorates
-ADD COLUMN country_id BIGINT,
+ADD COLUMN country_id BIGINT;
+
+-- Add the foreign key constraint first
+ALTER TABLE governorates
 ADD CONSTRAINT fk_governorates_country
     FOREIGN KEY (country_id)
     REFERENCES countries(id);
 
--- Update existing governorates to link to the default country (Kuwait)
--- This assumes all existing governorates belong to 'KW'
-UPDATE governorates g
-SET country_id = (SELECT c.id FROM countries c WHERE c.country_code = 'KW')
-WHERE g.country_code = 'KW';
+-- Update ALL existing governorates to link to the Syrian country
+-- This assumes all existing governorates should now belong to Syria.
+UPDATE governorates
+SET country_id = (SELECT c.id FROM countries c WHERE c.country_code = 'SY');
 
--- It's safer to make country_id NOT NULL after populating it.
--- However, if there are governorates with country_codes other than 'KW' that were not migrated,
--- this will fail. For this script, we assume 'KW' is the only one or others are handled.
+-- Now that all governorates should have a country_id, make the column NOT NULL.
 ALTER TABLE governorates
 ALTER COLUMN country_id SET NOT NULL;
 
