@@ -60,22 +60,8 @@ ALTER TABLE locations
 DROP COLUMN country_code;
 
 
--- Update created_at and updated_at for existing tables if they don't exist
--- For governorates - split into separate statements for H2 compatibility
-ALTER TABLE governorates
-ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-
-ALTER TABLE governorates
-ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-
--- For locations - split into separate statements for H2 compatibility
-ALTER TABLE locations
-ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-
-ALTER TABLE locations
-ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-
 -- Update existing rows to have a default value for created_at and updated_at if they are NULL
+-- Note: created_at and updated_at columns already exist from V1 migration
 UPDATE governorates SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL;
 UPDATE governorates SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;
 UPDATE locations SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL;
