@@ -193,31 +193,28 @@ const HomeSearchBar: React.FC = () => {
                 {t('search.selectModel', 'Model')}
               </label>
               <div className="relative">
-                <select
-                  id="model"
-                  value={selectedModel ?? ''}
-                  onChange={(e) => setSelectedModel(e.target.value ? Number(e.target.value) : null)}
-                  className={`search-select block w-full h-12 pl-4 pr-10 py-3 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-md ${
-                    !selectedMake || isLoadingModels || isTransitioningModels 
-                      ? 'bg-gray-50 dark:bg-gray-800' 
-                      : 'bg-white dark:bg-gray-700'
-                  } text-gray-900 dark:text-white disabled:cursor-not-allowed`}
-                  disabled={!selectedMake || isLoadingModels || isTransitioningModels}
-                  aria-label={t('search.selectModel', 'Select model')}
-                >
-                  <option value="">
-                    {!selectedMake
-                      ? t('search.selectBrandFirst', 'Select brand first')
-                      : isLoadingModels || isTransitioningModels 
-                        ? t('search.loadingModels', 'Loading models...') 
-                        : t('search.selectModel', 'Select Model')}
-                  </option>
-                  {selectedMake && !isLoadingModels && !isTransitioningModels && availableModels?.map((model) => (
-                    <option key={model.id} value={model.id}>{getDisplayName(model)}</option>
-                  ))}
-                </select>
+                {/* Wrapper with fixed dimensions to prevent layout shifts */}
+                <div className="h-12 relative">
+                  <select
+                    id="model"
+                    value={selectedModel ?? ''}
+                    onChange={(e) => setSelectedModel(e.target.value ? Number(e.target.value) : null)}
+                    className="search-select block w-full h-12 pl-4 pr-10 py-3 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:opacity-75"
+                    disabled={!selectedMake || isLoadingModels || isTransitioningModels}
+                    aria-label={t('search.selectModel', 'Select model')}
+                    style={{ minWidth: '100%' }}
+                  >
+                    <option value="">
+                      {t('search.selectModel', 'Any Model')}
+                    </option>
+                    {selectedMake && !isLoadingModels && !isTransitioningModels && availableModels?.map((model) => (
+                      <option key={model.id} value={model.id}>{getDisplayName(model)}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Loading indicator positioned absolutely to not affect layout */}
                 {isLoadingModels && (
-                  <div className="absolute right-3 top-3">
+                  <div className="absolute right-3 top-3 pointer-events-none">
                     <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
                   </div>
                 )}

@@ -22,6 +22,8 @@ import enCommon from "../../public/locales/en/common.json";
 import arCommon from "../../public/locales/ar/common.json";
 import enErrors from "../../public/locales/en/errors.json";
 import arErrors from "../../public/locales/ar/errors.json";
+import enListings from "../../public/locales/en/listings.json";
+import arListings from "../../public/locales/ar/listings.json";
 
 // Define supported languages
 export const LANGUAGES = {
@@ -37,6 +39,7 @@ type TranslationResources = {
     common: Record<string, unknown>;
     translation: Record<string, unknown>;
     errors: Record<string, unknown>;
+    listings: Record<string, unknown>;
   };
 };
 
@@ -106,11 +109,13 @@ const resources: TranslationResources = {
     common: enCommon,
     translation: enCommon, // Add translation namespace as an alias to common
     errors: enErrors,
+    listings: enListings,
   },
   [LANGUAGES.AR]: {
     common: arCommon,
     translation: arCommon, // Add translation namespace as an alias to common
     errors: arErrors,
+    listings: arListings,
   },
 };
 
@@ -120,7 +125,7 @@ i18n
   .use(initReactI18next) // Pass i18n to react-i18next
   .init({
     resources,
-    ns: ['common', 'translation', 'errors'],
+    ns: ['common', 'translation', 'errors', 'listings'],
     defaultNS: 'common',
     lng: getCurrentLanguage(),
     fallbackLng: LANGUAGES.AR, // Default to Arabic if language detection fails
