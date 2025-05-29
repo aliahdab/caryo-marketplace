@@ -95,6 +95,9 @@ const HomeSearchBar: React.FC = () => {
   const handleSearch = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
+    // Show a transition state before navigation
+    setIsTransitioningModels(true);
+    
     const params = new URLSearchParams();
     
     // Build brand parameters
@@ -130,9 +133,9 @@ const HomeSearchBar: React.FC = () => {
       }
     }
 
-    // Navigate to listings page with constructed parameters
-    router.push(`/listings?${params.toString()}`);
-  }, [selectedMake, selectedModel, selectedGovernorate, carMakes, availableModels, governorates, getDisplayName, router]);
+    // Use replace instead of push to avoid history stacking on quick searches
+    router.push(`/listings?${params.toString()}`, { scroll: false });
+  }, [selectedMake, selectedModel, selectedGovernorate, carMakes, availableModels, governorates, getDisplayName, router, setIsTransitioningModels]);
 
   // Create a debounced search function
   const debouncedSearch = useMemo(() => debounce(handleSearch, 500), [handleSearch]);

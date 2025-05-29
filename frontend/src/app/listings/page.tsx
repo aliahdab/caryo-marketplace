@@ -58,8 +58,12 @@ const ListingsPage = () => {
   const [currentPage, setCurrentPage] = useState<number>(initialFilters.page || 1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalListings, setTotalListings] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize with loading=false to prevent immediate loading state on mount
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Track whether this is the first load to handle transitions differently
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   // Add a new effect to update filters from URL when searchParams change
   useEffect(() => {
@@ -86,7 +90,19 @@ const ListingsPage = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    setIsLoading(true);
+    // Set loading state but delay it slightly to prevent quick flashes
+    // Only delay if not the first load (coming from another page)
+    let loadingTimeout: NodeJS.Timeout;
+    
+    if (!isFirstLoad) {
+      loadingTimeout = setTimeout(() => {
+        setIsLoading(true);
+      }, 100); // Small delay to prevent flash if data loads quickly
+    } else {
+      // On first load, set loading immediately
+      setIsLoading(true);
+    }
+    
     setError(null);
 
     const apiFilters: ListingFilters = {
@@ -109,18 +125,35 @@ const ListingsPage = () => {
         setTotalListings(data.total);
         setTotalPages(Math.ceil(data.total / (filters.limit || 12)));
         setIsLoading(false);
+        if (isFirstLoad) {
+          setIsFirstLoad(false);
+        }
+        if (loadingTimeout) clearTimeout(loadingTimeout);
       })
       .catch(err => {
         console.error("Error fetching listings:", err);
         setError(t('error.loadingListings'));
         setIsLoading(false);
+        if (isFirstLoad) {
+          setIsFirstLoad(false);
+        }
+        if (loadingTimeout) clearTimeout(loadingTimeout);
       });
-  }, [filters, currentPage, t]);
+      
+    return () => {
+      if (loadingTimeout) clearTimeout(loadingTimeout);
+    };
+  }, [filters, currentPage, t, isFirstLoad]);
 
   // Track the previous URL to avoid unnecessary updates
   const prevUrlRef = React.useRef<string | null>(null);
   
   useEffect(() => {
+    // Skip URL updates on first render
+    if (isFirstLoad) {
+      return;
+    }
+    
     const queryParams = new URLSearchParams();
     
     // Use currentPage for the 'page' query parameter
@@ -146,7 +179,7 @@ const ListingsPage = () => {
       prevUrlRef.current = newUrl;
       router.replace(newUrl, { scroll: false });
     }
-  }, [filters, currentPage, router]);
+  }, [filters, currentPage, router, isFirstLoad]);
 
   const handleFilterChange = (key: keyof Filters, value: string | number | undefined) => {
     setFilters(prev => {
@@ -166,18 +199,28 @@ const ListingsPage = () => {
   };
 
   const ListingsGrid = ({ listingsToDisplay }: { listingsToDisplay: Listing[] }) => {
+    // Create a container with a consistent minimum height to prevent layout shifts
+    const minGridHeight = "min-h-[50vh]";
+    
     if (isLoading) {
-      return <div className="text-center py-10">{t('listings.loadingListings')}</div>;
+      return <div className={`text-center py-10 ${minGridHeight} flex items-center justify-center`}>
+        <div>
+          <div className="animate-spin h-10 w-10 mb-4 border-4 border-blue-500 rounded-full border-t-transparent mx-auto"></div>
+          <p>{t('listings.loadingListings')}</p>
+        </div>
+      </div>;
     }
+    
     if (error) {
-      return <div className="text-center py-10 text-red-500">{error}</div>;
+      return <div className={`text-center py-10 text-red-500 ${minGridHeight} flex items-center justify-center`}>{error}</div>;
     }
+    
     if (listingsToDisplay.length === 0) {
-      return <div className="text-center py-10">{t('listings.noListingsFound')}</div>;
+      return <div className={`text-center py-10 ${minGridHeight} flex items-center justify-center`}>{t('listings.noListingsFound')}</div>;
     }
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ${minGridHeight}`}>
         {listingsToDisplay.map((listing) => (
           <div key={listing.id} className="relative bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 ease-in-out">
             <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
