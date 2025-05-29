@@ -133,9 +133,9 @@ const HomeSearchBar: React.FC = () => {
       }
     }
 
-    // Use replace instead of push to avoid history stacking on quick searches
-    router.push(`/listings?${params.toString()}`, { scroll: false });
-  }, [selectedMake, selectedModel, selectedGovernorate, carMakes, availableModels, governorates, getDisplayName, router, setIsTransitioningModels]);
+    // Navigate to listings page with constructed parameters
+    router.push(`/listings?${params.toString()}`);
+  }, [selectedMake, selectedModel, selectedGovernorate, carMakes, availableModels, governorates, getDisplayName, router]);
 
   // Create a debounced search function
   const debouncedSearch = useMemo(() => debounce(handleSearch, 500), [handleSearch]);

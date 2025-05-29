@@ -89,6 +89,30 @@ const ListingsPage = () => {
     setCurrentPage(updatedFilters.page);
   }, [searchParams]);
 
+  // Add a new effect to update filters from URL when searchParams change
+  useEffect(() => {
+    // Update filters when URL changes
+    const updatedFilters: Filters = {
+      page: parseInt(searchParams?.get('page') || '1', 10),
+      limit: parseInt(searchParams?.get('limit') || '12', 10),
+      search: searchParams?.get('search') || undefined,
+      category: searchParams?.get('category') || undefined,
+      minPrice: searchParams?.get('minPrice') ? parseFloat(searchParams?.get('minPrice') || '') : undefined,
+      maxPrice: searchParams?.get('maxPrice') ? parseFloat(searchParams?.get('maxPrice') || '') : undefined,
+      condition: searchParams?.get('condition') || undefined,
+      sortBy: searchParams?.get('sortBy') || 'createdAt',
+      sortOrder: (searchParams?.get('sortOrder') as 'asc' | 'desc') || 'desc',
+      minYear: searchParams?.get('minYear') ? parseInt(searchParams?.get('minYear') || '', 10) : undefined,
+      maxYear: searchParams?.get('maxYear') ? parseInt(searchParams?.get('maxYear') || '', 10) : undefined,
+      location: searchParams?.get('location') || undefined,
+      brand: searchParams?.get('brand') || undefined,
+      model: searchParams?.get('model') || undefined,
+    };
+    
+    setFilters(updatedFilters);
+    setCurrentPage(updatedFilters.page);
+  }, [searchParams]);
+
   useEffect(() => {
     // Set loading state but delay it slightly to prevent quick flashes
     // Only delay if not the first load (coming from another page)
