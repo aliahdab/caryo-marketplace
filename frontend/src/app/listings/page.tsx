@@ -49,13 +49,9 @@ const ListingsPage = () => {
     minYear: searchParams?.get('minYear') ? parseInt(searchParams?.get('minYear') || '', 10) : undefined,
     maxYear: searchParams?.get('maxYear') ? parseInt(searchParams?.get('maxYear') || '', 10) : undefined,
     location: searchParams?.get('location') || undefined,
+    brand: searchParams?.get('brand') || undefined, // Directly include brand
+    model: searchParams?.get('model') || undefined, // Directly include model
   };
-
-  // Add these for the API
-  const make = searchParams?.get('brand') || undefined;
-  const model = searchParams?.get('model') || undefined;
-  if (make) initialFilters.brand = make;
-  if (model) initialFilters.model = model;
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [filters, setFilters] = useState<Filters>(initialFilters);
@@ -64,6 +60,30 @@ const ListingsPage = () => {
   const [totalListings, setTotalListings] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Add a new effect to update filters from URL when searchParams change
+  useEffect(() => {
+    // Update filters when URL changes
+    const updatedFilters: Filters = {
+      page: parseInt(searchParams?.get('page') || '1', 10),
+      limit: parseInt(searchParams?.get('limit') || '12', 10),
+      search: searchParams?.get('search') || undefined,
+      category: searchParams?.get('category') || undefined,
+      minPrice: searchParams?.get('minPrice') ? parseFloat(searchParams?.get('minPrice') || '') : undefined,
+      maxPrice: searchParams?.get('maxPrice') ? parseFloat(searchParams?.get('maxPrice') || '') : undefined,
+      condition: searchParams?.get('condition') || undefined,
+      sortBy: searchParams?.get('sortBy') || 'createdAt',
+      sortOrder: (searchParams?.get('sortOrder') as 'asc' | 'desc') || 'desc',
+      minYear: searchParams?.get('minYear') ? parseInt(searchParams?.get('minYear') || '', 10) : undefined,
+      maxYear: searchParams?.get('maxYear') ? parseInt(searchParams?.get('maxYear') || '', 10) : undefined,
+      location: searchParams?.get('location') || undefined,
+      brand: searchParams?.get('brand') || undefined,
+      model: searchParams?.get('model') || undefined,
+    };
+    
+    setFilters(updatedFilters);
+    setCurrentPage(updatedFilters.page);
+  }, [searchParams]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -78,35 +98,14 @@ const ListingsPage = () => {
       minYear: filters.minYear?.toString(),
       maxYear: filters.maxYear?.toString(),
       location: filters.location,
-      brand: filters.brand,
-      model: filters.model
+      brand: filters.brand, // Ensure brand is passed to the API
+      model: filters.model  // Ensure model is passed to the API
     };
 
     getListings(apiFilters)
       .then(data => {
-        // Apply additional client-side filtering for brand and model if specified
-        let filteredListings = [...data.listings];
-        
-        // Double check that brand filter is applied correctly (for extra reliability)
-        if (filters.brand) {
-          const brandLower = filters.brand.toLowerCase();
-          filteredListings = filteredListings.filter(listing => 
-            listing.brand?.toLowerCase() === brandLower ||
-            listing.title.toLowerCase().startsWith(brandLower)
-          );
-        }
-        
-        // Double check that model filter is applied correctly
-        if (filters.model) {
-          const modelLower = filters.model.toLowerCase();
-          filteredListings = filteredListings.filter(listing => 
-            listing.model?.toLowerCase() === modelLower ||
-            listing.title.toLowerCase().includes(modelLower)
-          );
-        }
-        
-        setListings(filteredListings);
-        // Keep the total and pages the same as what came from the API
+        // API should return correctly filtered data. No need for client-side re-filtering.
+        setListings(data.listings); 
         setTotalListings(data.total);
         setTotalPages(Math.ceil(data.total / (filters.limit || 12)));
         setIsLoading(false);
@@ -123,6 +122,7 @@ const ListingsPage = () => {
   
   useEffect(() => {
     const queryParams = new URLSearchParams();
+    
     // Use currentPage for the 'page' query parameter
     queryParams.set('page', String(currentPage));
     if (filters.limit) queryParams.set('limit', String(filters.limit));
@@ -188,8 +188,8 @@ const ListingsPage = () => {
                 className="shadow-md hover:shadow-lg"
                 mockMode={true} 
                 initialFavorite={false}
-                onToggle={(isFavorite) => {
-                  console.log(`Listing ${listing.id} favorite status: ${isFavorite}`);
+                onToggle={() => {
+                  // Handle favorite toggle if needed
                 }}
               />
             </div>
