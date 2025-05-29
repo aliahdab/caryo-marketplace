@@ -197,99 +197,146 @@ const ListingsPage = () => {
     }
   };
 
-  const ListingsGrid = ({ listingsToDisplay }: { listingsToDisplay: Listing[] }) => {
-    // Create a container with a consistent minimum height to prevent layout shifts
-    const minGridHeight = "min-h-[50vh]";
+  // Create a consistent, stable layout for all states
+  const renderContent = () => {
+    // Fixed-height container to prevent layout shifts
+    const containerClass = "min-h-[60vh]";
     
     if (isLoading) {
-      return <div className={`text-center py-10 ${minGridHeight} flex items-center justify-center`}>
-        <div>
-          <div className="animate-spin h-10 w-10 mb-4 border-4 border-blue-500 rounded-full border-t-transparent mx-auto"></div>
-          <p>{t('listings.loadingListings')}</p>
+      return (
+        <div className={`${containerClass} flex items-center justify-center`}>
+          <div className="text-center">
+            <div className="mb-4">
+              <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent"></div>
+            </div>
+            <p className="text-lg">{t('listings.loadingListings')}</p>
+          </div>
         </div>
-      </div>;
+      );
     }
     
     if (error) {
-      return <div className={`text-center py-10 text-red-500 ${minGridHeight} flex items-center justify-center`}>{error}</div>;
+      return (
+        <div className={`${containerClass} flex items-center justify-center text-red-500`}>
+          <div className="text-center">
+            <svg 
+              className="w-12 h-12 mx-auto mb-4 text-red-500" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+              />
+            </svg>
+            <p className="text-lg">{error}</p>
+          </div>
+        </div>
+      );
     }
     
-    if (listingsToDisplay.length === 0) {
-      return <div className={`text-center py-10 ${minGridHeight} flex items-center justify-center`}>{t('listings.noListingsFound')}</div>;
-    }
-
-    return (
-      <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ${minGridHeight}`}>
-        {listingsToDisplay.map((listing) => (
-          <div key={listing.id} className="relative bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 ease-in-out">
-            <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
-              <FavoriteButton
-                listingId={listing.id.toString()}
-                variant="filled"
-                size="sm"
-                className="shadow-md hover:shadow-lg"
-                mockMode={true} 
-                initialFavorite={false}
-                onToggle={() => {
-                  // Handle favorite toggle if needed
-                }}
+    if (listings.length === 0) {
+      return (
+        <div className={`${containerClass} flex items-center justify-center`}>
+          <div className="text-center">
+            <svg 
+              className="w-12 h-12 mx-auto mb-4 text-gray-400" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" 
               />
-            </div>
-            <Link href={`/listings/${listing.id}`} className="block group">
-              <div className="relative h-48 w-full overflow-hidden">
-                {listing.media && listing.media.length > 0 ? (
-                  <Image
-                    src={listing.media.find(m => m.isPrimary)?.url || listing.media[0].url}
-                    alt={listing.title}
-                    className="w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    unoptimized
-                  />
-                ) : (
-                  <Image
-                    src="/images/vehicles/car-default.svg"
-                    alt={listing.title}
-                    className="w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    unoptimized
-                  />
-                )}
-                {listing.media && listing.media.length > 1 && (
-                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-md">
-                    +{listing.media.length - 1} {t('listings.moreImages')}
-                  </div>
-                )}
+            </svg>
+            <p className="text-lg">{t('listings.noListingsFound')}</p>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className={containerClass}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {listings.map((listing) => (
+            <div key={listing.id} className="relative bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 ease-in-out">
+              <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+                <FavoriteButton
+                  listingId={listing.id.toString()}
+                  variant="filled"
+                  size="sm"
+                  className="shadow-md hover:shadow-lg"
+                  mockMode={true} 
+                  initialFavorite={false}
+                  onToggle={() => {
+                    // Handle favorite toggle if needed
+                  }}
+                />
               </div>
-              <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate group-hover:text-primary-500 transition-colors">
-                  {listing.title}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 capitalize">
-                  {listing.category?.name || t('listings.noCategory')}
-                </p>
-                <h4 className="text-xl font-bold text-primary-600 dark:text-primary-400 mb-2">
-                  {formatNumber(listing.price, i18n.language, { style: 'currency', currency: listing.currency || 'SYP' })}
-                </h4>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  <p className="truncate">
-                    {i18n.language === 'ar' && listing.location?.cityAr 
-                      ? listing.location.cityAr 
-                      : listing.location?.city || listing.brand || t('listings.unknownLocation')}
-                    {listing.location?.country ? `, ${listing.location.country}` : ''}
-                  </p>
-                  <p>{t('listings.postedOn')}: {listing.createdAt ? (
-                    formatDate(listing.createdAt, i18n.language, { dateStyle: 'medium' }) || t('listings.addedRecently')
-                  ) : t('listings.addedRecently')}</p>
-                  {listing.updatedAt && listing.updatedAt !== listing.createdAt && (
-                    <p>{t('listings.updatedOn')}: {formatDate(new Date(listing.updatedAt), i18n.language, { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+              <Link href={`/listings/${listing.id}`} className="block group">
+                <div className="relative h-48 w-full overflow-hidden">
+                  {listing.media && listing.media.length > 0 ? (
+                    <Image
+                      src={listing.media.find(m => m.isPrimary)?.url || listing.media[0].url}
+                      alt={listing.title}
+                      className="w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      unoptimized
+                    />
+                  ) : (
+                    <Image
+                      src="/images/vehicles/car-default.svg"
+                      alt={listing.title}
+                      className="w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      unoptimized
+                    />
+                  )}
+                  {listing.media && listing.media.length > 1 && (
+                    <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-md">
+                      +{listing.media.length - 1} {t('listings.moreImages')}
+                    </div>
                   )}
                 </div>
-              </div>
-            </Link>
-          </div>
-        ))}
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate group-hover:text-primary-500 transition-colors">
+                    {listing.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 capitalize">
+                    {listing.category?.name || t('listings.noCategory')}
+                  </p>
+                  <h4 className="text-xl font-bold text-primary-600 dark:text-primary-400 mb-2">
+                    {formatNumber(listing.price, i18n.language, { style: 'currency', currency: listing.currency || 'SYP' })}
+                  </h4>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="truncate">
+                      {i18n.language === 'ar' && listing.location?.cityAr 
+                        ? listing.location.cityAr 
+                        : listing.location?.city || listing.brand || t('listings.unknownLocation')}
+                      {listing.location?.country ? `, ${listing.location.country}` : ''}
+                    </p>
+                    <p>{t('listings.postedOn')}: {listing.createdAt ? (
+                      formatDate(listing.createdAt, i18n.language, { dateStyle: 'medium' }) || t('listings.addedRecently')
+                    ) : t('listings.addedRecently')}</p>
+                    {listing.updatedAt && listing.updatedAt !== listing.createdAt && (
+                      <p>{t('listings.updatedOn')}: {formatDate(new Date(listing.updatedAt), i18n.language, { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
