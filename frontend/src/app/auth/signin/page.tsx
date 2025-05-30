@@ -333,7 +333,7 @@ const SignInPage: React.FC = () => {
                       </svg>
                       {t('loading')}
                     </div>
-                  ) : t('signin')}
+                  ) : t('sign_in')}
                 </button>
               </div>
             </form>

@@ -11,7 +11,8 @@
     "prepare": "husky",
     "test": "node --no-deprecation ./node_modules/.bin/jest",
     "restart": "sh ./scripts/restart-dev.sh",
-    "diagnose": "node ./scripts/diagnostics/simple-diagnostics.js"
+    "diagnose": "node ./scripts/diagnostics/simple-diagnostics.js",
+    "find-unused-translations": "node --experimental-modules ./scripts/diagnostics/find-unused-translations.js"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",
