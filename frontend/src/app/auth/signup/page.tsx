@@ -191,7 +191,7 @@ export default function SignUpPage() {
           
           <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 md:p-8 lg:p-10 auth-form">
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold mb-1 auth-heading">{t('signup')}</h2>
+              <h2 className="text-2xl font-bold mb-1 auth-heading">{t('sign_up')}</h2>
               <p className="text-gray-600 dark:text-gray-400 text-sm auth-description">{t('createAccountDescription')}</p>
             </div>
             
@@ -358,7 +358,7 @@ export default function SignUpPage() {
                       {t('loading')}
                     </div>
                   ) : (
-                    t('signup')
+                    t('sign_up')
                   )}
                 </button>
                 
