@@ -492,7 +492,7 @@ const CarMediaGallery: React.FC<CarMediaGalleryProps> = ({
                       const nextIndex = currentIndex >= videos.length - 1 ? 0 : currentIndex + 1;
                       // Set the selected video to the next one
                       setSelectedVideo(videos[nextIndex]);
-                      // If we're in the "videos only" view, also update the currentVideoIndex
+                      // If we're in the "videos only." view, also update the currentVideoIndex
                       if (images.length === 0) {
                         setCurrentVideoIndex(nextIndex);
                       }
