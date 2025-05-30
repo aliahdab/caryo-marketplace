@@ -136,7 +136,7 @@ const HomeSearchBar: React.FC = () => {
   }, [debouncedSearch]);
 
   return (
-    <div className="w-full">
+    <div className="w-full" data-testid="search-container">
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md rounded-lg">
         <div className="p-4 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 sm:gap-x-6 gap-y-4 sm:gap-y-6">
@@ -166,7 +166,7 @@ const HomeSearchBar: React.FC = () => {
                   </svg>
                 </div>
                 {isLoadingBrands && (
-                  <div className="absolute inset-y-0 right-8 flex items-center pr-1 pointer-events-none">
+                  <div className="absolute inset-y-0 right-8 flex items-center pr-1 pointer-events-none" data-testid="brand-loading-spinner">
                     <div className="animate-spin h-4 w-4 border-2 border-blue-500 rounded-full border-t-transparent"></div>
                   </div>
                 )}
@@ -201,7 +201,7 @@ const HomeSearchBar: React.FC = () => {
                   </svg>
                 </div>
                 {isLoadingModels && (
-                  <div className="absolute inset-y-0 right-8 flex items-center pr-1 pointer-events-none">
+                  <div className="absolute inset-y-0 right-8 flex items-center pr-1 pointer-events-none" data-testid="model-loading-spinner">
                     <div className="animate-spin h-4 w-4 border-2 border-blue-500 rounded-full border-t-transparent"></div>
                   </div>
                 )}
