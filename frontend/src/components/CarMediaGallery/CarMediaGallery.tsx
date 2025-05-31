@@ -476,7 +476,7 @@ const CarMediaGallery: React.FC<CarMediaGalleryProps> = ({
               {videos.length > 1 && (
                 <>
                   <button
-                    onClick={(e) => {
+                    onClick={() => {
                       // Find the current video index
                       const currentIndex = videos.findIndex(v => v.url === selectedVideo.url);
                       // Calculate the previous index (loop back to end if at start)
