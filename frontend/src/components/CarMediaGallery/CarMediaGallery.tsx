@@ -386,9 +386,9 @@ const CarMediaGallery: React.FC<CarMediaGalleryProps> = ({
 
               {/* Photo counter in modal */}
               {images.length > 1 && (
-                <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 z-30 px-3 py-2 bg-black bg-opacity-20 rounded-md text-white text-lg font-medium">
-                  {modalSlide + 1} of {images.length}
-                </div>
+             <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-30 px-3 py-2 bg-transaprent-500 bg-opacity-20 rounded-md text-white text-lg font-medium mb-6.5">
+  {modalSlide + 1} of {images.length}
+        </div>
               )}
 
               {/* Image content with keen-slider */}
@@ -397,11 +397,23 @@ const CarMediaGallery: React.FC<CarMediaGalleryProps> = ({
                   {images.map((item, idx) => (
                     <div 
                       key={`modal-slide-${idx}`} 
-                      className="keen-slider__slide flex items-center justify-center"
+                      className="keen-slider__slide flex items-center justify-center h-full"
                       style={{ userSelect: 'none' }}
                     >
                       {item.type === 'image' ? (
-                        renderImageContent(item, idx, true) // Corrected: pass idx and true for isModalView
+                        <div className="flex items-center justify-center w-full h-full bg-black m-1 p-1.5">
+                          <div className="relative w-full h-full flex items-center justify-center">
+                            <Image
+                              src={item.url}
+                              alt={item.alt}
+                              width={1200}
+                              height={800}
+                              className="block"
+                              style={{ objectFit: 'contain', maxHeight: '96vh', maxWidth: '99vw' }}
+                              priority={idx === initialIndex}
+                            />
+                          </div>
+                        </div>
                       ) : (
                         renderVideoContent(item)
                       )}
@@ -464,8 +476,7 @@ const CarMediaGallery: React.FC<CarMediaGalleryProps> = ({
               {videos.length > 1 && (
                 <>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() => {
                       // Find the current video index
                       const currentIndex = videos.findIndex(v => v.url === selectedVideo.url);
                       // Calculate the previous index (loop back to end if at start)
