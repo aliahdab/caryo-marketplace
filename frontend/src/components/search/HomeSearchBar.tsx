@@ -228,18 +228,18 @@ const HomeSearchBar: React.FC = () => {
         <div className="p-3 xs:p-4 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-3 xs:gap-x-4 sm:gap-x-6 gap-y-3 xs:gap-y-4 sm:gap-y-6">
             {/* Brand Select */}
-            <div className="h-11 xs:h-12 flex items-center">
+            <div className="h-12 flex items-center">
               {/* Label hidden as requested */}
               <label htmlFor="brand" className="sr-only">
                 {t('search.selectBrand', 'Brand')}
               </label>
-              <div className="relative w-full h-11 xs:h-12">
+              <div className="relative w-full h-12">
                 <select
                   id="brand"
                   ref={brandSelectRef}
                   value={selectedMake ?? ''}
                   onChange={(e) => setSelectedMake(e.target.value ? Number(e.target.value) : null)}
-                  className="appearance-none block w-full h-11 xs:h-12 pl-3 xs:pl-4 pr-8 xs:pr-10 py-2 xs:py-3 text-sm xs:text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-50 dark:disabled:bg-gray-800 overflow-hidden text-ellipsis whitespace-nowrap mobile-select-dropdown select-fix"
+                  className="appearance-none block w-full h-12 pl-3 xs:pl-4 pr-8 xs:pr-10 py-2 xs:py-3 text-sm xs:text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-50 dark:disabled:bg-gray-800 overflow-hidden text-ellipsis whitespace-nowrap mobile-select-dropdown select-fix"
                   disabled={isLoadingBrands}
                   aria-label={t('search.selectBrand', 'Select brand')}
                 >
@@ -262,18 +262,18 @@ const HomeSearchBar: React.FC = () => {
             </div>
 
             {/* Model Select */}
-            <div className="h-11 xs:h-12 flex items-center">
+            <div className="h-12 flex items-center">
               {/* Label hidden as requested */}
               <label htmlFor="model" className="sr-only">
                 {t('search.selectModel', 'Model')}
               </label>
-              <div className="relative w-full h-11 xs:h-12">
+              <div className="relative w-full h-12">
                 <select
                   id="model"
                   ref={modelSelectRef}
                   value={selectedModel ?? ''}
                   onChange={(e) => setSelectedModel(e.target.value ? Number(e.target.value) : null)}
-                  className="appearance-none block w-full h-11 xs:h-12 pl-3 xs:pl-4 pr-8 xs:pr-10 py-2 xs:py-3 text-sm xs:text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-50 dark:disabled:bg-gray-800 overflow-hidden text-ellipsis whitespace-nowrap mobile-select-dropdown select-fix"
+                  className="appearance-none block w-full h-12 pl-3 xs:pl-4 pr-8 xs:pr-10 py-2 xs:py-3 text-sm xs:text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-50 dark:disabled:bg-gray-800 overflow-hidden text-ellipsis whitespace-nowrap mobile-select-dropdown select-fix"
                   disabled={!selectedMake || isLoadingModels}
                   aria-label={t('search.selectModel', 'Select model')}
                 >
@@ -298,18 +298,18 @@ const HomeSearchBar: React.FC = () => {
             </div>
 
             {/* Governorate Select */}
-            <div className="h-11 xs:h-12 flex items-center">
+            <div className="h-12 flex items-center">
               {/* Label hidden as requested */}
               <label htmlFor="governorate" className="sr-only">
                 {t('search.governorate', 'Governorate')}
               </label>
-              <div className="relative w-full h-11 xs:h-12">
+              <div className="relative w-full h-12">
                 <select
                   id="governorate"
                   ref={govSelectRef}
                   value={selectedGovernorate}
                   onChange={(e) => setSelectedGovernorate(e.target.value)}
-                  className="appearance-none block w-full h-11 xs:h-12 pl-3 xs:pl-4 pr-8 xs:pr-10 py-2 xs:py-3 text-sm xs:text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-50 dark:disabled:bg-gray-800 overflow-hidden text-ellipsis whitespace-nowrap mobile-select-dropdown select-fix"
+                  className="appearance-none block w-full h-12 pl-3 xs:pl-4 pr-8 xs:pr-10 py-2 xs:py-3 text-sm xs:text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-50 dark:disabled:bg-gray-800 overflow-hidden text-ellipsis whitespace-nowrap mobile-select-dropdown select-fix"
                   disabled={isLoadingGovernorates}
                   aria-label={t('search.selectGovernorate', 'Select governorate')}
                 >
@@ -334,11 +334,11 @@ const HomeSearchBar: React.FC = () => {
             </div>
 
             {/* Search Button */}
-            <div className="h-11 xs:h-12 flex items-center md:col-span-2 lg:col-span-1">
+            <div className="h-12 flex items-center md:col-span-2 lg:col-span-1">
               <button
                 type="submit"
                 onClick={handleSearch}
-                className="w-full h-11 xs:h-12 px-4 xs:px-6 bg-blue-600 text-white text-sm xs:text-base font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors whitespace-nowrap flex items-center justify-center"
+                className="w-full h-12 px-4 xs:px-6 bg-blue-600 text-white text-sm xs:text-base font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors whitespace-nowrap flex items-center justify-center"
                 aria-label={t('search.searchButton', 'Search Cars')}
               >
                 <svg 
