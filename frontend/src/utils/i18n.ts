@@ -98,9 +98,6 @@ i18n
   .init({
     ns: ['common', 'translation', 'errors', 'listings', 'auth'], // Available namespaces
     defaultNS: 'common',
-    // Disable console logging for missing resources to reduce noise
-    saveMissing: false,
-    silent: process.env.NODE_ENV === 'test', // Silent in test environment
     lng: getCurrentLanguage(),
     fallbackLng: LANGUAGES.AR, // Default to Arabic if language detection fails
     
@@ -143,17 +140,6 @@ i18n
     missingKeyHandler: (lng, ns, key) => {
       console.warn(`Missing translation key: ${ns}:${key} for language: ${lng}`);
     },
-    
-    // Logger configuration to silence connection errors
-    logger: {
-      warn: (msg: string) => {
-        // Only log warnings that are not related to loading resources
-        if (!msg.includes('loading namespace') && !msg.includes('failed loading')) {
-          console.warn(msg);
-        }
-      },
-      error: console.error
-    }
   });
 
 /**
