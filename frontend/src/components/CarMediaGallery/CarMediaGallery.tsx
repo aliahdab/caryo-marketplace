@@ -386,9 +386,9 @@ const CarMediaGallery: React.FC<CarMediaGalleryProps> = ({
 
               {/* Photo counter in modal */}
               {images.length > 1 && (
-                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-30 px-3 py-2 bg-transaprent-500  bg-opacity-20 rounded-md text-white text-lg font-medium">
-                  {modalSlide + 1} of {images.length}
-                </div>
+             <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-30 px-3 py-2 bg-transaprent-500 bg-opacity-20 rounded-md text-white text-lg font-medium mb-6.5">
+  {modalSlide + 1} of {images.length}
+        </div>
               )}
 
               {/* Image content with keen-slider */}
@@ -401,15 +401,15 @@ const CarMediaGallery: React.FC<CarMediaGalleryProps> = ({
                       style={{ userSelect: 'none' }}
                     >
                       {item.type === 'image' ? (
-                        <div className="flex items-center justify-center w-full h-full bg-black">
+                        <div className="flex items-center justify-center w-full h-full bg-black m-1 p-1.5">
                           <div className="relative w-full h-full flex items-center justify-center">
                             <Image
                               src={item.url}
                               alt={item.alt}
-                              width={1200} // Set a reasonable default width
-                              height={800} // Set a reasonable default height
-                              style={{ objectFit: 'contain', maxHeight: '80vh', maxWidth: '90vw' }}
+                              width={1200}
+                              height={800}
                               className="block"
+                              style={{ objectFit: 'contain', maxHeight: '96vh', maxWidth: '99vw' }}
                               priority={idx === initialIndex}
                             />
                           </div>
