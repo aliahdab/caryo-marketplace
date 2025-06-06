@@ -18,7 +18,6 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
   const { t } = useTranslation('common');
   const [isFavorite, setIsFavorite] = useState(initialFavorite);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
@@ -68,108 +67,168 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     });
   }, [session]);
 
-  // Memoize the checkFavoriteStatus function
   const checkFavoriteStatus = useCallback(async () => {
     if (!listingId || !session?.user || !session?.accessToken) {
+      // This case should be handled by the other useEffect which resets to initialFavorite
       return;
     }
     
     try {
       setIsLoading(true);
       const result = await isFavorited(listingId, undefined, session);
-      console.log(`[FAVORITE] Status check result: ${JSON.stringify(result)}`);
+      console.log(`[FAVORITE] Status check result for ${listingId}: ${JSON.stringify(result)}`);
       setIsFavorite(result.isFavorite);
     } catch (err) {
-      console.error('[FAVORITE] Error checking favorite status:', err);
+      console.error(`[FAVORITE] Error checking favorite status for ${listingId}:`, err);
+      // Don't set error state for user, but log it. Maintain current isFavorite state or reset.
+      // Consider resetting to initialFavorite or a known safe state if status check fails critically.
     } finally {
       setIsLoading(false);
     }
-  }, [listingId, session]);
+  }, [listingId, session]); // isFavorited is a stable import
 
-  // Check favorite status when component mounts or when session/listingId changes
+  // Effect to check status on load/session change, and handle logout
   useEffect(() => {
-    if (!listingId || !session?.user || !session?.accessToken) {
+    if (!listingId) {
+      setIsFavorite(initialFavorite);
+      return;
+    }
+
+    if (!session?.user || !session?.accessToken) {
+      console.log(`[FAVORITE] No session for listing ${listingId}. Resetting to initialFavorite: ${initialFavorite}`);
+      setIsFavorite(initialFavorite);
+      // Do not clear pendingFavoriteAction here; user might log back in.
       return;
     }
     
+    // Session and listingId are present, check status.
     checkFavoriteStatus();
     
-    // Refresh every 30 seconds
     const refreshInterval = setInterval(() => {
-      if (session?.user) {
+      if (session?.user) { // Check session again inside interval
         checkFavoriteStatus();
       }
-    }, 30000);
+    }, 30000); // Refresh every 30 seconds
     
     return () => {
       clearInterval(refreshInterval);
     };
-  }, [listingId, session, checkFavoriteStatus]);
+  }, [listingId, session, checkFavoriteStatus, initialFavorite]);
 
-  const startAnimation = () => {
-    // Clear any existing animation timeout
+  const startAnimation = useCallback(() => {
     if (animationTimeoutRef.current) {
       clearTimeout(animationTimeoutRef.current);
       animationTimeoutRef.current = null;
     }
-    
-    // Start new animation
     setIsAnimating(true);
-    
-    // Set timeout to end animation
     animationTimeoutRef.current = setTimeout(() => {
       setIsAnimating(false);
       animationTimeoutRef.current = null;
     }, 300);
-  };
+  }, []); // No dependencies, so it's stable.
+
+  // Effect to process pending favorite action after login
+  useEffect(() => {
+    const processPendingFavorite = async () => {
+      if (session?.user && listingId) {
+        const pendingActionJSON = localStorage.getItem('pendingFavoriteAction');
+        if (pendingActionJSON) {
+          let pendingAction;
+          try {
+            pendingAction = JSON.parse(pendingActionJSON);
+          } catch (parseError) {
+            console.error('[FAVORITE] Error parsing pendingFavoriteAction:', parseError);
+            localStorage.removeItem('pendingFavoriteAction'); // Clear corrupted data
+            return;
+          }
+
+          // Optional: Check timestamp to ignore very old actions
+          // const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+          // if (pendingAction.timestamp && (Date.now() - pendingAction.timestamp > MAX_AGE_MS)) {
+          //   console.log('[FAVORITE] Stale pending action ignored:', pendingAction);
+          //   localStorage.removeItem('pendingFavoriteAction');
+          //   return;
+          // }
+
+          if (pendingAction.listingId === listingId && pendingAction.action === 'add') {
+            localStorage.removeItem('pendingFavoriteAction'); // Remove immediately
+
+            console.log(`[FAVORITE] Processing pending 'add' action for listing ID: ${listingId}`);
+            setIsLoading(true);
+            setIsFavorite(true); // Optimistic update
+            if (onToggle) onToggle(true);
+            startAnimation();
+
+            try {
+              await addToFavorites(listingId, undefined, session);
+              console.log(`[FAVORITE] Successfully processed pending 'add' action for listing ID: ${listingId}`);
+              // Optimistic update holds. The other useEffect with checkFavoriteStatus will eventually re-confirm.
+            } catch (err) {
+              console.error('[FAVORITE] Error executing pending favorite action:', err);
+              setIsFavorite(false); // Revert optimistic update
+              if (onToggle) onToggle(false);
+              // Explicitly call checkFavoriteStatus to sync to actual state after failure
+              await checkFavoriteStatus(); 
+            } finally {
+              setIsLoading(false);
+            }
+          } else if (pendingAction.listingId !== listingId) {
+            // Action is for a different listing. Ignore it here.
+            // It will be processed if the user navigates to that listing's page.
+          } else if (pendingAction.action !== 'add') {
+            // Invalid action type or already processed, remove it.
+            console.warn('[FAVORITE] Invalid or unexpected pending action found:', pendingAction);
+            localStorage.removeItem('pendingFavoriteAction');
+          }
+        }
+      }
+    };
+
+    processPendingFavorite();
+  }, [session, listingId, onToggle, startAnimation, checkFavoriteStatus]); // Dependencies
 
   const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Prevent clicking if already loading
-    if (isLoading) {
-      return;
-    }
+    if (isLoading) return;
     
-    // Check for valid session
     if (!session?.user || !session?.accessToken) {
-      const callbackUrl = encodeURIComponent(window.location.href);
-      router.push(`/auth/signin?callbackUrl=${callbackUrl}&from=favorite-button`);
+      if (!isFavorite) { // Only store intent if action is to ADD to favorites
+        console.log(`[FAVORITE] User not logged in. Storing pending 'add' action for ${listingId}`);
+        localStorage.setItem('pendingFavoriteAction', JSON.stringify({ 
+          listingId: listingId, 
+          action: 'add',
+          timestamp: Date.now()
+        }));
+      }
+      // Get current URL to return to after login
+      const returnUrl = encodeURIComponent(window.location.href);
+      router.push(`/auth/signin?returnUrl=${returnUrl}&action=favorite&listingId=${listingId}`);
       return;
     }
     
     try {
       setIsLoading(true);
-      setError(null);
       startAnimation();
       
       const wasAlreadyFavorite = isFavorite;
       
       if (wasAlreadyFavorite) {
-        // Remove from favorites
-        console.log('[FAVORITE] Removing from favorites:', listingId);
+        console.log(`[FAVORITE] Removing from favorites: ${listingId}`);
         await removeFromFavorites(listingId, undefined, session);
         setIsFavorite(false);
         if (onToggle) onToggle(false);
       } else {
-        // Add to favorites
-        console.log('[FAVORITE] Adding to favorites:', listingId);
+        console.log(`[FAVORITE] Adding to favorites: ${listingId}`);
         await addToFavorites(listingId, undefined, session);
         setIsFavorite(true);
         if (onToggle) onToggle(true);
       }
     } catch (error) {
-      console.error('[FAVORITE] Error toggling favorite:', error);
-      
-      // Don't show error to user - silently recover
-      // Just verify the actual state
-      try {
-        const actualState = await isFavorited(listingId, undefined, session);
-        setIsFavorite(actualState.isFavorite);
-      } catch {
-        // If we can't verify, don't change the state
-      }
+      console.error(`[FAVORITE] Error toggling favorite for ${listingId}:`, error);
+      // Attempt to sync with actual state on error
+      await checkFavoriteStatus();
     } finally {
       setIsLoading(false);
     }
@@ -179,7 +238,7 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     <button
       type="button"
       onClick={handleToggleFavorite}
-      disabled={isLoading}
+      disabled={isLoading || !listingId} // Disable if no listingId
       className={`rounded-full flex items-center justify-center shadow-sm 
         ${sizeClasses[size]} ${variantClasses[variant]} ${className}
         ${isAnimating ? 'scale-110' : 'scale-100'} 
@@ -198,9 +257,9 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
           xmlns="http://www.w3.org/2000/svg" 
           className="h-5 w-5 transition-colors duration-200"
           viewBox="0 0 24 24"
-          fill={isFavorite ? "currentColor" : "none"}
+          fill={isFavorite ? 'currentColor' : 'none'}
           stroke="currentColor"
-          strokeWidth={isFavorite ? "0" : "2"}
+          strokeWidth="2"
         >
           <path 
             strokeLinecap="round" 
@@ -208,10 +267,6 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
             d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
           />
         </svg>
-      )}
-      
-      {error && (
-        <span className="sr-only">{error}</span>
       )}
     </button>
   );

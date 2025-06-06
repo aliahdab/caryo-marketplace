@@ -29,3 +29,13 @@ export interface UserFavoritesResponse {
   favorites: Listing[];
   total: number;
 }
+
+/**
+ * Interface for favorite response from backend
+ */
+export interface FavoriteResponse {
+  id: number;
+  userId: number;
+  carListingId: number;
+  createdAt: string;
+}

@@ -36,7 +36,15 @@ export default function FavoriteButton({
     e.stopPropagation(); // Prevent event bubbling
 
     if (!session) {
-      router.push('/auth/login');
+      // Store the intent to add to favorites
+      localStorage.setItem('pendingFavoriteAction', JSON.stringify({ 
+        listingId: listingId, 
+        action: 'add',
+        timestamp: Date.now()
+      }));
+      // Get current URL to return to after login
+      const returnUrl = encodeURIComponent(window.location.href);
+      router.push(`/auth/signin?returnUrl=${returnUrl}&action=favorite&listingId=${listingId}`);
       return;
     }
 
