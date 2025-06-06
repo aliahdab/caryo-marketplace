@@ -7,6 +7,7 @@ import com.autotrader.autotraderbackend.repository.FavoriteRepository;
 import com.autotrader.autotraderbackend.repository.UserRepository;
 import com.autotrader.autotraderbackend.repository.CarListingRepository;
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
+import com.autotrader.autotraderbackend.payload.response.FavoriteResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,11 +24,20 @@ public class FavoriteService {
     private final UserRepository userRepository;
     private final CarListingRepository carListingRepository;
 
+    private FavoriteResponse toFavoriteResponse(Favorite favorite) {
+        FavoriteResponse response = new FavoriteResponse();
+        response.setId(favorite.getId());
+        response.setUserId(favorite.getUser().getId());
+        response.setCarListingId(favorite.getCarListing().getId());
+        response.setCreatedAt(favorite.getCreatedAt());
+        return response;
+    }
+
     /**
      * Add a listing to user's favorites
      */
     @Transactional
-    public Favorite addToFavorites(String username, Long listingId) {
+    public FavoriteResponse addToFavorites(String username, Long listingId) {
         log.debug("Adding listing {} to favorites for user {}", listingId, username);
         
         User user = userRepository.findByUsername(username)
@@ -36,17 +46,21 @@ public class FavoriteService {
         CarListing listing = carListingRepository.findById(listingId)
             .orElseThrow(() -> new ResourceNotFoundException("CarListing", "id", listingId));
 
+        // Check if already favorited
         if (favoriteRepository.existsByUserAndCarListing(user, listing)) {
             log.debug("Listing {} is already in favorites for user {}", listingId, username);
-            return favoriteRepository.findByUserAndCarListing(user, listing).get();
+            Favorite existingFavorite = favoriteRepository.findByUserAndCarListing(user, listing).get();
+            return toFavoriteResponse(existingFavorite);
         }
 
         Favorite favorite = new Favorite();
         favorite.setUser(user);
         favorite.setCarListing(listing);
         
+        Favorite savedFavorite = favoriteRepository.save(favorite);
         log.info("Successfully added listing {} to favorites for user {}", listingId, username);
-        return favoriteRepository.save(favorite);
+        
+        return toFavoriteResponse(savedFavorite);
     }
 
     /**
@@ -70,15 +84,15 @@ public class FavoriteService {
      * Get all favorites for a user
      */
     @Transactional(readOnly = true)
-    public List<CarListing> getUserFavorites(String username) {
+    public List<FavoriteResponse> getUserFavorites(String username) {
         log.debug("Fetching favorites for user {}", username);
         
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
 
-        List<CarListing> favorites = favoriteRepository.findByUser(user)
+        List<FavoriteResponse> favorites = favoriteRepository.findByUser(user)
             .stream()
-            .map(Favorite::getCarListing)
+            .map(this::toFavoriteResponse)
             .collect(Collectors.toList());
         
         log.info("Found {} favorites for user {}", favorites.size(), username);
@@ -100,4 +114,4 @@ public class FavoriteService {
 
         return favoriteRepository.existsByUserAndCarListing(user, listing);
     }
-} 
+}

@@ -1,8 +1,8 @@
 package com.autotrader.autotraderbackend.controller;
 
 import com.autotrader.autotraderbackend.model.CarListing;
-import com.autotrader.autotraderbackend.model.Favorite;
 import com.autotrader.autotraderbackend.payload.response.ErrorResponse;
+import com.autotrader.autotraderbackend.payload.response.FavoriteResponse;
 import com.autotrader.autotraderbackend.service.FavoriteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,7 +37,7 @@ public class FavoriteController {
             @ApiResponse(
                 responseCode = "200",
                 description = "Listing added to favorites successfully",
-                content = @Content(schema = @Schema(implementation = Favorite.class))
+                content = @Content(schema = @Schema(implementation = FavoriteResponse.class))
             ),
             @ApiResponse(
                 responseCode = "404",
@@ -51,7 +51,7 @@ public class FavoriteController {
             )
         }
     )
-    public ResponseEntity<Favorite> addToFavorites(
+    public ResponseEntity<FavoriteResponse> addToFavorites(
             @Parameter(description = "The authenticated user", hidden = true)
             @AuthenticationPrincipal UserDetails userDetails,
             @Parameter(description = "ID of the car listing to add to favorites", required = true)
@@ -101,7 +101,7 @@ public class FavoriteController {
             @ApiResponse(
                 responseCode = "200",
                 description = "List of favorite listings retrieved successfully",
-                content = @Content(schema = @Schema(implementation = CarListing.class))
+                content = @Content(schema = @Schema(implementation = FavoriteResponse.class))
             ),
             @ApiResponse(
                 responseCode = "401",
@@ -110,7 +110,7 @@ public class FavoriteController {
             )
         }
     )
-    public ResponseEntity<List<CarListing>> getUserFavorites(
+    public ResponseEntity<List<FavoriteResponse>> getUserFavorites(
             @Parameter(description = "The authenticated user", hidden = true)
             @AuthenticationPrincipal UserDetails userDetails) {
         log.debug("REST request to get favorites for user {}", userDetails.getUsername());
@@ -148,4 +148,4 @@ public class FavoriteController {
         log.debug("REST request to check if listing {} is favorite for user {}", listingId, userDetails.getUsername());
         return ResponseEntity.ok(favoriteService.isFavorite(userDetails.getUsername(), listingId));
     }
-} 
+}
