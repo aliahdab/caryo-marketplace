@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLazyTranslation } from '@/hooks/useLazyTranslation';
-import { getFavorites } from '@/services/favorites';
+import { getUserFavorites } from '@/services/favorites';
 import { Listing, ListingWithLanguage, LocalizedField } from '@/types/listings'; // Ensure Listing is imported
 import { Lang, CURRENCY_CONFIG } from '@/types/i18n';
 import { useSession, signOut } from 'next-auth/react';
@@ -178,8 +178,8 @@ const FavoritesPage: React.FC = () => {
           : 'N/A'
       };
       
-      console.log('loadFavorites: Calling getFavorites with session:', sessionDebugInfo);
-      const response = await getFavorites(undefined, currentSession);
+      console.log('loadFavorites: Calling getUserFavorites with session:', sessionDebugInfo);
+      const response = await getUserFavorites(undefined, currentSession);
       console.log('loadFavorites: Favorites data received:', response);
       if (response && response.favorites) {
         setFavorites(response.favorites as ListingWithLanguage[]);

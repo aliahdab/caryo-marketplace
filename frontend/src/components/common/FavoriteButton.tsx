@@ -22,13 +22,12 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
   const { data: session } = useSession();
   const router = useRouter();
   const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const statusCheckedRef = useRef(false);
 
   // Validate the listing ID
   useEffect(() => {
     if (!listingId) {
       console.error('[FAVORITE] Missing listing ID');
-    } else {
-      console.log(`[FAVORITE] FavoriteButton initialized for listing ID: ${listingId}`);
     }
   }, [listingId]);
 
@@ -56,64 +55,80 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
       : 'border-2 border-gray-300 text-gray-500 hover:border-gray-400 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500',
   };
 
-  // Log session information whenever it changes
+  // Log session information whenever it changes (only errors and important info)
   useEffect(() => {
-    console.log('[FAVORITE] Session information:', {
-      hasSession: !!session,
-      hasUser: !!session?.user,
-      hasToken: !!session?.accessToken,
-      expires: session?.expires ? new Date(session.expires).toISOString() : 'N/A',
-      tokenLength: session?.accessToken ? session.accessToken.length : 0
-    });
+    if (!session?.user || !session?.accessToken) {
+      console.warn('[FAVORITE] No valid session found');
+    }
   }, [session]);
 
-  const checkFavoriteStatus = useCallback(async () => {
+  const checkFavoriteStatus = useCallback(async (force = false) => {
     if (!listingId || !session?.user || !session?.accessToken) {
-      // This case should be handled by the other useEffect which resets to initialFavorite
+      setIsFavorite(false);
+      return;
+    }
+
+    // Skip if already checked, unless forced
+    if (statusCheckedRef.current && !force) {
       return;
     }
     
     try {
       setIsLoading(true);
       const result = await isFavorited(listingId, undefined, session);
-      console.log(`[FAVORITE] Status check result for ${listingId}: ${JSON.stringify(result)}`);
       setIsFavorite(result.isFavorite);
+      statusCheckedRef.current = true;
     } catch (err) {
       console.error(`[FAVORITE] Error checking favorite status for ${listingId}:`, err);
-      // Don't set error state for user, but log it. Maintain current isFavorite state or reset.
-      // Consider resetting to initialFavorite or a known safe state if status check fails critically.
+      setIsFavorite(false);
     } finally {
       setIsLoading(false);
     }
-  }, [listingId, session]); // isFavorited is a stable import
+  }, [listingId, session]);
 
-  // Effect to check status on load/session change, and handle logout
+  // Effect to initialize status and handle session changes
   useEffect(() => {
     if (!listingId) {
-      setIsFavorite(initialFavorite);
+      setIsFavorite(false);
       return;
     }
 
     if (!session?.user || !session?.accessToken) {
-      console.log(`[FAVORITE] No session for listing ${listingId}. Resetting to initialFavorite: ${initialFavorite}`);
-      setIsFavorite(initialFavorite);
-      // Do not clear pendingFavoriteAction here; user might log back in.
+      setIsFavorite(false);
+      statusCheckedRef.current = false;
       return;
     }
-    
-    // Session and listingId are present, check status.
-    checkFavoriteStatus();
-    
+
+    // Check status immediately when session is available
+    checkFavoriteStatus(true);
+
+    // Set up periodic refresh
     const refreshInterval = setInterval(() => {
-      if (session?.user) { // Check session again inside interval
-        checkFavoriteStatus();
+      if (session?.user) {
+        checkFavoriteStatus(true);
       }
     }, 30000); // Refresh every 30 seconds
     
     return () => {
       clearInterval(refreshInterval);
     };
-  }, [listingId, session, checkFavoriteStatus, initialFavorite]);
+  }, [listingId, session, checkFavoriteStatus]);
+
+  // Re-check status when the component becomes visible again
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          checkFavoriteStatus(true);
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+  }, [checkFavoriteStatus]);
 
   const startAnimation = useCallback(() => {
     if (animationTimeoutRef.current) {
@@ -153,7 +168,6 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
           if (pendingAction.listingId === listingId && pendingAction.action === 'add') {
             localStorage.removeItem('pendingFavoriteAction'); // Remove immediately
 
-            console.log(`[FAVORITE] Processing pending 'add' action for listing ID: ${listingId}`);
             setIsLoading(true);
             setIsFavorite(true); // Optimistic update
             if (onToggle) onToggle(true);
@@ -161,7 +175,6 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
 
             try {
               await addToFavorites(listingId, undefined, session);
-              console.log(`[FAVORITE] Successfully processed pending 'add' action for listing ID: ${listingId}`);
               // Optimistic update holds. The other useEffect with checkFavoriteStatus will eventually re-confirm.
             } catch (err) {
               console.error('[FAVORITE] Error executing pending favorite action:', err);
@@ -195,7 +208,6 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     
     if (!session?.user || !session?.accessToken) {
       if (!isFavorite) { // Only store intent if action is to ADD to favorites
-        console.log(`[FAVORITE] User not logged in. Storing pending 'add' action for ${listingId}`);
         localStorage.setItem('pendingFavoriteAction', JSON.stringify({ 
           listingId: listingId, 
           action: 'add',
@@ -215,12 +227,10 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
       const wasAlreadyFavorite = isFavorite;
       
       if (wasAlreadyFavorite) {
-        console.log(`[FAVORITE] Removing from favorites: ${listingId}`);
         await removeFromFavorites(listingId, undefined, session);
         setIsFavorite(false);
         if (onToggle) onToggle(false);
       } else {
-        console.log(`[FAVORITE] Adding to favorites: ${listingId}`);
         await addToFavorites(listingId, undefined, session);
         setIsFavorite(true);
         if (onToggle) onToggle(true);
