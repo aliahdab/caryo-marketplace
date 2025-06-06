@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { formatDate, formatNumber } from '../../../utils/localization';
 import { getListingById } from '@/services/listings';
 import { Listing } from '@/types/listings';
+import { transformMinioUrl } from '@/utils/mediaUtils';
+import FavoriteButton from '@/components/common/FavoriteButton';
 
 // Component imports for the new enhanced layout
 import BreadcrumbNavigation from './components/BreadcrumbNavigation';
@@ -18,16 +20,6 @@ export default function ListingDetailPage() {
   const { t, i18n } = useTranslation('listings');
   const params = useParams();
   const router = useRouter();
-  
-  // Debug translations
-  console.log('Current i18n state:', {
-    language: i18n.language,
-    availableNamespaces: i18n.options.ns,
-    isInitialized: i18n.isInitialized,
-    loadedNamespaces: i18n.reportNamespaces?.getUsedNamespaces(),
-    hasListingsNS: i18n.hasResourceBundle(i18n.language, 'listings'),
-    currentNS: i18n.options.defaultNS
-  });
   // Safely extract id from params
   const id = typeof params?.id === 'string' ? params.id : Array.isArray(params?.id) ? params?.id[0] : undefined;
   
@@ -58,6 +50,20 @@ export default function ListingDetailPage() {
     
     fetchListing();
   }, [id]);
+
+  // Transform listing media URLs when listing data is received
+  useEffect(() => {
+    if (listing && listing.media) {
+      const transformedListing = {
+        ...listing,
+        media: listing.media.map(media => ({
+          ...media,
+          url: transformMinioUrl(media.url)
+        }))
+      };
+      setListing(transformedListing);
+    }
+  }, [listing]); // Transform URLs whenever listing changes
 
   if (loading) {
     return (
@@ -339,12 +345,17 @@ export default function ListingDetailPage() {
             <div className="sticky top-6 space-y-6">
               {/* Save Button */}
               <div className="flex justify-end">
-                <button className="flex items-center text-gray-600 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
-                  <svg className="w-5 h-5 mr-2 rtl:ml-2 rtl:mr-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  {t('save')}
-                </button>
+                <FavoriteButton
+                  listingId={id?.toString() || ''}
+                  variant="outline"
+                  size="md"
+                  className="shadow-sm"
+                  initialFavorite={false}
+                  onToggle={(newState) => {
+                    // Optional: Handle favorite state change if needed
+                    console.log(`[LISTING] Favorite state changed to ${newState}`);
+                  }}
+                />
               </div>
 
               {/* Side Ad Section */}

@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { MdFavorite, MdFavoriteBorder } from 'react-icons/md';
-import { addToFavorites, removeFromFavorites, checkIsFavorite } from '@/services/favorites';
+import { addToFavorites, removeFromFavorites, isFavorited } from '@/services/favorites';
 import { LegacyFavoriteButtonProps } from '@/types/components'; // Import shared props
 
 export default function FavoriteButton({ 
@@ -15,21 +15,76 @@ export default function FavoriteButton({
   const router = useRouter();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const statusCheckedRef = useRef(false);
 
-  const checkFavoriteStatus = useCallback(async () => {
+  const checkFavoriteStatus = useCallback(async (force = false) => {
+    if (!listingId || !session?.user || !session?.accessToken) {
+      setIsFavorite(false);
+      return;
+    }
+
+    // Skip if already checked, unless forced
+    if (statusCheckedRef.current && !force) {
+      return;
+    }
+
     try {
-      const status = await checkIsFavorite(listingId);
-      setIsFavorite(status.isFavorite); // Correctly use the boolean from the response object
+      setIsLoading(true);
+      const status = await isFavorited(listingId);
+      setIsFavorite(status.isFavorite);
+      statusCheckedRef.current = true;
     } catch (err) {
       console.error('Error checking favorite status:', err);
+      setIsFavorite(false);
+    } finally {
+      setIsLoading(false);
     }
-  }, [listingId]);
+  }, [listingId, session]);
 
+  // Effect to initialize status and handle session changes
   useEffect(() => {
-    if (session) {
-      checkFavoriteStatus();
+    if (!listingId) {
+      setIsFavorite(false);
+      return;
     }
-  }, [session, listingId, checkFavoriteStatus]);
+
+    if (!session?.user || !session?.accessToken) {
+      console.log(`[FAVORITE] No session for listing ${listingId}. Resetting favorite status.`);
+      setIsFavorite(false);
+      statusCheckedRef.current = false;
+      return;
+    }
+
+    // Check status immediately when session is available
+    checkFavoriteStatus(true);
+
+    // Set up periodic refresh
+    const refreshInterval = setInterval(() => {
+      if (session?.user) {
+        checkFavoriteStatus(true);
+      }
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, [listingId, session, checkFavoriteStatus]);
+
+  // Re-check status when the component becomes visible again
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          checkFavoriteStatus(true);
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+  }, [checkFavoriteStatus]);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation if button is inside a link

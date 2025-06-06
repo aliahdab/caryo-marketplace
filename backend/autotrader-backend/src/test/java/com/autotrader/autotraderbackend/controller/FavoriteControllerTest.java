@@ -172,4 +172,19 @@ class FavoriteControllerTest {
         assertFalse(response.getBody());
         verify(favoriteService).isFavorite(testUsername, testListingId);
     }
+
+    @Test
+    void isFavorite_ListingNotFound() {
+        // Arrange
+        when(favoriteService.isFavorite(testUsername, testListingId)).thenReturn(false);
+
+        // Act
+        ResponseEntity<Boolean> response = favoriteController.isFavorite(mockUserDetails, testListingId);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertFalse(response.getBody());
+        verify(favoriteService).isFavorite(testUsername, testListingId);
+    }
 }
