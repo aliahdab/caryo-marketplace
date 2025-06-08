@@ -190,13 +190,22 @@ const FavoritesPage: React.FC = () => {
         console.warn('loadFavorites: No favorites data in response or response is undefined', response);
         setFavorites([]);
       }
-    } catch (error: unknown) { // Changed from any to unknown
+    } catch (error: unknown) {
       console.error('loadFavorites: Error loading favorites:', error);
-      if (error instanceof Error && error.message === 'UNAUTHORIZED') { // Type check for Error
+      
+      // Handle different error types
+      const isUnauthorized = (
+        (error instanceof Error && error.message === 'UNAUTHORIZED') ||
+        (error instanceof Error && error.message.includes('Authentication required')) ||
+        (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'UNAUTHORIZED')
+      );
+      
+      if (isUnauthorized) {
         console.warn('loadFavorites: Received UNAUTHORIZED. Setting empty favorites. User might need to re-login.');
         setAuthError('errors:favorites.unauthorized');
         setFavorites([]);
       } else {
+        console.error('loadFavorites: Non-auth error:', error);
         setAuthError('errors:favorites.loadingFailed');
         setFavorites([]);
       }
