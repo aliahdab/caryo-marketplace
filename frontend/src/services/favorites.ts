@@ -5,17 +5,28 @@ import {
 } from '@/types/favorites';
 import { Session } from 'next-auth';
 
-// Constants
+/**
+ * Configuration constants for the favorites service
+ * @constant {string} API_URL - Base URL for API endpoints
+ * @constant {number} MAX_RETRIES - Maximum number of retry attempts for failed operations
+ * @constant {number} RETRY_DELAY_BASE - Base delay in milliseconds between retries
+ */
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const MAX_RETRIES = 2;
 const RETRY_DELAY_BASE = 500; // ms
 
 /**
  * Generic retry function for API operations with exponential backoff
+ * @template T - The type of the operation result
+ * @param {() => Promise<T>} operation - The async operation to retry
+ * @param {(error: unknown) => boolean} errorCheck - Function to determine if an error should trigger a retry
+ * @param {number} maxRetries - Maximum number of retry attempts
+ * @param {number} baseDelay - Base delay between retries in milliseconds
+ * @returns {Promise<T>} - The operation result
  */
 async function retryOperation<T>(
   operation: () => Promise<T>,
-  errorCheck: (error: unknown) => boolean = () => true, // Default: retry all errors
+  errorCheck: (error: unknown) => boolean = () => true,
   maxRetries: number = MAX_RETRIES, 
   baseDelay: number = RETRY_DELAY_BASE
 ): Promise<T> {
@@ -27,23 +38,23 @@ async function retryOperation<T>(
     } catch (error) {
       lastError = error;
       
-      // If this error shouldn't be retried, rethrow immediately
       if (!errorCheck(error)) {
         throw error;
       }
       
-      // Don't delay on the last attempt - we're going to throw anyway
       if (attempt < maxRetries) {
         await sleep(baseDelay * Math.pow(2, attempt));
       }
     }
   }
   
-  // If we get here, all retries failed
   throw lastError;
 }
 
-// Error types for better error handling
+/**
+ * Custom error class for favorite-related operations
+ * @extends Error
+ */
 class FavoriteServiceError extends Error {
   constructor(
     message: string,
@@ -55,7 +66,12 @@ class FavoriteServiceError extends Error {
   }
 }
 
-// Utility functions
+/**
+ * Validates and converts a listing ID string to a number
+ * @param {string} listingId - The listing ID to validate
+ * @returns {number} - The validated numeric listing ID
+ * @throws {FavoriteServiceError} - If the ID is invalid
+ */
 const validateListingId = (listingId: string): number => {
   const numericId = parseInt(listingId, 10);
   if (isNaN(numericId) || numericId <= 0) {
@@ -67,7 +83,11 @@ const validateListingId = (listingId: string): number => {
   return numericId;
 };
 
-// Helper function for delay between retries
+/**
+ * Creates a delay using Promise
+ * @param {number} ms - The delay duration in milliseconds
+ * @returns {Promise<void>}
+ */
 const sleep = (ms: number): Promise<void> => 
   new Promise(resolve => setTimeout(resolve, ms));
 
