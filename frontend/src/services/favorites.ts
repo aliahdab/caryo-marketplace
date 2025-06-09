@@ -290,7 +290,6 @@ export async function getUserFavorites(
   
   return await retryOperation(
     async () => {
-      console.log('Making API request to:', url);
       const session = await getSession();
       if (!session?.accessToken) {
         throw new FavoriteServiceError('No access token available', 'UNAUTHORIZED', 401);
@@ -304,15 +303,12 @@ export async function getUserFavorites(
           'Authorization': `Bearer ${session.accessToken}`
         }
       });
-      console.log('API response status:', response.status);
 
       if (!response.ok) {
         if (response.status === 404) {
-          console.log('404 response - returning empty favorites');
           return { favorites: [] };
         }
         const errorData = await response.json().catch(() => ({}));
-        console.error('API error:', errorData);
         throw new FavoriteServiceError(
           errorData.message || 'Failed to fetch favorites',
           errorData.code || 'GET_FAVORITES_ERROR',
@@ -321,7 +317,6 @@ export async function getUserFavorites(
       }
 
       const data = await response.json();
-      console.log('Raw API response data:', data);
       
       // The API returns an array directly
       const favorites = Array.isArray(data) ? data : [];
@@ -329,7 +324,6 @@ export async function getUserFavorites(
         favorites,
         total: favorites.length
       };
-      console.log('Processed favorites result:', result);
       return result;
     },
     error => error instanceof FavoriteServiceError && error.status !== 401

@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// Import favorites types if needed in the future
-// import { ... } from '@/services/favorites';
 import { useTranslation } from 'react-i18next';
 import { useSession } from 'next-auth/react';
 import { FavoriteButtonProps } from '@/types/components'; // Import shared props
@@ -21,7 +19,6 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const { data: session } = useSession();
-  // We're using window.location.href directly instead of router.push now
   const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckedRef = useRef(false);
 
