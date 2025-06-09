@@ -29,7 +29,7 @@ export interface FavoriteStatusResponse {
  */
 export interface UserFavoritesResponse {
   favorites: Listing[];
-  total: number;
+  total?: number; // Make total optional since we don't always need it
 }
 
 /**

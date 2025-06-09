@@ -176,12 +176,18 @@ const FavoritesPage: React.FC = () => {
     setAuthError(null);
 
     try {
+      console.log('Fetching favorites with session:', currentSession?.user?.email);
       const response = await getUserFavorites(undefined, currentSession);
-      if (response && response.favorites) {
-        setFavorites(response.favorites as ListingWithLanguage[]);
+      console.log('Got favorites response:', response);
+      
+      if (response && Array.isArray(response.favorites)) {
+        const validFavorites = response.favorites.filter(favorite => favorite && favorite.id);
+        console.log('Valid favorites:', validFavorites);
+        setFavorites(validFavorites as ListingWithLanguage[]);
         setAuthError(null);
         setRetryCount(0);
       } else {
+        console.warn('Unexpected favorites response format:', response);
         setFavorites([]);
       }
     } catch (error: unknown) {
