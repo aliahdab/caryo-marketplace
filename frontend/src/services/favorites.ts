@@ -249,6 +249,22 @@ export async function checkFavoriteStatus(
 }
 
 /**
+ * Check if a listing is favorited by the user
+ * @param {string} listingId - The ID of the listing to check
+ * @param {FavoriteServiceOptions} [options] - Optional configuration
+ * @param {Session | null} [session] - Optional session object
+ * @returns {Promise<FavoriteStatusResponse>} - The favorite status response
+ */
+export async function isFavorited(
+  listingId: string,
+  _options?: FavoriteServiceOptions,
+  _session?: Session | null
+): Promise<FavoriteStatusResponse> {
+  // This is an alias for checkFavoriteStatus for backward compatibility
+  return checkFavoriteStatus(listingId, _options, _session);
+}
+
+/**
  * Get all favorites for the current user
  * @param {FavoriteServiceOptions} [options] - Optional configuration for the operation
  * @param {Session | null} [session] - Optional session object for authentication

@@ -291,7 +291,8 @@ export async function apiRequest(
       let errorText: string;
       try {
         errorText = await response.text();
-      } catch (_) {
+      } catch {
+        // No need to access the error
         errorText = 'Unknown error';
       }
       
