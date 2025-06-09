@@ -3,13 +3,45 @@ import {
   FavoriteStatusResponse, 
   UserFavoritesResponse
 } from '@/types/favorites';
-import { getSession } from 'next-auth/react';
 import { Session } from 'next-auth';
 
 // Constants
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const MAX_RETRIES = 2;
 const RETRY_DELAY_BASE = 500; // ms
+
+/**
+ * Generic retry function for API operations with exponential backoff
+ */
+async function retryOperation<T>(
+  operation: () => Promise<T>,
+  errorCheck: (error: unknown) => boolean = () => true, // Default: retry all errors
+  maxRetries: number = MAX_RETRIES, 
+  baseDelay: number = RETRY_DELAY_BASE
+): Promise<T> {
+  let lastError: unknown = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      
+      // If this error shouldn't be retried, rethrow immediately
+      if (!errorCheck(error)) {
+        throw error;
+      }
+      
+      // Don't delay on the last attempt - we're going to throw anyway
+      if (attempt < maxRetries) {
+        await sleep(baseDelay * Math.pow(2, attempt));
+      }
+    }
+  }
+  
+  // If we get here, all retries failed
+  throw lastError;
+}
 
 // Error types for better error handling
 class FavoriteServiceError extends Error {
@@ -35,57 +67,41 @@ const validateListingId = (listingId: string): number => {
   return numericId;
 };
 
-const validateSession = (session: Session | null): string => {
-  if (!session?.accessToken) {
-    throw new FavoriteServiceError(
-      'UNAUTHORIZED',
-      'UNAUTHORIZED'
-    );
-  }
-  return session.accessToken;
-};
-
+// Helper function for delay between retries
 const sleep = (ms: number): Promise<void> => 
   new Promise(resolve => setTimeout(resolve, ms));
-
-const createApiHeaders = (token: string): Record<string, string> => ({
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${token}`
-});
-
-const makeApiRequest = async (
-  url: string,
-  method: 'GET' | 'POST' | 'DELETE',
-  token: string
-): Promise<Response> => {
-  return fetch(url, {
-    method,
-    headers: createApiHeaders(token),
-    credentials: 'include'
-  });
-};
 
 /**
  * Add a listing to favorites with improved error handling and retry logic
  */
 export async function addToFavorites(
   listingId: string, 
-  options?: FavoriteServiceOptions,
-  session?: Session | null
+  _options?: FavoriteServiceOptions,
+  _session?: Session | null
 ): Promise<void> {
   try {
     const numericId = validateListingId(listingId);
-    const currentSession = session || await getSession();
-    const token = validateSession(currentSession);
+    
+    // Import apiRequest for consistent session validation and API calls
+    // This will handle authentication validation, token refreshes, and redirects if needed
+    const { apiRequest, validateSession } = await import('./auth/session-manager');
+    
+    // First validate the session to ensure we have a valid token
+    const sessionCheck = await validateSession();
+    if (!sessionCheck.isValid) {
+      throw new FavoriteServiceError(
+        'User is not authenticated',
+        'UNAUTHORIZED',
+        401
+      );
+    }
     
     const url = `${API_URL}/api/favorites/${numericId}`;
     
-    // Retry logic with exponential backoff
-    let lastError: Error | null = null;
-    
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const response = await makeApiRequest(url, 'POST', token);
+    // Use retryOperation for cleaner retry logic
+    await retryOperation(
+      async () => {
+        const response = await apiRequest(url, { method: 'POST' });
         
         if (response.ok) {
           return; // Success
@@ -98,7 +114,7 @@ export async function addToFavorites(
           const { isHibernateSerializationError } = await import('./error-handlers');
           if (isHibernateSerializationError(errorText)) {
             // Verify if operation actually succeeded despite error
-            const actualState = await isFavorited(listingId, options, currentSession);
+            const actualState = await isFavorited(listingId);
             if (actualState.isFavorite) {
               return; // Operation succeeded despite error
             }
@@ -110,44 +126,49 @@ export async function addToFavorites(
           'API_ERROR',
           response.status
         );
+      },
+      // Only retry certain errors
+      (error) => {
+        // Don't retry unauthorized errors
+        if (isAuthenticationError(error)) return false;
         
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
+        // Don't retry validation errors
+        if (error instanceof FavoriteServiceError && error.code === 'INVALID_LISTING_ID') return false;
         
-        // Don't retry on the last attempt
-        if (attempt < MAX_RETRIES) {
-          await sleep(RETRY_DELAY_BASE * Math.pow(2, attempt));
-        }
+        // Retry all other errors
+        return true;
       }
-    }
+    );
     
-    // Handle exhausted retries
-    if (lastError) {
-      const { handleFavoriteApiError } = await import('./error-handlers');
-      const errorHandled = await handleFavoriteApiError(
-        lastError, 
-        listingId, 
-        true, // isAdd
-        options
+    // Final verification
+    const actualState = await isFavorited(listingId);
+    if (!actualState.isFavorite) {
+      throw new FavoriteServiceError(
+        'Operation completed but favorite was not added',
+        'VERIFICATION_FAILED'
       );
-      
-      if (errorHandled) {
-        return;
-      }
-      
-      // Final verification
-      const currentSession = session || await getSession();
-      const actualState = await isFavorited(listingId, options, currentSession);
-      if (actualState.isFavorite) {
-        return; // Operation succeeded despite errors
-      }
-      
-      throw lastError;
     }
     
   } catch (error) {
-    console.error('[FAVORITES] Error adding to favorites:', error);
-    throw error;
+    // Handle authentication errors
+    if (isAuthenticationError(error)) {
+      throw new FavoriteServiceError(
+        'Authentication required',
+        'UNAUTHORIZED',
+        401
+      );
+    }
+    
+    // Rethrow FavoriteServiceErrors
+    if (error instanceof FavoriteServiceError) {
+      throw error;
+    }
+    
+    // Wrap all other errors
+    throw new FavoriteServiceError(
+      `Failed to add favorite: ${error instanceof Error ? error.message : String(error)}`,
+      'UNKNOWN_ERROR'
+    );
   }
 }
 
@@ -156,22 +177,31 @@ export async function addToFavorites(
  */
 export async function removeFromFavorites(
   listingId: string,
-  options?: FavoriteServiceOptions,
-  session?: Session | null
+  _options?: FavoriteServiceOptions,
+  _session?: Session | null
 ): Promise<void> {
   try {
     const numericId = validateListingId(listingId);
-    const currentSession = session || await getSession();
-    const token = validateSession(currentSession);
+    
+    // Import apiRequest for consistent session validation and API calls
+    const { apiRequest, validateSession } = await import('./auth/session-manager');
+    
+    // First validate the session to ensure we have a valid token
+    const sessionCheck = await validateSession();
+    if (!sessionCheck.isValid) {
+      throw new FavoriteServiceError(
+        'User is not authenticated',
+        'UNAUTHORIZED',
+        401
+      );
+    }
     
     const url = `${API_URL}/api/favorites/${numericId}`;
     
-    // Retry logic with exponential backoff
-    let lastError: Error | null = null;
-    
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const response = await makeApiRequest(url, 'DELETE', token);
+    // Use retryOperation for cleaner retry logic
+    await retryOperation(
+      async () => {
+        const response = await apiRequest(url, { method: 'DELETE' });
         
         if (response.ok) {
           return; // Success
@@ -184,7 +214,7 @@ export async function removeFromFavorites(
           const { isHibernateSerializationError } = await import('./error-handlers');
           if (isHibernateSerializationError(errorText)) {
             // Verify if operation actually succeeded despite error
-            const actualState = await isFavorited(listingId, options, currentSession);
+            const actualState = await isFavorited(listingId);
             if (!actualState.isFavorite) {
               return; // Operation succeeded despite error
             }
@@ -196,44 +226,49 @@ export async function removeFromFavorites(
           'API_ERROR',
           response.status
         );
+      },
+      // Only retry certain errors
+      (error) => {
+        // Don't retry unauthorized errors
+        if (isAuthenticationError(error)) return false;
         
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
+        // Don't retry validation errors
+        if (error instanceof FavoriteServiceError && error.code === 'INVALID_LISTING_ID') return false;
         
-        // Don't retry on the last attempt
-        if (attempt < MAX_RETRIES) {
-          await sleep(RETRY_DELAY_BASE * Math.pow(2, attempt));
-        }
+        // Retry all other errors
+        return true;
       }
-    }
+    );
     
-    // Handle exhausted retries
-    if (lastError) {
-      const { handleFavoriteApiError } = await import('./error-handlers');
-      const errorHandled = await handleFavoriteApiError(
-        lastError, 
-        listingId, 
-        false, // isAdd
-        options
+    // Final verification
+    const actualState = await isFavorited(listingId);
+    if (actualState.isFavorite) {
+      throw new FavoriteServiceError(
+        'Operation completed but favorite was not removed',
+        'VERIFICATION_FAILED'
       );
-      
-      if (errorHandled) {
-        return;
-      }
-      
-      // Final verification
-      const currentSession = session || await getSession();
-      const actualState = await isFavorited(listingId, options, currentSession);
-      if (!actualState.isFavorite) {
-        return; // Operation succeeded despite errors
-      }
-      
-      throw lastError;
     }
     
   } catch (error) {
-    console.error('[FAVORITES] Error removing from favorites:', error);
-    throw error;
+    // Handle authentication errors
+    if (isAuthenticationError(error)) {
+      throw new FavoriteServiceError(
+        'Authentication required',
+        'UNAUTHORIZED',
+        401
+      );
+    }
+    
+    // Rethrow FavoriteServiceErrors
+    if (error instanceof FavoriteServiceError) {
+      throw error;
+    }
+    
+    // Wrap all other errors
+    throw new FavoriteServiceError(
+      `Failed to remove favorite: ${error instanceof Error ? error.message : String(error)}`,
+      'UNKNOWN_ERROR'
+    );
   }
 }
 
@@ -241,41 +276,69 @@ export async function removeFromFavorites(
  * Get user's favorite listings with better response handling
  */
 export async function getUserFavorites(
-  options?: FavoriteServiceOptions,
-  session?: Session | null
+  _options?: FavoriteServiceOptions,
+  _session?: Session | null
 ): Promise<UserFavoritesResponse> {
   try {
-    const currentSession = session || await getSession();
-    const token = validateSession(currentSession);
+    // Import apiRequest for consistent session validation and API calls
+    const { apiRequest, validateSession } = await import('./auth/session-manager');
     
-    const url = `${API_URL}/api/favorites/user`;
-    const response = await makeApiRequest(url, 'GET', token);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
+    // First validate the session to ensure we have a valid token
+    const sessionCheck = await validateSession();
+    if (!sessionCheck.isValid) {
       throw new FavoriteServiceError(
-        `Failed to fetch favorites: ${errorText}`,
-        'API_ERROR',
-        response.status
+        'User is not authenticated',
+        'UNAUTHORIZED',
+        401
       );
     }
     
-    const text = await response.text();
+    const url = `${API_URL}/api/favorites`;
     
-    // Handle empty response
-    if (!text?.trim()) {
-      return { favorites: [], total: 0 };
+    try {
+      const response = await apiRequest(url, { 
+        method: 'GET' 
+      });
+      
+      if (!response.ok) {
+        throw new FavoriteServiceError(
+          `Failed to fetch favorites: ${response.status}`,
+          'API_ERROR',
+          response.status
+        );
+      }
+      
+      const text = await response.text();
+      
+      // Handle empty response
+      if (!text?.trim()) {
+        return { favorites: [], total: 0 };
+      }
+      
+      return parseUserFavoritesResponse(text);
+    } catch (apiError) {
+      // Check if it's an authentication error and rethrow with appropriate code
+      if (isAuthenticationError(apiError)) {
+        throw new FavoriteServiceError(
+          'Authentication required',
+          'UNAUTHORIZED',
+          401
+        );
+      }
+      
+      throw new FavoriteServiceError(
+        apiError instanceof Error ? apiError.message : String(apiError),
+        'API_ERROR'
+      );
     }
     
-    return parseUserFavoritesResponse(text);
-    
   } catch (error) {
+    // If it's already a FavoriteServiceError, just rethrow
     if (error instanceof FavoriteServiceError) {
-      console.error('[FAVORITES] Error fetching user favorites:', error);
       throw error;
     }
     
-    console.error('[FAVORITES] Unexpected error fetching user favorites:', error);
+    // For generic errors
     throw new FavoriteServiceError(
       'An unexpected error occurred while fetching favorites',
       'UNKNOWN_ERROR'
@@ -325,35 +388,50 @@ const parseUserFavoritesResponse = (text: string): UserFavoritesResponse => {
  */
 export async function isFavorited(
   listingId: string,
-  options?: FavoriteServiceOptions,
-  session?: Session | null
+  _options?: FavoriteServiceOptions,
+  _session?: Session | null
 ): Promise<FavoriteStatusResponse> {
   const baseResponse = { listingId };
   
   try {
     const numericId = validateListingId(listingId);
-    const currentSession = session || await getSession();
     
-    // Return false if not authenticated
-    if (!currentSession?.accessToken) {
+    // Import the apiRequest utility
+    const { apiRequest, validateSession } = await import('./auth/session-manager');
+    
+    // First validate the session to ensure we have a valid token
+    const sessionCheck = await validateSession();
+    if (!sessionCheck.isValid) {
+      // For this function, we'll just return not favorited if the session is invalid
+      // rather than redirecting or throwing an error
       return { ...baseResponse, isFavorite: false };
     }
     
     const url = `${API_URL}/api/favorites/check/${numericId}`;
-    const response = await makeApiRequest(url, 'GET', currentSession.accessToken);
     
-    if (!response.ok) {
-      // Log warning but don't throw - gracefully return false
-      if (response.status !== 404) {
-        console.warn(`[FAVORITES] Failed to check favorite status: ${response.status}`);
+    try {
+      // Use the apiRequest utility which handles session validation automatically
+      const response = await apiRequest(url, {
+        method: 'GET'
+      });
+      
+      if (!response.ok) {
+        if (response.status !== 404) {
+          console.warn(`[FAVORITES] Failed to check favorite status: ${response.status}`);
+        }
+        return { ...baseResponse, isFavorite: false };
       }
+      
+      const text = await response.text();
+      const isFavorite = parseFavoriteStatusResponse(text);
+      
+      return { ...baseResponse, isFavorite };
+    } catch (apiError) {
+      // API request failed, likely due to authentication issues
+      // The apiRequest utility will have already handled redirects if needed
+      console.warn('[FAVORITES] API request failed in isFavorited:', apiError);
       return { ...baseResponse, isFavorite: false };
     }
-    
-    const text = await response.text();
-    const isFavorite = parseFavoriteStatusResponse(text);
-    
-    return { ...baseResponse, isFavorite };
     
   } catch (error) {
     // Log error but don't throw - gracefully return false
@@ -403,4 +481,36 @@ const parseFavoriteStatusResponse = (text: string): boolean => {
   }
 };
 
-// ...existing code...
+/**
+ * Utility function to detect if an error is related to authentication
+ */
+export function isAuthenticationError(error: unknown): boolean {
+  if (!error) return false;
+  
+  // Check for FavoriteServiceError with UNAUTHORIZED code
+  if (error instanceof FavoriteServiceError && error.code === 'UNAUTHORIZED') {
+    return true;
+  }
+  
+  // Check error message for authentication-related keywords
+  if (error instanceof Error) {
+    const errorMessage = error.message.toLowerCase();
+    return (
+      errorMessage.includes('unauthorized') ||
+      errorMessage.includes('authentication') ||
+      errorMessage.includes('auth') ||
+      errorMessage.includes('login') ||
+      errorMessage.includes('401')
+    );
+  }
+  
+  // For other types of errors, check string representation
+  const errorStr = String(error).toLowerCase();
+  return (
+    errorStr.includes('unauthorized') ||
+    errorStr.includes('authentication') ||
+    errorStr.includes('auth') ||
+    errorStr.includes('login') ||
+    errorStr.includes('401')
+  );
+}

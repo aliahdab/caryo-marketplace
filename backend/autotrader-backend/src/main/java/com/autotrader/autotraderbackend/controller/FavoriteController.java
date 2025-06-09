@@ -1,7 +1,7 @@
 package com.autotrader.autotraderbackend.controller;
 
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
-import com.autotrader.autotraderbackend.model.CarListing;
+import com.autotrader.autotraderbackend.payload.response.CarListingResponse;
 import com.autotrader.autotraderbackend.payload.response.ErrorResponse;
 import com.autotrader.autotraderbackend.payload.response.FavoriteResponse;
 import com.autotrader.autotraderbackend.service.FavoriteService;
@@ -118,7 +118,7 @@ public class FavoriteController {
             @ApiResponse(
                 responseCode = "200",
                 description = "List of favorite listings retrieved successfully",
-                content = @Content(schema = @Schema(implementation = FavoriteResponse.class))
+                content = @Content(schema = @Schema(implementation = CarListingResponse.class))
             ),
             @ApiResponse(
                 responseCode = "401",
@@ -127,12 +127,12 @@ public class FavoriteController {
             )
         }
     )
-    public ResponseEntity<List<FavoriteResponse>> getUserFavorites(
+    public ResponseEntity<List<CarListingResponse>> getUserFavorites(
             @Parameter(description = "The authenticated user", hidden = true)
             @AuthenticationPrincipal UserDetails userDetails) {
         log.debug("REST request to get favorites for user {}", userDetails.getUsername());
         try {
-            return ResponseEntity.ok(favoriteService.getUserFavorites(userDetails.getUsername()));
+            return ResponseEntity.ok(favoriteService.getUserFavoriteListingResponses(userDetails.getUsername()));
         } catch (Exception e) {
             log.error("Error getting user favorites: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();

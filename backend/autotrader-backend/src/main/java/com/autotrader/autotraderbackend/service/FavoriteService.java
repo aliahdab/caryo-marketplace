@@ -8,6 +8,8 @@ import com.autotrader.autotraderbackend.repository.UserRepository;
 import com.autotrader.autotraderbackend.repository.CarListingRepository;
 import com.autotrader.autotraderbackend.exception.ResourceNotFoundException;
 import com.autotrader.autotraderbackend.payload.response.FavoriteResponse;
+import com.autotrader.autotraderbackend.payload.response.CarListingResponse;
+import com.autotrader.autotraderbackend.mapper.CarListingMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class FavoriteService {
     private final FavoriteRepository favoriteRepository;
     private final UserRepository userRepository;
     private final CarListingRepository carListingRepository;
+    private final CarListingMapper carListingMapper;
 
     private FavoriteResponse toFavoriteResponse(Favorite favorite) {
         try {
@@ -127,6 +130,61 @@ public class FavoriteService {
         } catch (Exception e) {
             log.error("Error fetching favorites for user {}: {}", username, e.getMessage());
             throw new IllegalStateException("Error fetching favorites", e);
+        }
+    }
+
+    /**
+     * Get all favorite car listings for a user.
+     * Returns the actual CarListing objects that are favorited by the user.
+     */
+    @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
+    public List<CarListing> getUserFavoriteListings(String username) {
+        log.debug("Fetching favorite car listings for user {}", username);
+        
+        try {
+            User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+            // Get the actual CarListing objects
+            List<CarListing> favoriteListings = favoriteRepository.findByUserOrderByCreatedAtDesc(user)
+                .stream()
+                .map(Favorite::getCarListing)
+                .collect(Collectors.toList());
+            
+            log.info("Found {} favorite listings for user {}", favoriteListings.size(), username);
+            return favoriteListings;
+        } catch (Exception e) {
+            log.error("Error fetching favorite listings for user {}: {}", username, e.getMessage());
+            throw new IllegalStateException("Error fetching favorite listings", e);
+        }
+    }
+    
+    /**
+     * Get all favorite car listings for a user as CarListingResponse DTOs.
+     * This avoids serialization issues with Hibernate proxies.
+     * 
+     * @param username The username of the user
+     * @return List of CarListingResponse DTOs
+     */
+    @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
+    public List<CarListingResponse> getUserFavoriteListingResponses(String username) {
+        log.debug("Fetching favorite car listing responses for user {}", username);
+        
+        try {
+            User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+            // Get the listings and map them to DTOs using the mapper
+            List<CarListingResponse> favoriteListingResponses = favoriteRepository.findByUserOrderByCreatedAtDesc(user)
+                .stream()
+                .map(favorite -> carListingMapper.toCarListingResponse(favorite.getCarListing()))
+                .collect(Collectors.toList());
+            
+            log.info("Found {} favorite listing responses for user {}", favoriteListingResponses.size(), username);
+            return favoriteListingResponses;
+        } catch (Exception e) {
+            log.error("Error fetching favorite listing responses for user {}: {}", username, e.getMessage());
+            throw new IllegalStateException("Error fetching favorite listing responses", e);
         }
     }
 

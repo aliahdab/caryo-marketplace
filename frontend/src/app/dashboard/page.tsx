@@ -31,23 +31,21 @@ export default function Dashboard() {
     let mounted = true;
 
     const loadFavoritesCount = async () => {
-      if (!session?.user || !session?.accessToken) {
+      if (!session?.user) {
         setFavoritesCount(0);
         setIsLoading(false);
         return;
       }
 
       try {
-        const url = `${process.env.NEXT_PUBLIC_API_URL}/api/favorites`;
+        // Import apiRequest to make authenticated requests
+        const { apiRequest } = await import('@/services/auth/session-manager');
+        const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/favorites`;
         console.log('[DASHBOARD] Fetching favorites from:', url);
 
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${session.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
+        // apiRequest handles authentication, session validation, and token refresh automatically
+        const response = await apiRequest(url, { 
+          method: 'GET'
         });
 
         if (!response.ok) {
@@ -82,7 +80,7 @@ export default function Dashboard() {
           }
         }
       } catch (error) {
-        console.error('[DASHBOARD] Error loading favorites:', error);
+        console.error('[DASHBOARD] Error fetching favorites:', error);
         if (mounted) {
           setFavoritesCount(0);
         }
@@ -93,7 +91,6 @@ export default function Dashboard() {
       }
     };
 
-    setIsLoading(true);
     loadFavoritesCount();
 
     return () => {

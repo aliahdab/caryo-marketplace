@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { formatDate, formatNumber } from '../../../utils/localization';
@@ -28,7 +28,7 @@ export default function ListingDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPhoneNumber, setShowPhoneNumber] = useState(false);
   
-  // Fetch listing data from API
+  // Fetch listing data from API and transform URLs in a single effect
   useEffect(() => {
     async function fetchListing() {
       try {
@@ -38,7 +38,19 @@ export default function ListingDetailPage() {
         }
         
         const listingData = await getListingById(id.toString());
-        setListing(listingData);
+        
+        // Transform media URLs here, before setting state
+        const transformedListing = {
+          ...listingData,
+          media: listingData.media?.map(media => ({
+            ...media,
+            url: transformMinioUrl(media.url)
+          })) || [],
+          // Also transform the main image if it exists
+          image: listingData.image ? transformMinioUrl(listingData.image) : listingData.image
+        };
+        
+        setListing(transformedListing);
         setError(null);
       } catch (err) {
         console.error('Error fetching listing:', err);
@@ -49,21 +61,38 @@ export default function ListingDetailPage() {
     }
     
     fetchListing();
-  }, [id]);
+  }, [id]); // Only depends on the ID, not the listing itself
+  
+  // We've moved the convertedMedia useMemo before the loading/error checks
+  // to ensure it's only defined once in the component
 
-  // Transform listing media URLs when listing data is received
-  useEffect(() => {
-    if (listing && listing.media) {
-      const transformedListing = {
-        ...listing,
-        media: listing.media.map(media => ({
-          ...media,
-          url: transformMinioUrl(media.url)
-        }))
-      };
-      setListing(transformedListing);
+  // Convert listing media to CarMedia format using useMemo for performance
+  // IMPORTANT: This must be called unconditionally (before any early returns)
+  const convertedMedia = useMemo(() => {
+    // If no listing is available yet, return an empty array
+    if (!listing) return [];
+    
+    const media: CarMedia[] = listing.media?.map(item => ({
+      type: 'image', // Assuming all media are images for now
+      url: item.url, // URL is already transformed in the fetch effect
+      alt: listing.title || 'Car image',
+      width: 800,
+      height: 600,
+    })) || [];
+
+    // Add fallback image if available and not already in media
+    if (listing.image && !media.some(item => item.url === listing.image)) {
+      media.push({
+        type: 'image',
+        url: listing.image, // URL is already transformed in the fetch effect
+        alt: listing.title || 'Car image',
+        width: 800,
+        height: 600,
+      });
     }
-  }, [listing]); // Transform URLs whenever listing changes
+    
+    return media;
+  }, [listing]);
 
   if (loading) {
     return (
@@ -107,7 +136,7 @@ export default function ListingDetailPage() {
       </div>
     );
   }
-
+  
   if (!listing) {
     return (
       <div className="container mx-auto px-3 xs:px-4 py-6 sm:py-8">
@@ -116,26 +145,6 @@ export default function ListingDetailPage() {
         </div>
       </div>
     );
-  }
-
-  // Convert listing media to CarMedia format
-  const convertedMedia: CarMedia[] = listing.media?.map(item => ({
-    type: 'image', // Assuming all media are images for now
-    url: item.url,
-    alt: listing.title || 'Car image',
-    width: 800,
-    height: 600,
-  })) || [];
-
-  // Add fallback image if available and not already in media
-  if (listing.image && !convertedMedia.some(item => item.url === listing.image)) {
-    convertedMedia.push({
-      type: 'image',
-      url: listing.image,
-      alt: listing.title || 'Car image',
-      width: 800,
-      height: 600,
-    });
   }
 
   return (
