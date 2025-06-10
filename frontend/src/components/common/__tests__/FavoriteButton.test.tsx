@@ -313,13 +313,28 @@ describe('FavoriteButton Component', () => {
 
   // Test with showText prop
   test('shows text when showText prop is true', async () => {
+    const user = userEvent.setup();
+    
     // Mock API to return not favorited status
-    (sessionManager.apiRequest as jest.Mock).mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: () => Promise.resolve('false'),
-      json: () => Promise.resolve({ isFavorite: false }),
-    });
+    (sessionManager.apiRequest as jest.Mock)
+      .mockImplementationOnce(() => Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve('false'),
+        json: () => Promise.resolve({ isFavorite: false }),
+      }))
+      .mockImplementationOnce(() => Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(''),
+        json: () => Promise.resolve({}),
+      }))
+      .mockImplementationOnce(() => Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve('true'),
+        json: () => Promise.resolve({ isFavorite: true }),
+      }));
     
     render(<FavoriteButton {...defaultProps} showText={true} initialFavorite={false} />);
     
@@ -328,9 +343,30 @@ describe('FavoriteButton Component', () => {
       expect(sessionManager.apiRequest).toHaveBeenCalled();
     });
     
-    // Look for text elements that contain either Add or Remove (to handle either state)
-    const buttonText = screen.getByRole('button').querySelector('.ml-2.text-sm');
-    expect(buttonText).toBeInTheDocument();
+    // Verify initial text is displayed
+    let buttonWithText = screen.getByRole('button');
+    const initialText = buttonWithText.querySelector('.ml-2.text-sm');
+    expect(initialText).toBeInTheDocument();
+    expect(initialText?.textContent).toBe('Add to favorites');
+    
+    // Check button has different styling with text
+    expect(buttonWithText).toHaveClass('rounded-lg');
+    expect(buttonWithText).toHaveClass('px-3');
+    expect(buttonWithText).not.toHaveClass('rounded-full');
+    
+    // Click to toggle favorite
+    await user.click(buttonWithText);
+    
+    // Wait for toggle to complete
+    await waitFor(() => {
+      expect(sessionManager.apiRequest).toHaveBeenCalledTimes(2);
+    });
+    
+    // Text should now say "Remove from favorites"
+    buttonWithText = screen.getByRole('button');
+    const updatedText = buttonWithText.querySelector('.ml-2.text-sm');
+    expect(updatedText).toBeInTheDocument();
+    expect(updatedText?.textContent).toBe('Remove from favorites');
   });
 
   // Test error handling for missing listing ID
